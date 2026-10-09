@@ -1,0 +1,11 @@
+{
+  "_resourceType": "tileset",
+  "id": "8130f06e-940a-4f75-b36e-873221c50c74",
+  "name": "Free Furniture",
+  "symbol": "tileset_free_furniture",
+  "width": 20,
+  "height": 18,
+  "imageWidth": 160,
+  "imageHeight": 144,
+  "filename": "Free Furniture.png"
+}

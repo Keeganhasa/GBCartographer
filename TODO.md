@@ -3,6 +3,18 @@
 Release checklist for GB Cartographer, roughly in order. Tick things off as they land; move finished items
 into PROGRESS.md when they deserve a note.
 
+## In progress (2026-10-09)
+
+- [x] **Demo project** in `demo/`: the Wintery Pixel Art Pack (CC0) and community assets (MIT) with credits in
+      `demo/CREDITS.md`; the author's Chorbi palettes as the project palettes.
+- [x] **Open the demo** from the app: a button when no project is open; it opens a copy in the app's data folder
+      so edits never touch the repo's copy.
+- [x] **Fonts** as a fourth asset kind (`assets/fonts`, PNG + `.png.gbsres`), open and save like tilesets.
+- [ ] **Palette manager**: a window listing the project's palettes and a bundled library (Chorbi, Game Boy
+      classics); edit colors and names; new palettes; add a palette to the project (writes
+      `project/palettes/<name>.gbsres`); update a project palette's colors.
+- [x] README: credits for the demo assets and a line about the demo.
+
 ## Before anyone else runs it
 
 - [ ] **Colour conversion like GB Studio.** A PNG drawn in colours that are not the four greens is saved as
@@ -26,6 +38,7 @@ into PROGRESS.md when they deserve a note.
 
 - [ ] **electron-builder**: macOS dmg + zip (universal), Windows installer + portable zip, Linux AppImage.
       Icons from `build/icon.png` (the script already writes it). App id `io.github.keeganhasa.gbcartographer`.
+      Ship `demo/` as an extra resource and point the demo opener at it in packaged builds.
 - [ ] **GitHub Actions** on a version tag: build the three platforms, attach to a GitHub Release.
 - [ ] Decide on signing: unsigned at first (document the right-click-Open / SmartScreen steps), or an Apple
       Developer account for notarization later.

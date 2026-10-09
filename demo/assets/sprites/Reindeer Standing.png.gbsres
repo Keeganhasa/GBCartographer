@@ -1,0 +1,127 @@
+{
+  "_resourceType": "sprite",
+  "id": "45393152-8016-4b58-a57c-016380b7f695",
+  "name": "Reindeer Standing",
+  "symbol": "sprite_reindeer_standing",
+  "states": [
+    {
+      "id": "17bd47a7-1f5b-47b6-b2de-d55305999374",
+      "name": "",
+      "animationType": "fixed",
+      "flipLeft": false,
+      "animations": [
+        {
+          "id": "68472580-2a3d-4d4a-a7ad-46316daebb19",
+          "frames": [
+            {
+              "id": "36516f87-bbfe-4a9c-aeae-f6b5cd829d78",
+              "tiles": [
+                {
+                  "id": "c75142a5-cffb-494a-b6de-a1491e79f898",
+                  "x": 0,
+                  "y": 0,
+                  "sliceX": 0,
+                  "sliceY": 0,
+                  "flipX": false,
+                  "flipY": false,
+                  "palette": 0,
+                  "paletteIndex": 0,
+                  "objPalette": "OBP0",
+                  "priority": false
+                },
+                {
+                  "id": "338d68ad-f73b-4f9c-b70a-3889b7417c29",
+                  "x": 8,
+                  "y": 0,
+                  "sliceX": 8,
+                  "sliceY": 0,
+                  "flipX": false,
+                  "flipY": false,
+                  "palette": 0,
+                  "paletteIndex": 0,
+                  "objPalette": "OBP0",
+                  "priority": false
+                }
+              ]
+            },
+            {
+              "id": "901c00a9-40a7-47a8-8cf0-a8cac410ae17",
+              "tiles": [
+                {
+                  "id": "32ca6c0f-9684-4627-ab87-14635de01a43",
+                  "x": 0,
+                  "y": 0,
+                  "sliceX": 16,
+                  "sliceY": 0,
+                  "flipX": false,
+                  "flipY": false,
+                  "palette": 0,
+                  "paletteIndex": 0,
+                  "objPalette": "OBP0",
+                  "priority": false
+                },
+                {
+                  "id": "8278d4d4-a9f1-4125-85d9-b6e8ba3cfdb3",
+                  "x": 8,
+                  "y": 0,
+                  "sliceX": 24,
+                  "sliceY": 0,
+                  "flipX": false,
+                  "flipY": false,
+                  "palette": 0,
+                  "paletteIndex": 0,
+                  "objPalette": "OBP0",
+                  "priority": false
+                }
+              ]
+            },
+            {
+              "id": "38eb60c2-dd90-4e60-ab81-bb3150818e12",
+              "tiles": [
+                {
+                  "id": "ac80253a-f11f-4309-b0e3-7b7b95dd7b4b",
+                  "x": 0,
+                  "y": 0,
+                  "sliceX": 32,
+                  "sliceY": 0,
+                  "flipX": false,
+                  "flipY": false,
+                  "palette": 0,
+                  "paletteIndex": 0,
+                  "objPalette": "OBP0",
+                  "priority": false
+                },
+                {
+                  "id": "346ae6b6-9378-4005-bccd-dd11264795bb",
+                  "x": 8,
+                  "y": 0,
+                  "sliceX": 40,
+                  "sliceY": 0,
+                  "flipX": false,
+                  "flipY": false,
+                  "palette": 0,
+                  "paletteIndex": 0,
+                  "objPalette": "OBP0",
+                  "priority": false
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "numTiles": 2,
+  "canvasOriginX": 0,
+  "canvasOriginY": 0,
+  "canvasWidth": 16,
+  "canvasHeight": 16,
+  "boundsX": 0,
+  "boundsY": 0,
+  "boundsWidth": 16,
+  "boundsHeight": 16,
+  "animSpeed": 15,
+  "filename": "Reindeer Standing.png",
+  "width": 48,
+  "height": 16
+}

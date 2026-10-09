@@ -14,3 +14,6 @@ Thumbs.db
 
 # Never commit a GB Studio project
 *.gbsproj
+
+# The dev server's painted copy of the demo project (the shipped one is demo/)
+demo-project/

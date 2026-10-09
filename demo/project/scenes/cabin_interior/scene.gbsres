@@ -1,0 +1,13 @@
+{
+  "_resourceType": "scene",
+  "id": "3796319f-595f-4021-8653-b6b3345a7403",
+  "name": "Cabin Interior",
+  "backgroundId": "111f838d-f021-44f4-9a0d-34803caa4396",
+  "tilesetId": "",
+  "width": 20,
+  "height": 18,
+  "type": "TOPDOWN",
+  "paletteIds": [],
+  "spritePaletteIds": [],
+  "symbol": "scene_cabin_interior"
+}

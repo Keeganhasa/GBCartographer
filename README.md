@@ -1,7 +1,7 @@
 # GB Cartographer
 
 A small pixel painter for [GB Studio](https://www.gbstudio.dev) projects. Open your project folder and paint its
-backgrounds, sprite sheets and tilesets in the four Game Boy shades, give tiles their palettes, and save straight
+backgrounds, sprite sheets, tilesets and fonts in the four Game Boy shades, give tiles their palettes, and save straight
 back into the project. It also opens any Game Boy PNG on its own.
 
 ![GB Cartographer with a village background open: the project's pictures on the left, the paint tools, and the scene's palettes on the right](docs/screenshot.png)
@@ -16,11 +16,20 @@ back into the project. It also opens any Game Boy PNG on its own.
   mirror painting, brush sizes, undo, tabs, drag-and-drop, paste from the clipboard.
 - **Dark themes**, including ones built from Game Boy palettes, and a choice of fonts.
 
+## Try it with the demo project
+
+The app ships with a small GB Studio 4 project in `demo/`: a winter scene, a cabin and a forest, a furniture
+tileset, animal and snow-folk sprite sheets, six fonts, and a set of palettes. **Try the demo project** on the
+start screen opens a copy of it (in the app's data folder, so the shipped copy stays clean). The art is by
+Spencer "Raptorspank" Gerowe (CC0) and by GumpyFunction, yoanqwp, krümel, Paige Ashlynn, Anima, Santiago Crespo
+and KizulEmeraldfire from the GB Studio Community Assets repository (MIT); the full list is in
+[demo/CREDITS.md](demo/CREDITS.md).
+
 ## What GB Cartographer writes into your project
 
 GB Cartographer is careful with your game files. It only ever writes:
 
-- the PNG you saved, under `assets/backgrounds`, `assets/sprites` or `assets/tilesets`, with the same size as before;
+- the PNG you saved, under `assets/backgrounds`, `assets/sprites`, `assets/tilesets` or `assets/fonts`, with the same size as before;
 - the `tileColors` field of a background's `.png.gbsres` sidecar;
 - the `paletteIndex` of the slices in a sprite sheet's `.png.gbsres` sidecar.
 
@@ -62,4 +71,5 @@ npm run build
 
 Code: MIT (see LICENSE). The logo is the author's pixel art, CC0. [Public Pixel](https://ggbot.itch.io/public-pixel-font)
 by GGBotNet (CC0, shipped in `public/fonts/`) is an optional UI font. JetBrains Mono is loaded from Google Fonts (SIL Open Font License).
-GB Studio is by Chris Maltby and contributors; GB Cartographer is not affiliated with it.
+The demo project's art is credited in [demo/CREDITS.md](demo/CREDITS.md). GB Studio is by Chris Maltby and
+contributors; GB Cartographer is not affiliated with it.

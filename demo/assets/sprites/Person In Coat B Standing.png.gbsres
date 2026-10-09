@@ -1,0 +1,127 @@
+{
+  "_resourceType": "sprite",
+  "id": "57a1334b-c255-4ac3-81be-b6eb76326ade",
+  "name": "Person In Coat B Standing",
+  "symbol": "sprite_person_in_coat_b_standing",
+  "states": [
+    {
+      "id": "64835de5-d23a-44d4-9af4-166a60212b25",
+      "name": "",
+      "animationType": "fixed",
+      "flipLeft": false,
+      "animations": [
+        {
+          "id": "8de4a84d-27d1-45f9-a2ec-09352df29f00",
+          "frames": [
+            {
+              "id": "9ce8fdb2-3533-4cee-b65b-f0274247c378",
+              "tiles": [
+                {
+                  "id": "0048eed1-05a4-4c04-bb77-f51a849828e8",
+                  "x": 0,
+                  "y": 0,
+                  "sliceX": 0,
+                  "sliceY": 0,
+                  "flipX": false,
+                  "flipY": false,
+                  "palette": 0,
+                  "paletteIndex": 0,
+                  "objPalette": "OBP0",
+                  "priority": false
+                },
+                {
+                  "id": "6b12563e-ebd6-4db6-b569-fd2555fc2b77",
+                  "x": 8,
+                  "y": 0,
+                  "sliceX": 8,
+                  "sliceY": 0,
+                  "flipX": false,
+                  "flipY": false,
+                  "palette": 0,
+                  "paletteIndex": 0,
+                  "objPalette": "OBP0",
+                  "priority": false
+                }
+              ]
+            },
+            {
+              "id": "fd269eab-8270-43eb-a388-c9c60ac03c90",
+              "tiles": [
+                {
+                  "id": "2696d845-39b4-4119-add7-46eb85ae2430",
+                  "x": 0,
+                  "y": 0,
+                  "sliceX": 16,
+                  "sliceY": 0,
+                  "flipX": false,
+                  "flipY": false,
+                  "palette": 0,
+                  "paletteIndex": 0,
+                  "objPalette": "OBP0",
+                  "priority": false
+                },
+                {
+                  "id": "bb626428-bdbb-45ac-9fc3-bc192f1acd44",
+                  "x": 8,
+                  "y": 0,
+                  "sliceX": 24,
+                  "sliceY": 0,
+                  "flipX": false,
+                  "flipY": false,
+                  "palette": 0,
+                  "paletteIndex": 0,
+                  "objPalette": "OBP0",
+                  "priority": false
+                }
+              ]
+            },
+            {
+              "id": "8fe8dff8-ec20-4515-927a-c2b5c4d31679",
+              "tiles": [
+                {
+                  "id": "05d49632-347b-4449-ac32-7648c3c742e3",
+                  "x": 0,
+                  "y": 0,
+                  "sliceX": 32,
+                  "sliceY": 0,
+                  "flipX": false,
+                  "flipY": false,
+                  "palette": 0,
+                  "paletteIndex": 0,
+                  "objPalette": "OBP0",
+                  "priority": false
+                },
+                {
+                  "id": "d1bf8110-4582-4c10-9e26-9ce68c730fc2",
+                  "x": 8,
+                  "y": 0,
+                  "sliceX": 40,
+                  "sliceY": 0,
+                  "flipX": false,
+                  "flipY": false,
+                  "palette": 0,
+                  "paletteIndex": 0,
+                  "objPalette": "OBP0",
+                  "priority": false
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "numTiles": 2,
+  "canvasOriginX": 0,
+  "canvasOriginY": 0,
+  "canvasWidth": 16,
+  "canvasHeight": 16,
+  "boundsX": 0,
+  "boundsY": 0,
+  "boundsWidth": 16,
+  "boundsHeight": 16,
+  "animSpeed": 15,
+  "filename": "Person In Coat B Standing.png",
+  "width": 48,
+  "height": 16
+}

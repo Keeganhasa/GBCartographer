@@ -7,7 +7,7 @@ import { closeSync, copyFileSync, existsSync, mkdirSync, openSync, readdirSync, 
 import { basename, join, resolve } from "node:path";
 import { decodeTileColors, encodeTileColors, resolveScenePaletteIds } from "../src/gb/gbstudio";
 
-export const ASSET_KINDS = ["backgrounds", "sprites", "tilesets"] as const;
+export const ASSET_KINDS = ["backgrounds", "sprites", "tilesets", "fonts"] as const;
 export type AssetKind = typeof ASSET_KINDS[number];
 
 export interface AssetEntry { kind: AssetKind; file: string; name: string; width: number; height: number; mtime: number }
@@ -103,7 +103,7 @@ export function assetPath(project: string, kind: string, file: string): string |
   return path;
 }
 
-/** Every PNG under assets/backgrounds, sprites and tilesets, with its sidecar's name and the PNG's size. */
+/** Every PNG under assets/backgrounds, sprites, tilesets and fonts, with its sidecar's name and the PNG's size. */
 export function listAssets(project: string): AssetEntry[] {
   const entries: AssetEntry[] = [];
   for (const kind of ASSET_KINDS) {
@@ -175,7 +175,7 @@ function spriteSlots(project: string, spriteId: string | undefined): string[] {
 /** What GB Cartographer needs besides the pixels: the file's time and size, and for backgrounds and sprites their palette slots. */
 export function assetInfo(project: string, kind: AssetKind, path: string): AssetInfo {
   const size = pngSizeOfFile(path) ?? { width: 0, height: 0 };
-  const hasSidecar = kind !== "tilesets" && existsSync(`${path}.gbsres`);
+  const hasSidecar = (kind === "backgrounds" || kind === "sprites") && existsSync(`${path}.gbsres`);
   const sidecar = hasSidecar ? readJson(`${path}.gbsres`) : null;
   const id = typeof sidecar?.id === "string" ? sidecar.id : undefined;
   let tileColors: number[] = [];

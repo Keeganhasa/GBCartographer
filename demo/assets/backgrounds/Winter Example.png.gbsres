@@ -1,0 +1,12 @@
+{
+  "_resourceType": "background",
+  "id": "0fa545c9-6b51-4b7c-a016-b0595dd1f112",
+  "name": "Winter Example",
+  "symbol": "bg_winter_example",
+  "tileColors": "",
+  "filename": "Winter Example.png",
+  "width": 20,
+  "height": 18,
+  "imageWidth": 160,
+  "imageHeight": 144
+}

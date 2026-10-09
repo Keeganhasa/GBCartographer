@@ -17,7 +17,14 @@ let base = "";
 beforeAll(async () => {
   root = mkdtempSync(join(tmpdir(), "gbc-"));
   project = join(root, "gbstudio");
-  for (const folder of ["project/scenes/town/actors", "project/palettes", "assets/backgrounds", "assets/sprites", "assets/tilesets"]) mkdirSync(join(project, folder), { recursive: true });
+  for (const folder of ["project/scenes/town/actors", "project/palettes", "assets/backgrounds", "assets/sprites", "assets/tilesets", "assets/fonts"]) mkdirSync(join(project, folder), { recursive: true });
+  writeFileSync(join(project, "assets/fonts/tiny.png"), encodePng(new Uint8ClampedArray(8 * 8 * 4).fill(255), 8, 8, deflateSync));
+  writeFileSync(join(project, "assets/fonts/tiny.png.gbsres"), JSON.stringify({ _resourceType: "font", id: "font-tiny", name: "Tiny" }));
+  // A demo project next to the "app": one background, copied when asked for.
+  mkdirSync(join(root, "demo/assets/backgrounds"), { recursive: true });
+  mkdirSync(join(root, "demo/project"), { recursive: true });
+  writeFileSync(join(root, "demo/demo.gbsproj"), JSON.stringify({ name: "Demo" }));
+  writeFileSync(join(root, "demo/assets/backgrounds/a.png"), encodePng(new Uint8ClampedArray(8 * 8 * 4).fill(255), 8, 8, deflateSync));
   writeFileSync(join(project, "my-game.gbsproj"), JSON.stringify({ _resourceType: "project", name: "My Game" }));
   writeFileSync(join(project, "project/settings.gbsres"), JSON.stringify({ defaultBackgroundPaletteIds: ["pal-default", "pal-default", "pal-default", "pal-default", "pal-default", "pal-default", "pal-default", "pal-ui"], defaultSpritePaletteIds: ["spr-a", "spr-b", "spr-c", "spr-d", "spr-e", "spr-f", "spr-g", "spr-h"] }));
   // 160x144 background, one shade: 20 x 18 cells; first cell slot 1 with priority, the rest slot 0.
@@ -59,6 +66,17 @@ describe("project folder", () => {
     expect(JSON.parse(readFileSync(join(root, "settings.json"), "utf8"))).toEqual({ project });
     expect((await json<{ project: { name: string } }>(await fetch(`${base}/ping`))).project.name).toBe("My Game");
   });
+
+  it("opens a copy of the shipped demo project, made once, and goes back to the real project afterwards", async () => {
+    const post = (body: object) => fetch(`${base}/project`, { method: "POST", body: JSON.stringify(body) });
+    const demo = await json<{ project: { name: string; path: string } }>(await post({ demo: true }));
+    expect(demo.project).toEqual({ name: "Demo", path: join(root, "demo-project") });
+    expect(readFileSync(join(root, "demo-project/assets/backgrounds/a.png")).length).toBeGreaterThan(0);
+    writeFileSync(join(root, "demo-project/marker.txt"), "painted here");
+    await post({ demo: true });
+    expect(readFileSync(join(root, "demo-project/marker.txt"), "utf8")).toBe("painted here");
+    expect((await json<{ project: { name: string } }>(await post({ path: project }))).project.name).toBe("My Game");
+  });
 });
 
 describe("assets", () => {
@@ -69,6 +87,7 @@ describe("assets", () => {
       { kind: "backgrounds", file: "town.png", name: "Town", width: 160, height: 144 },
       { kind: "sprites", file: "hero.png", name: "Hero", width: 16, height: 16 },
       { kind: "tilesets", file: "props.png", name: "props", width: 8, height: 8 },
+      { kind: "fonts", file: "tiny.png", name: "Tiny", width: 8, height: 8 },
     ]);
     expect(result.palettes).toEqual([{ id: "pal-town", name: "Town day", colors: ["#E6FFCE", "#7BEF52", "#21735A", "#001031"] }]);
   });

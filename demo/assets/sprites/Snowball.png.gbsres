@@ -1,0 +1,158 @@
+{
+  "_resourceType": "sprite",
+  "id": "b58d372b-4672-46d0-b460-3a3c9ecc02fd",
+  "name": "Snowball",
+  "symbol": "sprite_snowball",
+  "states": [
+    {
+      "id": "2b26ca5b-41cb-421e-877b-081c50784063",
+      "name": "",
+      "animationType": "fixed",
+      "flipLeft": false,
+      "animations": [
+        {
+          "id": "8b327afb-f4c8-438a-b3b7-35f4a036370a",
+          "frames": [
+            {
+              "id": "429e1c50-1cfc-4fa0-946f-fd1db255a08a",
+              "tiles": [
+                {
+                  "id": "1ba8acfa-b5ce-438a-9564-41ae5b270f0f",
+                  "x": 0,
+                  "y": 0,
+                  "sliceX": 0,
+                  "sliceY": 0,
+                  "flipX": false,
+                  "flipY": false,
+                  "palette": 0,
+                  "paletteIndex": 0,
+                  "objPalette": "OBP0",
+                  "priority": false
+                },
+                {
+                  "id": "0c14fe01-5646-457a-992b-85ad99ecb93f",
+                  "x": 8,
+                  "y": 0,
+                  "sliceX": 8,
+                  "sliceY": 0,
+                  "flipX": false,
+                  "flipY": false,
+                  "palette": 0,
+                  "paletteIndex": 0,
+                  "objPalette": "OBP0",
+                  "priority": false
+                }
+              ]
+            },
+            {
+              "id": "b237808f-5017-4ac4-9c3e-cc5a658c89c9",
+              "tiles": [
+                {
+                  "id": "f12463b6-c220-4433-b23d-6ff7dc638c41",
+                  "x": 0,
+                  "y": 0,
+                  "sliceX": 16,
+                  "sliceY": 0,
+                  "flipX": false,
+                  "flipY": false,
+                  "palette": 0,
+                  "paletteIndex": 0,
+                  "objPalette": "OBP0",
+                  "priority": false
+                },
+                {
+                  "id": "c532d630-fd0c-4932-83e4-3a99aca24fe6",
+                  "x": 8,
+                  "y": 0,
+                  "sliceX": 24,
+                  "sliceY": 0,
+                  "flipX": false,
+                  "flipY": false,
+                  "palette": 0,
+                  "paletteIndex": 0,
+                  "objPalette": "OBP0",
+                  "priority": false
+                }
+              ]
+            },
+            {
+              "id": "f561fe02-48fc-408f-9d9a-14341c812967",
+              "tiles": [
+                {
+                  "id": "df5ff715-a419-4e90-8f32-629727026ad5",
+                  "x": 0,
+                  "y": 0,
+                  "sliceX": 32,
+                  "sliceY": 0,
+                  "flipX": false,
+                  "flipY": false,
+                  "palette": 0,
+                  "paletteIndex": 0,
+                  "objPalette": "OBP0",
+                  "priority": false
+                },
+                {
+                  "id": "35cd87bc-6f2e-4a71-8f96-318a2f22d1e4",
+                  "x": 8,
+                  "y": 0,
+                  "sliceX": 40,
+                  "sliceY": 0,
+                  "flipX": false,
+                  "flipY": false,
+                  "palette": 0,
+                  "paletteIndex": 0,
+                  "objPalette": "OBP0",
+                  "priority": false
+                }
+              ]
+            },
+            {
+              "id": "0d2549f0-2f93-4610-9de2-ba98293a4717",
+              "tiles": [
+                {
+                  "id": "a7f74871-c7d9-4221-87bf-9e66b84c8d65",
+                  "x": 0,
+                  "y": 0,
+                  "sliceX": 48,
+                  "sliceY": 0,
+                  "flipX": false,
+                  "flipY": false,
+                  "palette": 0,
+                  "paletteIndex": 0,
+                  "objPalette": "OBP0",
+                  "priority": false
+                },
+                {
+                  "id": "d365635c-9766-4da5-aeb4-e91cf65ffc1e",
+                  "x": 8,
+                  "y": 0,
+                  "sliceX": 56,
+                  "sliceY": 0,
+                  "flipX": false,
+                  "flipY": false,
+                  "palette": 0,
+                  "paletteIndex": 0,
+                  "objPalette": "OBP0",
+                  "priority": false
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "numTiles": 2,
+  "canvasOriginX": 0,
+  "canvasOriginY": 0,
+  "canvasWidth": 16,
+  "canvasHeight": 16,
+  "boundsX": 0,
+  "boundsY": 0,
+  "boundsWidth": 16,
+  "boundsHeight": 16,
+  "animSpeed": 15,
+  "filename": "Snowball.png",
+  "width": 64,
+  "height": 16
+}

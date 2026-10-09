@@ -1,0 +1,13 @@
+{
+  "_resourceType": "scene",
+  "id": "2b8c2301-b369-45fc-9a45-2c917a77e4c8",
+  "name": "Cabin Exterior",
+  "backgroundId": "8389e9f3-8381-4652-9e52-7f3a43c0c421",
+  "tilesetId": "",
+  "width": 32,
+  "height": 18,
+  "type": "TOPDOWN",
+  "paletteIds": [],
+  "spritePaletteIds": [],
+  "symbol": "scene_cabin_exterior"
+}

@@ -1,0 +1,127 @@
+{
+  "_resourceType": "sprite",
+  "id": "6a00fd32-8620-442c-a545-fa45faca5124",
+  "name": "Snowman Standing",
+  "symbol": "sprite_snowman_standing",
+  "states": [
+    {
+      "id": "6e4a10d9-9acb-48d1-99f2-c8968a943c98",
+      "name": "",
+      "animationType": "fixed",
+      "flipLeft": false,
+      "animations": [
+        {
+          "id": "03bae99a-1718-4522-bc2e-3669208bc128",
+          "frames": [
+            {
+              "id": "2c132ef1-4cb7-4303-ab5b-16bf3ea3982d",
+              "tiles": [
+                {
+                  "id": "4011c894-3f1f-4c5f-8395-bc6da78f111f",
+                  "x": 0,
+                  "y": 0,
+                  "sliceX": 0,
+                  "sliceY": 0,
+                  "flipX": false,
+                  "flipY": false,
+                  "palette": 0,
+                  "paletteIndex": 0,
+                  "objPalette": "OBP0",
+                  "priority": false
+                },
+                {
+                  "id": "057cdd17-d9a3-4676-a70d-61365e4465e8",
+                  "x": 8,
+                  "y": 0,
+                  "sliceX": 8,
+                  "sliceY": 0,
+                  "flipX": false,
+                  "flipY": false,
+                  "palette": 0,
+                  "paletteIndex": 0,
+                  "objPalette": "OBP0",
+                  "priority": false
+                }
+              ]
+            },
+            {
+              "id": "bde778fc-c37a-4a6b-9a6e-a9b67328c72a",
+              "tiles": [
+                {
+                  "id": "e3a25c88-70d6-42f9-b141-680e76e27b62",
+                  "x": 0,
+                  "y": 0,
+                  "sliceX": 16,
+                  "sliceY": 0,
+                  "flipX": false,
+                  "flipY": false,
+                  "palette": 0,
+                  "paletteIndex": 0,
+                  "objPalette": "OBP0",
+                  "priority": false
+                },
+                {
+                  "id": "ac893b73-7afd-4335-9f81-3498ae9d289c",
+                  "x": 8,
+                  "y": 0,
+                  "sliceX": 24,
+                  "sliceY": 0,
+                  "flipX": false,
+                  "flipY": false,
+                  "palette": 0,
+                  "paletteIndex": 0,
+                  "objPalette": "OBP0",
+                  "priority": false
+                }
+              ]
+            },
+            {
+              "id": "bf5d13ac-5e7f-4bfe-ad1e-f05fb261f02a",
+              "tiles": [
+                {
+                  "id": "d46a910f-d331-4896-a549-278b07135083",
+                  "x": 0,
+                  "y": 0,
+                  "sliceX": 32,
+                  "sliceY": 0,
+                  "flipX": false,
+                  "flipY": false,
+                  "palette": 0,
+                  "paletteIndex": 0,
+                  "objPalette": "OBP0",
+                  "priority": false
+                },
+                {
+                  "id": "2d9519bf-8cc5-4a2e-a9dc-59886edf42b1",
+                  "x": 8,
+                  "y": 0,
+                  "sliceX": 40,
+                  "sliceY": 0,
+                  "flipX": false,
+                  "flipY": false,
+                  "palette": 0,
+                  "paletteIndex": 0,
+                  "objPalette": "OBP0",
+                  "priority": false
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "numTiles": 2,
+  "canvasOriginX": 0,
+  "canvasOriginY": 0,
+  "canvasWidth": 16,
+  "canvasHeight": 16,
+  "boundsX": 0,
+  "boundsY": 0,
+  "boundsWidth": 16,
+  "boundsHeight": 16,
+  "animSpeed": 15,
+  "filename": "Snowman Standing.png",
+  "width": 48,
+  "height": 16
+}

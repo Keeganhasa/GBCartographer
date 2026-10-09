@@ -3,7 +3,7 @@
  * its settings file; the dev server reads GBC_PROJECT or cartographer.local.json ({ "project": "<folder>" }) next to
  * the repo. A folder counts as a project when it has an assets/ folder (GB Studio 4 layout).
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
 let current: string | null = null;
@@ -40,6 +40,18 @@ export function loadProjectFolder(root: string, settingsFile = resolve(root, "ca
     }
   }
   return current;
+}
+
+/**
+ * The demo project that ships with the app (`<root>/demo`), copied next to the settings file the first time it is
+ * opened, so painting in it never touches the shipped copy. Returns the copy's folder, or null without a demo.
+ */
+export function demoProjectCopy(root: string, settingsFile: string): string | null {
+  const source = resolve(root, "demo");
+  if (!isProjectFolder(source)) return null;
+  const copy = resolve(dirname(settingsFile), "demo-project");
+  if (!existsSync(copy)) cpSync(source, copy, { recursive: true });
+  return copy;
 }
 
 export function saveProjectFolder(settingsFile: string, path: string | null) {

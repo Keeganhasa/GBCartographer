@@ -1,0 +1,12 @@
+{
+  "_resourceType": "background",
+  "id": "8389e9f3-8381-4652-9e52-7f3a43c0c421",
+  "name": "Cabin Exterior",
+  "symbol": "bg_cabin_exterior",
+  "tileColors": "",
+  "filename": "Cabin Exterior.png",
+  "width": 32,
+  "height": 18,
+  "imageWidth": 256,
+  "imageHeight": 144
+}

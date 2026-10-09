@@ -1,0 +1,23 @@
+{
+  "_resourceType": "settings",
+  "defaultBackgroundPaletteIds": [
+    "4a1f4bba-d809-4ec8-adeb-38e3b5282e12",
+    "cc237bc7-8cb9-4852-851c-d8c23f297812",
+    "48f72c9c-9135-48e5-abd4-bb695647755e",
+    "b6b5e675-bef9-4722-a597-60bca6fb4910",
+    "da7ebe08-86f5-48ec-a26a-de12aa29dae4",
+    "4f6fa2a0-677e-4c4d-ac5f-060844d6fd44",
+    "7b680590-4267-4d89-b151-1e9efdfc4855",
+    "3ca8e359-db90-49da-a2ca-07b1419e8142"
+  ],
+  "defaultSpritePaletteIds": [
+    "e50a9348-c09c-4121-ad22-bcfb540b5d7d",
+    "e50a9348-c09c-4121-ad22-bcfb540b5d7d",
+    "e50a9348-c09c-4121-ad22-bcfb540b5d7d",
+    "e50a9348-c09c-4121-ad22-bcfb540b5d7d",
+    "e50a9348-c09c-4121-ad22-bcfb540b5d7d",
+    "e50a9348-c09c-4121-ad22-bcfb540b5d7d",
+    "e50a9348-c09c-4121-ad22-bcfb540b5d7d",
+    "e50a9348-c09c-4121-ad22-bcfb540b5d7d"
+  ]
+}

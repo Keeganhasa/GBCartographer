@@ -1,0 +1,13 @@
+{
+  "_resourceType": "scene",
+  "id": "665a298b-9da2-47ce-8ce1-602b109ab1e5",
+  "name": "Winter Example",
+  "backgroundId": "0fa545c9-6b51-4b7c-a016-b0595dd1f112",
+  "tilesetId": "",
+  "width": 20,
+  "height": 18,
+  "type": "TOPDOWN",
+  "paletteIds": [],
+  "spritePaletteIds": [],
+  "symbol": "scene_winter_example"
+}

@@ -50,8 +50,10 @@ const PROJECT_KIND_KEY = "gb-cartographer.project-kind";
 /** The dev server and the desktop app serve the open GB Studio project (server/endpoints.ts). */
 const PROJECT_URL = "./__cartographer/gbstudio-assets";
 const ASSET_URL = "./__cartographer/gbstudio-asset";
-const ASSET_KINDS = [["backgrounds", "Backgrounds"], ["sprites", "Sprites"], ["tilesets", "Tilesets"]] as const;
+const ASSET_KINDS = [["backgrounds", "Backgrounds"], ["sprites", "Sprites"], ["tilesets", "Tilesets"], ["fonts", "Fonts"]] as const;
 type AssetKind = typeof ASSET_KINDS[number][0];
+/** Backgrounds and sprite sheets carry palette slots GB Studio reads; tilesets and fonts are plain pictures. */
+const hasSlots = (kind: AssetKind) => kind === "backgrounds" || kind === "sprites";
 const UNDO_LIMIT = 60;
 const UNDO_BYTES = 96 * 1024 * 1024;
 
@@ -336,7 +338,7 @@ export default function PaintApp() {
         // A background's tile colors (GB Studio's per-tile palettes) dress the cells when the scene's palettes are known.
         const dressed = info?.tileColors.length ? assignSlots(picture.cells, info.tileColors, info.slots, picture.palettes) : 0;
         last = nextDocId++;
-        docs.current.push({ id: last, name: asset?.name ?? file.name, width: bitmap.width, height: bitmap.height, pixels: picture.pixels, cells: picture.cells, hasAlpha: picture.hasAlpha || keyGreen, palettes: picture.palettes, undo: [], redo: [], dirty: false, handle, asset: asset && info ? { kind: asset.kind, file: asset.file, name: asset.name, mtime: info.mtime, ...(asset.kind !== "tilesets" ? { slots: info.slots, metaMtime: info.metaMtime, opened: info.tileColors.map((value) => value < 0 ? -1 : value & 7) } : {}) } : undefined, keyGreen: keyGreen || undefined, zoom: fitZoom(bitmap.width, bitmap.height), sel: null, float: null });
+        docs.current.push({ id: last, name: asset?.name ?? file.name, width: bitmap.width, height: bitmap.height, pixels: picture.pixels, cells: picture.cells, hasAlpha: picture.hasAlpha || keyGreen, palettes: picture.palettes, undo: [], redo: [], dirty: false, handle, asset: asset && info ? { kind: asset.kind, file: asset.file, name: asset.name, mtime: info.mtime, ...(hasSlots(asset.kind) ? { slots: info.slots, metaMtime: info.metaMtime, opened: info.tileColors.map((value) => value < 0 ? -1 : value & 7) } : {}) } : undefined, keyGreen: keyGreen || undefined, zoom: fitZoom(bitmap.width, bitmap.height), sel: null, float: null });
         const made = picture.palettes.length - palettesRef.current.length;
         if (picture.snapped) say(`${file.name}: ${picture.snapped} color${picture.snapped === 1 ? "" : "s"} in tiles of more than four colors became the nearest shade.`);
         else if (made) say(`${file.name}: tiles in colors outside the library keep them as ${made} palette${made === 1 ? "" : "s"} of the file.${asset ? " Save writes them as GB greens in order of brightness, which may differ from how GB Studio reads the colors." : ""}`);
@@ -388,11 +390,15 @@ export default function PaintApp() {
     setPalettes(palettesRef.current);
   }
 
-  /** Asks for a GB Studio project folder: the desktop app's folder dialog, or a typed path on the dev server. */
-  async function chooseProject() {
+  /** Asks for a GB Studio project folder: the desktop app's folder dialog, or a typed path on the dev server. `demo` opens a copy of the shipped demo instead. */
+  async function chooseProject(demo = false) {
     const native = (window as PickerWindow).gbc;
     try {
-      if (native) {
+      if (demo) {
+        const response = await fetch("./__cartographer/project", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ demo: true }) });
+        const result = await response.json() as { ok?: boolean; error?: string };
+        if (!response.ok || !result.ok) return say(result.error ?? response.statusText);
+      } else if (native) {
         if (!await native.chooseProject()) return;
       } else {
         const path = window.prompt("Path of the GB Studio project folder (the one with the .gbsproj file):", project?.path ?? "");
@@ -440,7 +446,7 @@ export default function PaintApp() {
     // The thumbnail in the project panel shows the new file.
     setProject((current) => current && { ...current, assets: current.assets.map((item) => item.kind === asset.kind && item.file === asset.file ? { ...item, mtime: asset.mtime } : item) });
     const notes = [`Saved ${asset.name} into the GB Studio project`];
-    if (asset.kind !== "tilesets" && asset.slots?.length) notes.push(...await saveTileColors(target));
+    if (hasSlots(asset.kind) && asset.slots?.length) notes.push(...await saveTileColors(target));
     say(notes.join(". "));
     return true;
   }
@@ -845,7 +851,7 @@ export default function PaintApp() {
         <span className="gbp-brand"><LogoMark size={22} /><b>GB Cartographer</b></span>
         <button className="quiet-button" title="Open PNG files · Ctrl+O (or drop them on the window)" onClick={() => void pickFiles()}><FolderOpen size={14} />Open</button>
         {project && <button className={`quiet-button ${showProject ? "active-tool" : ""}`} aria-pressed={showProject} title={`Show or hide the GB Studio project's pictures (${project.path})`} onClick={() => setShowProject(!showProject)}><FolderTree size={14} />Project</button>}
-        {served && !project && <button className="quiet-button" title="Open a GB Studio project folder: its backgrounds, sprites and tilesets open here and save back into it" onClick={() => void chooseProject()}><FolderTree size={14} />Open project…</button>}
+        {served && !project && <button className="quiet-button" title="Open a GB Studio project folder: its backgrounds, sprites, tilesets and fonts open here and save back into it" onClick={() => void chooseProject()}><FolderTree size={14} />Open project…</button>}
         <button className="quiet-button" disabled={!doc} title={doc?.asset ? `Flatten and save over ${doc.asset.file} in the GB Studio project (the old file goes to the backups folder) · Ctrl+S` : doc?.handle ? `Flatten and save over ${doc.name}, in the GB greens · Ctrl+S` : "Flatten and save as a PNG, in the GB greens · Ctrl+S"} onClick={() => void save(false)}><Save size={14} />Save</button>
         <button className="quiet-button" disabled={!doc} title="Flatten and export a copy, in the GB greens · Ctrl+E" onClick={() => void save(true)}><Download size={14} />Export copy</button>
         <button className="icon-button" aria-label="Undo" title="Undo · Ctrl+Z" disabled={!doc?.undo.length} onClick={() => stepHistory("undo")}><Undo2 size={15} /></button>
@@ -900,7 +906,7 @@ export default function PaintApp() {
       <div className="gbp-body">
         {project && showProject && (
           <aside className="gbp-project" aria-label="GB Studio project">
-            <h2 title={project.path}>{project.name}<button className="gbp-project-change" title="Open another GB Studio project" onClick={() => void chooseProject()}>Change…</button></h2>
+            <h2 title={project.path}>{project.name}<span className="gbp-project-buttons"><button className="gbp-project-change" title="Open a copy of the sample project that ships with the app" onClick={() => void chooseProject(true)}>Demo</button><button className="gbp-project-change" title="Open another GB Studio project" onClick={() => void chooseProject()}>Change…</button></span></h2>
             <div className="gbp-project-kinds" role="tablist" aria-label="Asset folders">
               {ASSET_KINDS.map(([kind, label]) => <button key={kind} role="tab" aria-selected={projectKind === kind} className={projectKind === kind ? "selected" : ""} onClick={() => setProjectKind(kind)}>{label}<small>{project.assets.filter((asset) => asset.kind === kind).length}</small></button>)}
             </div>
@@ -944,6 +950,7 @@ export default function PaintApp() {
               <LogoMark size={56} />
               <p>{project ? `Pick a picture of ${project.name} on the left, drop PNG files here, or` : "Drop PNG files here, or"}</p>
               {served && !project && <button className="quiet-button" onClick={() => void chooseProject()}><FolderTree size={14} />Open a GB Studio project</button>}
+              {served && !project && <button className="quiet-button" title="A sample project with CC0 and MIT art (credits inside it): opens a copy you can paint in" onClick={() => void chooseProject(true)}><FolderTree size={14} />Try the demo project</button>}
               <button className="quiet-button" onClick={() => void pickFiles()}><FolderOpen size={14} />Open PNG files</button>
             </div>
           )}

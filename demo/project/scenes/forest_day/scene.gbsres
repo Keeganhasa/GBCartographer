@@ -1,0 +1,13 @@
+{
+  "_resourceType": "scene",
+  "id": "3ad33750-a430-4271-ad80-85bedce3ced8",
+  "name": "Forest Day",
+  "backgroundId": "e1a6f61b-2775-4abf-9d7b-a8d764e0d17b",
+  "tilesetId": "",
+  "width": 20,
+  "height": 18,
+  "type": "TOPDOWN",
+  "paletteIds": [],
+  "spritePaletteIds": [],
+  "symbol": "scene_forest_day"
+}
