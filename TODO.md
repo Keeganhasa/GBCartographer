@@ -21,6 +21,7 @@ into PROGRESS.md when they deserve a note.
 
 - [x] One theme for now: OLED Game Boy green (mauve, then maroon, then the two Game Boy greens: pink felt too GB Studio).
       Other themes stay unlisted in theme.ts.
+- [x] Open project accepts the .gbsproj file or its folder (macOS greyed out Open inside a folder in folder-only mode).
 - [x] Soft cards restyle of every control, border and panel (picked from three mockups); the start screen, frames
       strip and palette manager follow it.
 - [x] Layout A (chosen from three mockups in `review/mockups-2026-10-09`): one toolbar row with grouped buttons,

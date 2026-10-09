@@ -17,7 +17,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, statSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { AssetWriteError, assetInfo, assetPath, listAssets, listPalettes, projectName, renderPreview, writeAsset, writePalette, writeSpritePalettes, writeTileColors, type AssetKind } from "./assets";
-import { demoProjectCopy, isProjectFolder, projectFolder, recentProjects, saveProjectFolder, setProjectFolder } from "./project";
+import { demoProjectCopy, isProjectFolder, projectFolder, projectFolderFor, recentProjects, saveProjectFolder, setProjectFolder } from "./project";
 
 export interface ServerOptions {
   /** The repo or app folder. */
@@ -83,7 +83,7 @@ export async function handleCartographerRequest(req: IncomingMessage, res: Serve
     }
     if (url.pathname === "/__cartographer/project" && req.method === "POST") {
       const body = JSON.parse((await readBody(req)).toString("utf8")) as { path?: unknown; demo?: unknown };
-      const path = body.demo === true ? demoProjectCopy(options.root, options.settingsFile) ?? "" : typeof body.path === "string" ? body.path.trim() : "";
+      const path = body.demo === true ? demoProjectCopy(options.root, options.settingsFile) ?? "" : typeof body.path === "string" && body.path.trim() ? projectFolderFor(body.path) : "";
       if (body.demo === true && !path) {
         reply(res, 404, { error: "This build has no demo project." });
         return true;

@@ -17,6 +17,12 @@ export function isProjectFolder(path: string): boolean {
   return existsSync(resolve(path, "assets")) && existsSync(resolve(path, "project"));
 }
 
+/** A picked path as a project folder: a .gbsproj file stands for the folder it is in. */
+export function projectFolderFor(path: string): string {
+  const resolved = resolve(path.trim());
+  return /\.gbsproj$/i.test(resolved) ? dirname(resolved) : resolved;
+}
+
 export function setProjectFolder(path: string | null) {
   current = path ? resolve(path) : null;
 }

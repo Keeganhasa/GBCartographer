@@ -10,7 +10,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import { extname, join, normalize, resolve } from "node:path";
 import { handleCartographerRequest } from "../server/endpoints";
-import { isProjectFolder, loadProjectFolder, projectFolder, saveProjectFolder, setProjectFolder } from "../server/project";
+import { isProjectFolder, loadProjectFolder, projectFolder, projectFolderFor, saveProjectFolder, setProjectFolder } from "../server/project";
 
 const ROOT = resolve(__dirname, "..");
 const ICON = join(ROOT, "build", "icon.png");
@@ -89,14 +89,18 @@ async function createWindow() {
 /** The page asks for a project folder; the choice is kept for next time. Returns the folder, or null when cancelled. */
 ipcMain.handle("gbc-choose-project", async (event) => {
   const window = BrowserWindow.fromWebContents(event.sender);
+  // The .gbsproj file or its folder: both open the project (macOS greys out Open inside a folder in folder-only mode).
   const result = await dialog.showOpenDialog(window ?? undefined as never, {
-    title: "Open a GB Studio project folder",
-    message: "Pick the folder that holds the .gbsproj file (with its assets and project folders).",
-    properties: ["openDirectory"],
+    title: "Open a GB Studio project",
+    message: "Pick the project's .gbsproj file, or the folder that holds it.",
+    buttonLabel: "Open project",
+    properties: ["openFile", "openDirectory"],
+    filters: [{ name: "GB Studio project", extensions: ["gbsproj"] }],
     ...(projectFolder() ? { defaultPath: projectFolder()! } : {}),
   });
-  const folder = result.canceled ? null : result.filePaths[0];
-  if (!folder) return null;
+  const picked = result.canceled ? null : result.filePaths[0];
+  if (!picked) return null;
+  const folder = projectFolderFor(picked);
   if (!isProjectFolder(folder)) {
     await dialog.showMessageBox({ type: "warning", message: "That folder is not a GB Studio project.", detail: "GB Cartographer needs the project folder with its assets/ and project/ folders inside (GB Studio 4)." });
     return null;

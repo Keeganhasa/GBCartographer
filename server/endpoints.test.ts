@@ -78,6 +78,8 @@ describe("project folder", () => {
     await post({ demo: true });
     expect(readFileSync(join(root, "demo-project/marker.txt"), "utf8")).toBe("painted here");
     expect((await json<{ project: { name: string } }>(await post({ path: project }))).project.name).toBe("My Game");
+    // The .gbsproj file stands for its folder.
+    expect((await json<{ project: { path: string } }>(await post({ path: join(project, "my-game.gbsproj") }))).project.path).toBe(project);
   });
 });
 

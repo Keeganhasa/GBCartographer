@@ -444,7 +444,7 @@ export default function PaintApp() {
       } else if (native) {
         if (!await native.chooseProject()) return;
       } else {
-        const path = window.prompt("Path of the GB Studio project folder (the one with the .gbsproj file):", project?.path ?? "");
+        const path = window.prompt("Path of the GB Studio project: its .gbsproj file, or the folder that holds it:", project?.path ?? "");
         if (!path) return;
         const response = await fetch("./__cartographer/project", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path }) });
         const result = await response.json() as { ok?: boolean; error?: string };

@@ -54,7 +54,7 @@ npm run desktop        # the desktop app (builds first)
 npm run dev            # or the page on a local dev server, http://127.0.0.1:5173
 ```
 
-In the desktop app, **Open project…** shows a folder dialog. On the dev server it asks for the folder's path; you
+In the desktop app, **Open project…** shows a file dialog: pick the project's `.gbsproj` file (or its folder). On the dev server it asks for the folder's path; you
 can also set `GBC_PROJECT=/path/to/project` or write `{ "project": "/path/to/project" }` to
 `cartographer.local.json` (not committed). Backups go to the app's data folder (desktop) or `backups/` (dev server).
 
