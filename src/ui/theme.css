@@ -413,7 +413,8 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: non
 }
 .quiet-button.danger:not(:disabled), .icon-button.danger:not(:disabled) { color: var(--danger-text); }
 .quiet-button.danger:not(:disabled):hover, .icon-button.danger:not(:disabled):hover { color: #fff; background-color: var(--danger); border-color: var(--danger); }
-:root[data-accent="maroon"] { --red: #a8344f; --on-red: #fff1ef; --red-text: #e57b93; }
+:root[data-accent="gb"] { --red: #86c06c; --on-red: #071821; --red-text: #a9dc8f; --acc: #86c06c; --acc-hi: #9bd07e; --acc-lo: #6aae58; --acc-deep: #306850; --acc-rgb: 134, 192, 108; --on-acc: #071821; --acc-text: #a9dc8f; }
+:root { --acc: #86c06c; --acc-hi: #9bd07e; --acc-lo: #6aae58; --acc-deep: #306850; --acc-rgb: 134, 192, 108; --on-acc: #071821; --acc-text: #a9dc8f; }
 :root[data-accent="green"] { --red: #8bac0f; --on-red: #0f380f; --red-text: #a9c83c; }
 :root { --asset-bg: #464a53; }
 input[type="number"] { font-family: var(--mono); }

@@ -19,7 +19,10 @@ into PROGRESS.md when they deserve a note.
 
 ## UI pass (asked 2026-10-09)
 
-- [x] One theme for now: OLED Maroon (it began as mauve; the author wanted maroon). Other themes stay unlisted in theme.ts.
+- [x] One theme for now: OLED Game Boy green (mauve, then maroon, then the two Game Boy greens: pink felt too GB Studio).
+      Other themes stay unlisted in theme.ts.
+- [x] Soft cards restyle of every control, border and panel (picked from three mockups); the start screen, frames
+      strip and palette manager follow it.
 - [x] Layout A (chosen from three mockups in `review/mockups-2026-10-09`): one toolbar row with grouped buttons,
       a kind rail with counts, the thumbnail list, the inspector as a shades row + Palettes / Picture tabs, the
       scene's eight palette slots as a strip at the top of Palettes (borrowed from mockup B), short tool hints in

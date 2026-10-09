@@ -303,3 +303,86 @@
 .tool-button:disabled, .quiet-button:disabled, .icon-button:disabled { opacity: .55; }
 .gbp-asset-size, .gbp-frame small, .gbp-slot-button b, .gbp-asset-name { color: var(--muted); }
 .gbp-asset-name { color: var(--ink); }
+
+/* =====================================================================================================
+   Soft cards (the author's pick, 2026-10-09; mockup in review/ui-round3): rounded layers of gray, panels as
+   floating cards, gentle depth, a lit accent. The accent is the Game Boy's mid green; text on it is the darkest.
+   ===================================================================================================== */
+:root { --b-panel: #0d0e11; --b-ctl: #181b20; --b-ctl2: #20242a; --b-edge: rgba(255, 255, 255, .07); }
+:root .gbp-shell { background: #000; }
+:root .gbp-bar { background: #000; border: 0; padding: 10px 10px 6px; gap: 8px; }
+:root .quiet-button { background: var(--b-ctl); border: 1px solid var(--b-edge); border-radius: 8px; color: #e8eaee; min-height: 30px; padding: 0 12px; font-weight: 500; box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 1px 2px rgba(0,0,0,.6); }
+:root .quiet-button:is(:hover,.is-hover):not(:disabled) { background: var(--b-ctl2); border-color: rgba(255,255,255,.12); }
+:root .quiet-button.is-down, :root .quiet-button:active:not(:disabled) { background: #121418; box-shadow: inset 0 2px 4px rgba(0,0,0,.6); transform: translateY(1px); }
+:root .quiet-button.active-tool, :root .icon-button.active-tool { background: linear-gradient(var(--acc-hi), var(--acc-lo)); border-color: var(--acc-hi); color: var(--on-acc); box-shadow: inset 0 1px 0 rgba(255,255,255,.22), 0 4px 14px rgba(var(--acc-rgb), .32); }
+:root .quiet-button.primary { background: linear-gradient(var(--acc-hi), var(--acc-lo)); border-color: var(--acc-hi); color: var(--on-acc); font-weight: 600; box-shadow: inset 0 1px 0 rgba(255,255,255,.22), 0 4px 14px rgba(var(--acc-rgb), .30); }
+:root .quiet-button.primary:is(:hover,.is-hover):not(:disabled) { background: linear-gradient(var(--acc-hi), var(--acc)); }
+:root .quiet-button.danger { color: #f08aa0; background: #1d1316; border-color: rgba(240,138,160,.2); }
+:root .quiet-button:disabled, :root .icon-button:disabled, :root .tool-button:disabled { opacity: .4; box-shadow: none; }
+:root .icon-button { background: var(--b-ctl); border: 1px solid var(--b-edge); border-radius: 8px; color: #d9dce2; box-shadow: inset 0 1px 0 rgba(255,255,255,.04); }
+:root .icon-button:is(:hover,.is-hover):not(:disabled) { background: var(--b-ctl2); color: #fff; }
+:root .icon-button.is-down { background: #121418; transform: translateY(1px); }
+:root .gbp-seg { background: #121418; border: 1px solid var(--b-edge); border-radius: 10px; padding: 2px; gap: 2px; overflow: visible; }
+:root .gbp-seg .quiet-button, :root .gbp-seg .icon-button { background: transparent; border: 0; border-radius: 8px; box-shadow: none; }
+:root .gbp-seg .quiet-button:is(:hover,.is-hover):not(:disabled) { background: var(--b-ctl2); }
+:root .gbp-seg .quiet-button.active-tool { background: linear-gradient(var(--acc-hi), var(--acc-lo)); box-shadow: inset 0 1px 0 rgba(255,255,255,.22); }
+:root .gbp-body { gap: 8px; padding: 6px 8px 8px; background: #000; }
+:root .gbp-rail, :root .gbp-project, :root .gbp-tools, :root .gbp-scroller, :root .gbp-side { background: var(--b-panel); border: 1px solid var(--b-edge); border-radius: 14px; }
+:root .gbp-scroller { background: #08090b; }
+:root .gbp-tools { border-radius: 14px; }
+:root .tool-button { background: transparent; border: 1px solid transparent; border-radius: 8px; color: #d9dce2; box-shadow: none; }
+:root .tool-button:is(:hover,.is-hover):not(:disabled) { background: var(--b-ctl2); color: #fff; }
+:root .tool-button.active { background: linear-gradient(var(--acc-hi), var(--acc-lo)); border-color: var(--acc-hi); color: var(--on-acc); border-radius: 8px; box-shadow: inset 0 1px 0 rgba(255,255,255,.22), 0 4px 12px rgba(var(--acc-rgb), .32); }
+:root .map-tabs { background: #000; border: 0; padding: 4px 10px 0; gap: 4px; min-height: 34px; }
+:root .map-tab { background: var(--b-ctl); border: 1px solid var(--b-edge); border-radius: 10px; color: #b3b8c0; padding: 0 6px 0 12px; min-height: 28px; align-self: center; }
+:root .map-tab.active { background: #262a31; color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,.08); }
+:root .map-tab:is(:hover,.is-hover) { background: var(--b-ctl2); color: #fff; }
+:root .gbp-rail .icon-button { border-radius: 10px; }
+:root .gbp-rail .icon-button b, :root .gbp-pm-rail .icon-button b { background: #3a3f48; color: #f0f2f5; border-radius: 8px; }
+:root .gbp-rail .icon-button.active-tool b { background: var(--on-acc); color: var(--acc-text); }
+:root .gbp-project h2, :root .eyebrow { color: #aab0b9; }
+:root .gbp-asset { background: transparent; border: 0; border-radius: 10px; padding: 5px 8px; }
+:root .gbp-asset:is(:hover,.is-hover) { background: #15171b; }
+:root .gbp-asset.open { background: #14161a; }
+:root .gbp-asset.selected { background: rgba(var(--acc-rgb), .16); border: 0; box-shadow: inset 0 0 0 1px rgba(var(--acc-rgb), .5); }
+:root .gbp-asset img { border: 0; border-radius: 6px; }
+:root .gbp-wrap { box-shadow: 0 12px 40px rgba(0,0,0,.7); border-radius: 4px; }
+:root .gbp-side-tabs { border: 0; background: #121418; margin: 8px; border-radius: 10px; padding: 2px; gap: 2px; }
+:root .gbp-side-tabs button { border-radius: 8px; color: #aab0b9; padding: 6px 0; }
+:root .gbp-side-tabs button.selected { background: #262a31; color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,.08); }
+:root .gbp-side-shades { padding: 10px 10px 4px; }
+:root .gbp-palettes button { background: transparent; border: 0; border-radius: 10px; padding: 5px 8px; }
+:root .gbp-palettes button:is(:hover,.is-hover) { background: #15171b; }
+:root .gbp-palettes button.selected { background: rgba(var(--acc-rgb), .16); border: 0; box-shadow: inset 0 0 0 1px rgba(var(--acc-rgb), .5); }
+:root .gbp-slot { background: #2a2e35; color: #d4d8de; border-radius: 6px; }
+:root .gbp-slot-button { background: #14161a; border: 1px solid var(--b-edge); border-radius: 8px; }
+:root .gbp-slot-button.selected { background: rgba(var(--acc-rgb), .18); border-color: rgba(var(--acc-rgb), .6); }
+:root .gbp-chips { border: 0; border-radius: 4px; overflow: hidden; }
+:root .pixel-swatches button { border: 1px solid rgba(255,255,255,.12); border-radius: 8px; }
+:root .pixel-swatches button.selected { outline: 2px solid var(--acc-hi); outline-offset: 2px; box-shadow: 0 0 14px rgba(var(--acc-rgb), .5); }
+:root input[type="search"], :root input[type="text"], :root select, :root .gbp-filter { background: #121418; border: 1px solid var(--b-edge); border-radius: 8px; color: #e8eaee; }
+:root input[type="search"]:is(:focus,.is-focus), :root input[type="text"]:is(:focus,.is-focus), :root select:is(:focus,.is-focus), :root .gbp-filter:is(:focus,.is-focus) { border-color: var(--acc-hi); outline: none; box-shadow: 0 0 0 3px rgba(var(--acc-rgb), .28); }
+:root .gbp-tiles { background: var(--b-ctl); border: 1px solid var(--b-edge); border-radius: 10px; }
+:root .gbp-tiles-track { border-radius: 4px; }
+:root .gbp-status { background: #000; border: 0; padding: 4px 16px 8px; }
+:root .gbp-modal { background: #0f1013; border: 1px solid rgba(255,255,255,.08); border-radius: 16px; box-shadow: 0 30px 80px rgba(0,0,0,.8); }
+:root .gbp-modal-head { border-bottom: 1px solid var(--b-edge); }
+:root .gbp-toast { background: #1a1d22; border: 1px solid var(--b-edge); border-radius: 999px; padding: 8px 18px; box-shadow: 0 10px 30px rgba(0,0,0,.6); }
+:root kbd { background: #1c1f24; border: 1px solid var(--b-edge); border-bottom-width: 2px; border-radius: 5px; color: #d2d6dc; }
+
+/* Soft cards: the start screen, the frames strip and the font sample follow the same language. */
+:root .gbp-start-card { background: var(--b-panel); border: 1px solid var(--b-edge); border-radius: 14px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .04), 0 2px 10px rgba(0, 0, 0, .45); }
+:root .gbp-start-card:hover { background: var(--b-ctl); border-color: rgba(255, 255, 255, .14); }
+:root .gbp-start-card.primary { border-color: rgba(var(--acc-rgb), .6); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 4px 18px rgba(var(--acc-rgb), .16); }
+:root .gbp-start-ic { background: var(--b-ctl); border: 1px solid var(--b-edge); border-radius: 10px; }
+:root .gbp-start-icon { border-radius: 22px; box-shadow: 0 10px 30px rgba(0, 0, 0, .6); }
+:root .gbp-start-row { border-radius: 10px; }
+:root .gbp-start-row:hover { background: var(--b-panel); border-color: var(--b-edge); }
+:root .gbp-frames { background: var(--b-panel); border: 1px solid var(--b-edge); border-radius: 12px; box-shadow: 0 6px 20px rgba(0, 0, 0, .5); }
+:root .gbp-frame { border: 1px solid var(--b-edge); border-radius: 8px; }
+:root .gbp-frame.selected { outline: 2px solid var(--acc-hi); outline-offset: 1px; box-shadow: 0 0 12px rgba(var(--acc-rgb), .4); }
+:root .gbp-sample-canvas { border: 1px solid var(--b-edge); border-radius: 6px; }
+:root .gbp-help-body table td { border-bottom-color: var(--b-edge); }
+:root .gbp-pm-color input[type="color"] { border: 1px solid var(--b-edge); border-radius: 10px; padding: 3px; background: var(--b-ctl); }
+:root .gbp-palette-colors input { border: 1px solid var(--b-edge); border-radius: 8px; background: var(--b-ctl); }
+:root .gbp-frame-slice { outline-color: var(--acc-hi); }

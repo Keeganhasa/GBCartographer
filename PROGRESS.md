@@ -25,7 +25,7 @@ server layer (`server/`) and the Electron shell (`electron/`). Nothing from any 
   painted slice; sidecars rewritten as GB Studio writes them, two-space JSON, no trailing newline).
 - **Project panel**: Backgrounds · Sprites · Tilesets with counts, a name filter, lazy thumbnails; the open
   picture's row outlined; the picked project's eight palettes lead the palette list with slot tags.
-- **Themes and fonts** (`src/ui/theme.ts`): OLED maroon (the only one offered for now; Slate, OLED orange / green and Shuffle stay in the code), and and palette
+- **Themes and fonts** (`src/ui/theme.ts`): OLED Game Boy green (the only one offered for now; Slate, OLED orange / green and Shuffle stay in the code), and and palette
   themes DMG, Pocket, Berry computed from four colours; fonts JetBrains Mono, Public Pixel (8 px steps), OpenDyslexic.
 
 ### Decisions
@@ -51,7 +51,7 @@ server layer (`server/`) and the Electron shell (`electron/`). Nothing from any 
   the palette brush. Open pictures whose copy of an edited palette was unchanged take the new colors.
 
 ### Layout A, start screen, frames (2026-10-09, evening)
-- One theme, OLED Maroon, with a maroon accent (`#a8344f`, text on it `#fff1ef`, accent text `#e57b93`) on every active state. It began as mauve (`#b58ba6`, then `#c489ab`); the author asked for maroon on 2026-10-09. Layout A from the mockups:
+- One theme, OLED Game Boy green: the accent is the Game Boy's mid green (`#86c06c`, lit `#9bd07e`, shaded `#6aae58`, dark text `#071821` on it; the deep green `#306850` is `--acc-deep`) on every active state. It began as mauve, then maroon; the author found pink too GB Studio and asked for the two Game Boy greens on 2026-10-09. Layout A from the mockups:
   one toolbar row, a kind rail with counts, the thumbnail list, the inspector as a shades row plus Palettes /
   Picture tabs with the scene's eight slots as a strip, short tool hints in the status bar, the long text and
   all keys behind a ? help panel. Tint, tile budget and Font live in the Picture tab.
@@ -81,6 +81,13 @@ server layer (`server/`) and the Electron shell (`electron/`). Nothing from any 
 - The UI font is Inter (JetBrains Mono, Public Pixel and OpenDyslexic are options); tools sit in two compact
   columns; grays are much lighter. `npm run screenshot` (headless Edge or Chrome over the DevTools protocol)
   makes `docs/screenshot.png`; Electron-based capture crashes on this machine.
+
+- Soft cards (the author's pick of three mockups, `review/ui-round3`): panels are rounded cards with gaps, controls are
+  rounded layers of gray with a lit accent, tabs and segmented groups are pills, the start screen, frames strip and
+  palette manager follow. It is the last block of `src/paint.css`, built on the `--b-*` surface variables and the
+  `--acc*` accent variables from `src/ui/theme.css`.
+- Screenshot scripts must never remove `.gbp-toast` by hand (React then crashes on unmount and the page paints
+  black): hide it with `visibility` instead.
 
 ### Known issues
 - Inter and JetBrains Mono load from Google Fonts: offline, the app falls back to the system font.
