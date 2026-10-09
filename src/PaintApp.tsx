@@ -25,7 +25,7 @@ const TOOLS = [
   ["ellipse", "Ellipse", Circle, "O", "Drag a box; the ellipse fills it."],
   ["fill", "Flood fill", PaintBucket, "G", "Click an area to fill it with the active shade."],
   ["fillErase", "Flood erase", DropletOff, "Shift+G", "Click an area to erase it."],
-  ["eyedropper", "Pick shade", Pipette, "I", "Click a pixel to paint with its shade."],
+  ["eyedropper", "Pick", Pipette, "I", "Click a pixel to paint with its shade; with the palette brush, click a tile to paint with its palette."],
   ["palette", "Palette brush", PaletteIcon, "P", "Pick a palette on the right, then drag over tiles to give it to them. Right-click picks a tile's palette."],
   ["select", "Select", BoxSelect, "M", "Drag a box; drag inside it to move (Alt copies). Arrows nudge, Delete clears, Esc drops it."],
   ["move", "Move", Move, "V", "Drag the selection, or the whole picture when nothing is selected (Alt copies)."],
@@ -642,7 +642,9 @@ export default function PaintApp() {
     }
     const value = tool === "eraser" || tool === "fillErase" || (shade === CLEAR && !doc.hasAlpha) ? blank(doc) : shade;
     if (tool === "eyedropper") {
-      pickShade(doc, point);
+      // Came here from the palette brush: pick the tile's palette instead of a shade.
+      if (paintTool.current === "palette") { if (inside(doc, point)) setActivePalette(doc.cells[(point.y >> 3) * cellsWide(doc.width) + (point.x >> 3)]); }
+      else pickShade(doc, point);
       setToolState(paintTool.current);
     } else if (tool === "select" || tool === "move") {
       const sel = doc.sel;
