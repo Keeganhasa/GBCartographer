@@ -59,5 +59,5 @@ npm run build
 ## Credits and license
 
 Code: MIT (see LICENSE). The logo is the author's pixel art, CC0. [Public Pixel](https://ggbot.itch.io/public-pixel-font)
-by GGBotNet (CC0) is an optional UI font. JetBrains Mono is loaded from Google Fonts (SIL Open Font License).
+by GGBotNet (CC0, shipped in `public/fonts/`) is an optional UI font. JetBrains Mono is loaded from Google Fonts (SIL Open Font License).
 GB Studio is by Chris Maltby and contributors; GB Cartographer is not affiliated with it.

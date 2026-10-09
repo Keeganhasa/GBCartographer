@@ -80,3 +80,6 @@
 .gbp-asset-size { font: 9px var(--mono); color: var(--muted); }
 .gbp-palettes button > span:nth-child(2) { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gbp-slot { flex: none; min-width: 14px; padding: 0 3px; text-align: center; font: 9px var(--mono); color: var(--paper); background: var(--muted); border-radius: 2px; }
+.gbp-project h2 { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.gbp-project-change { flex: none; padding: 1px 6px; color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: var(--radius); font: var(--fs-xs) var(--ui); text-transform: none; letter-spacing: 0; cursor: pointer; }
+.gbp-project-change:hover { color: var(--ink); border-color: var(--bar-hover-line); }

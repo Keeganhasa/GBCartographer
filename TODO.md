@@ -11,8 +11,6 @@ into PROGRESS.md when they deserve a note.
       message warns.
 - [ ] **Windows pass.** Open, paint, save, tile colours and sprite palettes on the Windows PC (paths, the
       sidecar rewrite, the folder dialog, `npm run install-shortcut`).
-- [ ] **Public Pixel font file.** Put GGBotNet's `PublicPixel.ttf` (CC0) in `public/fonts/`; the Font menu
-      already offers it. Keep its license text next to it.
 - [ ] **About box** with the version and the licenses (code MIT, logo CC0, fonts).
 - [ ] **No-project first run.** Check the empty state reads well on a fresh machine: open a project, or open PNGs.
 
