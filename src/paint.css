@@ -190,3 +190,9 @@
 .gbp-slot-name { font-size: var(--fs-xs); }
 :root[data-theme="oled"] { --asset-bg: #0b0b0d; }
 .gbp-wrap { box-shadow: 0 0 0 1px #000, 0 8px 28px rgba(0, 0, 0, .7); }
+/* One accent everywhere: active tools, kinds and toggles take the theme's accent, not the old orange tones. */
+.tool-button.active, .icon-button.active-tool, .quiet-button.active-tool { color: var(--on-red); background: var(--red); border-color: var(--red); box-shadow: none; }
+.gbp-tiles > span:first-child { color: var(--red-text); }
+.gbp-tiles-track b { background: var(--red); }
+.gbp-tiles.over > span:first-child, .gbp-tiles.over .gbp-tiles-count { color: #e0605a; }
+.gbp-tiles.over .gbp-tiles-track b { background: #e0605a; }
