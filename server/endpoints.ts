@@ -1,13 +1,13 @@
 /**
- * The endpoints behind GBPaint, served by the Vite dev server and the desktop app alike (same-origin only):
- *   GET  /__gbpaint/ping                 which GB Studio project is open (name, path), or none
- *   POST /__gbpaint/project              { path } opens another project folder (the desktop app also sets it from its dialog)
- *   GET  /__gbpaint/gbstudio-assets      the project's asset PNGs and palettes
- *   GET  /__gbpaint/gbstudio-asset       one PNG            ?kind=backgrounds|sprites|tilesets&file=name.png
- *   GET  /__gbpaint/gbstudio-asset-info  its size, times, per-cell palette slots and the slot palette ids
- *   POST /__gbpaint/gbstudio-asset       overwrite that PNG (same size; ?mtime= guards against a file that changed; &force=1)
- *   POST /__gbpaint/gbstudio-tile-colors { slots } per-cell palette slots into the sidecar (?kind=&file=&metaMtime=&force=1)
- * GBPaint writes asset PNGs, a background's tileColors and a sprite's paletteIndex; nothing else in a project.
+ * The endpoints behind GB Cartographer, served by the Vite dev server and the desktop app alike (same-origin only):
+ *   GET  /__cartographer/ping                 which GB Studio project is open (name, path), or none
+ *   POST /__cartographer/project              { path } opens another project folder (the desktop app also sets it from its dialog)
+ *   GET  /__cartographer/gbstudio-assets      the project's asset PNGs and palettes
+ *   GET  /__cartographer/gbstudio-asset       one PNG            ?kind=backgrounds|sprites|tilesets&file=name.png
+ *   GET  /__cartographer/gbstudio-asset-info  its size, times, per-cell palette slots and the slot palette ids
+ *   POST /__cartographer/gbstudio-asset       overwrite that PNG (same size; ?mtime= guards against a file that changed; &force=1)
+ *   POST /__cartographer/gbstudio-tile-colors { slots } per-cell palette slots into the sidecar (?kind=&file=&metaMtime=&force=1)
+ * GB Cartographer writes asset PNGs, a background's tileColors and a sprite's paletteIndex; nothing else in a project.
  */
 import { readFileSync, statSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
@@ -17,7 +17,7 @@ import { isProjectFolder, projectFolder, saveProjectFolder, setProjectFolder } f
 export interface ServerOptions {
   /** The repo or app folder. */
   root: string;
-  /** Where the old file goes before GBPaint overwrites it (backups/gbstudio/<kind>/<file>). */
+  /** Where the old file goes before GB Cartographer overwrites it (backups/gbstudio/<kind>/<file>). */
   backupDir: string;
   /** Where the chosen project folder is remembered. */
   settingsFile: string;
@@ -47,10 +47,10 @@ function reply(res: ServerResponse, status: number, body: object) {
   res.end(JSON.stringify(body));
 }
 
-/** Handles /__gbpaint/* requests; returns false for anything else. */
-export async function handleGbPaintRequest(req: IncomingMessage, res: ServerResponse, options: ServerOptions): Promise<boolean> {
+/** Handles /__cartographer/* requests; returns false for anything else. */
+export async function handleCartographerRequest(req: IncomingMessage, res: ServerResponse, options: ServerOptions): Promise<boolean> {
   const url = new URL(req.url ?? "/", "http://localhost");
-  if (!url.pathname.startsWith("/__gbpaint/")) return false;
+  if (!url.pathname.startsWith("/__cartographer/")) return false;
   const origin = req.headers.origin;
   if (origin && origin !== `http://${req.headers.host}`) {
     reply(res, 403, { error: "Cross-origin requests are not allowed" });
@@ -58,11 +58,11 @@ export async function handleGbPaintRequest(req: IncomingMessage, res: ServerResp
   }
   try {
     const project = projectFolder();
-    if (url.pathname === "/__gbpaint/ping") {
+    if (url.pathname === "/__cartographer/ping") {
       reply(res, 200, { ok: true, project: project ? { name: projectName(project), path: project } : null });
       return true;
     }
-    if (url.pathname === "/__gbpaint/project" && req.method === "POST") {
+    if (url.pathname === "/__cartographer/project" && req.method === "POST") {
       const body = JSON.parse((await readBody(req)).toString("utf8")) as { path?: unknown };
       const path = typeof body.path === "string" ? body.path.trim() : "";
       if (!path) {
@@ -84,18 +84,18 @@ export async function handleGbPaintRequest(req: IncomingMessage, res: ServerResp
       reply(res, 404, { error: "No GB Studio project is open." });
       return true;
     }
-    if (url.pathname === "/__gbpaint/gbstudio-assets") {
+    if (url.pathname === "/__cartographer/gbstudio-assets") {
       reply(res, 200, { ok: true, name: projectName(project), path: project, assets: listAssets(project), palettes: listPalettes(project) });
       return true;
     }
-    if (url.pathname === "/__gbpaint/gbstudio-asset" || url.pathname === "/__gbpaint/gbstudio-asset-info") {
+    if (url.pathname === "/__cartographer/gbstudio-asset" || url.pathname === "/__cartographer/gbstudio-asset-info") {
       const kind = url.searchParams.get("kind") ?? "";
       const path = assetPath(project, kind, url.searchParams.get("file") ?? "");
       if (!path) {
         reply(res, 404, { error: "No such asset" });
         return true;
       }
-      if (url.pathname === "/__gbpaint/gbstudio-asset-info") {
+      if (url.pathname === "/__cartographer/gbstudio-asset-info") {
         reply(res, 200, { ok: true, ...assetInfo(project, kind as AssetKind, path) });
         return true;
       }
@@ -120,7 +120,7 @@ export async function handleGbPaintRequest(req: IncomingMessage, res: ServerResp
         return true;
       }
     }
-    if (url.pathname === "/__gbpaint/gbstudio-tile-colors" && req.method === "POST") {
+    if (url.pathname === "/__cartographer/gbstudio-tile-colors" && req.method === "POST") {
       const kind = url.searchParams.get("kind") ?? "backgrounds";
       const path = kind === "backgrounds" || kind === "sprites" ? assetPath(project, kind, url.searchParams.get("file") ?? "") : null;
       if (!path) {

@@ -1,4 +1,4 @@
-/** The bits of GB Studio's project format GBPaint reads and writes. */
+/** The bits of GB Studio's project format GB Cartographer reads and writes. */
 import { MAX_BACKGROUND_PALETTES } from "./limits";
 
 /** Slot 7 is the UI palette in GB Studio; a scene has eight background palette slots in all. */

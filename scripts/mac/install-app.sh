@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Puts GBPaint in /Applications (Dock, Spotlight, Launchpad), the Mac twin of scripts/windows/install-shortcut.ps1:
+# Puts GB Cartographer in /Applications (Dock, Spotlight, Launchpad), the Mac twin of scripts/windows/install-shortcut.ps1:
 # a copy of the repo's Electron with its own name and icon whose app folder points back at this repo, so it
 # always runs the repo's current code (it rebuilds first when the sources are newer than the build). Run it
 # again after the repo moves or Electron is updated:   npm run install-mac-app
@@ -35,7 +35,7 @@ ROOT="$ROOT"
 HERE="\${0:A:h}"
 # Rebuild first when a source file is newer than the build (a login shell finds npm).
 if [[ ! -f "\$ROOT/dist/index.html" || -n "\$(find "\$ROOT/src" "\$ROOT/electron" "\$ROOT/scripts" "\$ROOT/public" "\$ROOT/index.html" "\$ROOT/paint.html" -type f -newer "\$ROOT/dist-electron/main.cjs" 2>/dev/null | head -1)" ]]; then
-  /bin/zsh -lc "cd '\$ROOT' && npm run desktop:build" >/tmp/gbpaint-build.log 2>&1 || true
+  /bin/zsh -lc "cd '\$ROOT' && npm run desktop:build" >/tmp/gb-cartographer-build.log 2>&1 || true
 fi
 exec "\$HERE/Electron" $arg
 LAUNCH
@@ -45,4 +45,4 @@ LAUNCH
   echo "Installed $app"
 }
 
-install_app "GBPaint" "io.github.keeganhasa.gbpaint" ""
+install_app "GB Cartographer" "io.github.keeganhasa.gbcartographer" ""

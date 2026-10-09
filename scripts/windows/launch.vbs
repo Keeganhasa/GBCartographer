@@ -1,4 +1,4 @@
-' GBPaint launcher for the Windows shortcuts (npm run install-shortcut): rebuilds and opens the desktop app
+' GB Cartographer launcher for the Windows shortcuts (npm run install-shortcut): rebuilds and opens the desktop app
 ' from this repo without a console window, so a git pull is picked up on the next launch.
 Set shell = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")

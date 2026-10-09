@@ -1,4 +1,4 @@
-# Adds "GBPaint" to the Start menu and the desktop (Windows). The shortcuts run scripts/windows/launch.vbs,
+# Adds "GB Cartographer" to the Start menu and the desktop (Windows). The shortcuts run scripts/windows/launch.vbs,
 # which rebuilds and opens the desktop app from this repo. Run again after moving the repo; remove with -Uninstall.
 #   npm run install-shortcut
 #   npm run install-shortcut -- -Uninstall
@@ -6,7 +6,7 @@ param([switch]$Uninstall)
 $ErrorActionPreference = "Stop"
 
 $root = (Resolve-Path "$PSScriptRoot\..\..").Path
-$name = "GBPaint"
+$name = "GB Cartographer"
 $dataDir = Join-Path $env:LOCALAPPDATA $name
 $links = @(
   (Join-Path ([Environment]::GetFolderPath("Programs")) "$name.lnk"),
@@ -47,7 +47,7 @@ foreach ($link in $links) {
   $shortcut.Arguments = "`"$(Join-Path $root 'scripts\windows\launch.vbs')`""
   $shortcut.WorkingDirectory = $root
   $shortcut.IconLocation = $icon
-  $shortcut.Description = "GBPaint: a pixel painter for GB Studio projects"
+  $shortcut.Description = "GB Cartographer: a pixel painter for GB Studio projects"
   $shortcut.Save()
   Write-Output "Created $link"
 }

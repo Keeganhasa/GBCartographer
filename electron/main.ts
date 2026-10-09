@@ -1,5 +1,5 @@
 /**
- * GBPaint desktop app: serves the built page from a local server that also answers the GB Studio project
+ * GB Cartographer desktop app: serves the built page from a local server that also answers the GB Studio project
  * endpoints (server/endpoints.ts), then opens it in a window. The project folder comes from a folder dialog and
  * is remembered in the app's settings file.
  *   npm run desktop        build and launch
@@ -9,14 +9,14 @@ import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from "electron";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import { extname, join, normalize, resolve } from "node:path";
-import { handleGbPaintRequest } from "../server/endpoints";
+import { handleCartographerRequest } from "../server/endpoints";
 import { isProjectFolder, loadProjectFolder, projectFolder, saveProjectFolder, setProjectFolder } from "../server/project";
 
 const ROOT = resolve(__dirname, "..");
 const ICON = join(ROOT, "build", "icon.png");
 const DIST = join(ROOT, "dist");
-const DEV_URL = process.argv.includes("--dev") ? "http://127.0.0.1:5174/" : null;
-const APP_NAME = "GBPaint";
+const DEV_URL = process.argv.includes("--dev") ? "http://127.0.0.1:5173/" : null;
+const APP_NAME = "GB Cartographer";
 const TYPES: Record<string, string> = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".png": "image/png", ".svg": "image/svg+xml", ".ico": "image/x-icon", ".ttf": "font/ttf", ".woff2": "font/woff2" };
 
 const settingsFile = () => join(app.getPath("userData"), "settings.json");
@@ -24,7 +24,7 @@ const serverOptions = () => ({ root: ROOT, backupDir: join(app.getPath("userData
 
 function startServer(): Promise<{ server: Server; url: string }> {
   const server = createServer((req, res) => {
-    void handleGbPaintRequest(req, res, serverOptions()).then((handled) => {
+    void handleCartographerRequest(req, res, serverOptions()).then((handled) => {
       if (handled) return;
       const path = decodeURIComponent(new URL(req.url ?? "/", "http://localhost").pathname);
       const file = normalize(join(DIST, path === "/" ? "index.html" : path));
@@ -38,8 +38,8 @@ function startServer(): Promise<{ server: Server; url: string }> {
     });
   });
   // A fixed port keeps the same origin between launches, so the browser storage behind the app (the open
-  // pictures, theme, settings) is still there next time. GBPAINT_PORT overrides it; if busy, a random port is used.
-  const port = Number(process.env.GBPAINT_PORT) || 62933;
+  // pictures, theme, settings) is still there next time. GBC_PORT overrides it; if busy, a random port is used.
+  const port = Number(process.env.GBC_PORT) || 62932;
   return new Promise((resolveServer) => {
     const done = () => {
       const address = server.address();
@@ -79,7 +79,7 @@ async function createWindow() {
     event.preventDefault();
     const finish = () => { if (!window.isDestroyed()) window.destroy(); };
     const giveUp = setTimeout(finish, 3000);
-    window.webContents.executeJavaScript("window.__gbpaintFlushSession ? window.__gbpaintFlushSession() : true", true)
+    window.webContents.executeJavaScript("window.__gbcFlushSession ? window.__gbcFlushSession() : true", true)
       .catch(() => null)
       .finally(() => { clearTimeout(giveUp); finish(); });
   });
@@ -87,7 +87,7 @@ async function createWindow() {
 }
 
 /** The page asks for a project folder; the choice is kept for next time. Returns the folder, or null when cancelled. */
-ipcMain.handle("gbpaint-choose-project", async (event) => {
+ipcMain.handle("gbc-choose-project", async (event) => {
   const window = BrowserWindow.fromWebContents(event.sender);
   const result = await dialog.showOpenDialog(window ?? undefined as never, {
     title: "Open a GB Studio project folder",
@@ -98,7 +98,7 @@ ipcMain.handle("gbpaint-choose-project", async (event) => {
   const folder = result.canceled ? null : result.filePaths[0];
   if (!folder) return null;
   if (!isProjectFolder(folder)) {
-    await dialog.showMessageBox({ type: "warning", message: "That folder is not a GB Studio project.", detail: "GBPaint needs the project folder with its assets/ and project/ folders inside (GB Studio 4)." });
+    await dialog.showMessageBox({ type: "warning", message: "That folder is not a GB Studio project.", detail: "GB Cartographer needs the project folder with its assets/ and project/ folders inside (GB Studio 4)." });
     return null;
   }
   setProjectFolder(folder);

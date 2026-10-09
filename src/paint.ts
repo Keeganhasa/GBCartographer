@@ -1,5 +1,5 @@
 /**
- * GBPaint's pixel logic: a picture is one byte per pixel, a GB shade 0–3 (lightest to darkest) or CLEAR for a
+ * GB Cartographer's pixel logic: a picture is one byte per pixel, a GB shade 0–3 (lightest to darkest) or CLEAR for a
  * see-through pixel. No palettes: the file is always written in the default GB greens, and a tint only changes
  * how the shades are shown while painting.
  */

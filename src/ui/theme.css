@@ -1,4 +1,4 @@
-/* GBPaint's theme: tokens, themes and the shared controls (the author's stylesheet, trimmed to what GBPaint uses). */
+/* GB Cartographer's theme: tokens, themes and the shared controls (the author's stylesheet, trimmed to what the painter uses). */
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');
 :root {
   /* JetBrains Mono everywhere; --ui and --mono are kept as names so rules can still tell text from data. */

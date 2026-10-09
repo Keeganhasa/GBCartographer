@@ -1,5 +1,5 @@
 /**
- * GBPaint's window into a GB Studio project: the PNGs under assets/ (backgrounds, sprites, tilesets), the
+ * GB Cartographer's window into a GB Studio project: the PNGs under assets/ (backgrounds, sprites, tilesets), the
  * project's palettes, and the one write the tool is allowed: overwriting an existing asset PNG with one of the
  * same size, after copying the old file to the backup folder. Project JSON (.gbsres, .gbsproj) is only ever read.
  */
@@ -13,7 +13,7 @@ export type AssetKind = typeof ASSET_KINDS[number];
 export interface AssetEntry { kind: AssetKind; file: string; name: string; width: number; height: number; mtime: number }
 export interface ProjectPalette { id: string; name: string; colors: string[] }
 /**
- * What GBPaint needs besides the pixels. `tileColors`: one attribute per 8 × 8 cell whose low three bits are the
+ * What GB Cartographer needs besides the pixels. `tileColors`: one attribute per 8 × 8 cell whose low three bits are the
  * palette slot (a background's sidecar `tileColors`; for a sprite sheet, each 8 × 16 slice's `paletteIndex` on
  * the two cells it covers, -1 on cells no slice uses). `slots`: the eight palette ids those slots mean (the
  * scene's background palettes, or the project's sprite palettes). `metaMtime`: the sidecar's time, or null.
@@ -92,7 +92,7 @@ export function projectName(project: string): string {
 
 /**
  * The full path of one asset PNG, or null when `file` is not a plain PNG file name inside that assets folder.
- * Only files that already exist count: GBPaint never adds assets to a project.
+ * Only files that already exist count: GB Cartographer never adds assets to a project.
  */
 export function assetPath(project: string, kind: string, file: string): string | null {
   if (!(ASSET_KINDS as readonly string[]).includes(kind)) return null;
@@ -172,7 +172,7 @@ function spriteSlots(project: string, spriteId: string | undefined): string[] {
   return resolveScenePaletteIds([], defaults);
 }
 
-/** What GBPaint needs besides the pixels: the file's time and size, and for backgrounds and sprites their palette slots. */
+/** What GB Cartographer needs besides the pixels: the file's time and size, and for backgrounds and sprites their palette slots. */
 export function assetInfo(project: string, kind: AssetKind, path: string): AssetInfo {
   const size = pngSizeOfFile(path) ?? { width: 0, height: 0 };
   const hasSidecar = kind !== "tilesets" && existsSync(`${path}.gbsres`);

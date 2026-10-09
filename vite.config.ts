@@ -1,18 +1,18 @@
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
-import { handleGbPaintRequest } from "./server/endpoints";
+import { handleCartographerRequest } from "./server/endpoints";
 import { loadProjectFolder } from "./server/project";
 
 /** The dev server serves the GB Studio project endpoints the desktop app serves (see server/endpoints.ts). */
-function gbpaintEndpoints(): Plugin {
+function cartographerEndpoints(): Plugin {
   return {
-    name: "gbpaint-endpoints",
+    name: "cartographer-endpoints",
     apply: "serve",
     configureServer(server) {
       const root = server.config.root;
       loadProjectFolder(root);
       server.middlewares.use((req, res, next) => {
-        void handleGbPaintRequest(req, res, { root, backupDir: `${root}/backups`, settingsFile: `${root}/gbpaint.local.json` }).then((handled) => { if (!handled) next(); });
+        void handleCartographerRequest(req, res, { root, backupDir: `${root}/backups`, settingsFile: `${root}/cartographer.local.json` }).then((handled) => { if (!handled) next(); });
       });
     },
   };
@@ -20,6 +20,6 @@ function gbpaintEndpoints(): Plugin {
 
 export default defineConfig({
   base: "./",
-  plugins: [react(), gbpaintEndpoints()],
+  plugins: [react(), cartographerEndpoints()],
   test: { environment: "node" },
 });

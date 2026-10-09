@@ -1,6 +1,6 @@
 /**
- * Which GB Studio project GBPaint is looking at. The desktop app sets it from a folder dialog and remembers it in
- * its settings file; the dev server reads GBPAINT_PROJECT or gbpaint.local.json ({ "project": "<folder>" }) next to
+ * Which GB Studio project GB Cartographer is looking at. The desktop app sets it from a folder dialog and remembers it in
+ * its settings file; the dev server reads GBC_PROJECT or cartographer.local.json ({ "project": "<folder>" }) next to
  * the repo. A folder counts as a project when it has an assets/ folder (GB Studio 4 layout).
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -12,7 +12,7 @@ export function projectFolder(): string | null {
   return current;
 }
 
-/** True when the folder looks like a GB Studio project GBPaint can read. */
+/** True when the folder looks like a GB Studio project GB Cartographer can read. */
 export function isProjectFolder(path: string): boolean {
   return existsSync(resolve(path, "assets")) && existsSync(resolve(path, "project"));
 }
@@ -31,8 +31,8 @@ function readSetting(file: string): string | null {
 }
 
 /** Picks the project from the environment, then the settings file; a folder that is no longer a project is ignored. */
-export function loadProjectFolder(root: string, settingsFile = resolve(root, "gbpaint.local.json")): string | null {
-  const candidates = [process.env.GBPAINT_PROJECT, readSetting(settingsFile)];
+export function loadProjectFolder(root: string, settingsFile = resolve(root, "cartographer.local.json")): string | null {
+  const candidates = [process.env.GBC_PROJECT, readSetting(settingsFile)];
   for (const candidate of candidates) {
     if (candidate && isProjectFolder(resolve(root, candidate))) {
       setProjectFolder(resolve(root, candidate));

@@ -3,8 +3,8 @@
 What exists, decisions made, and known issues. Newest at the bottom.
 
 ### Origins (2026-10-03 → 2026-10-09)
-GBPaint began as a companion tool inside the author's private map-editor repo and was moved into this repo with a
-fresh history on 2026-10-09, keeping only what it needs: the painter (`src/`), the theme and logo (`src/ui/`, with
+The painter began in 2026-10-03 as "GBPaint", a companion tool inside the author's earlier, private map-editor project (also
+called GB Cartographer, now archived) and moved into this repo with a fresh history on 2026-10-09, taking the name with it, keeping only what it needs: the painter (`src/`), the theme and logo (`src/ui/`, with
 only the rules the painter uses extracted from the old stylesheet), the GB Studio format helpers (`src/gb/`), the
 server layer (`server/`) and the Electron shell (`electron/`). Nothing from any game project came along.
 

@@ -3,8 +3,8 @@ node_modules/
 dist/
 dist-electron/
 
-# Per-machine: which GB Studio project the dev server opens, and the backups GBPaint keeps before writing
-gbpaint.local.json
+# Per-machine: which GB Studio project the dev server opens, and the backups GB Cartographer keeps before writing
+cartographer.local.json
 backups/
 
 # OS / editor clutter

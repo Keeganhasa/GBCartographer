@@ -1,5 +1,5 @@
 /**
- * GBPaint: a small painter for GB Studio pictures (backgrounds, sprite sheets, tilesets) and any Game Boy PNG.
+ * GB Cartographer: a small painter for GB Studio pictures (backgrounds, sprite sheets, tilesets) and any Game Boy PNG.
  * Each open file is one flat picture in the four GB shades; tiles (8 × 8) may wear a palette from the project.
  * A tint only changes how the plain tiles look while painting. Saving writes one flat PNG, and for a project
  * picture also its tile palettes (see server/endpoints.ts).
@@ -39,17 +39,17 @@ const BUILT_IN_TINTS: Palette[] = [
   { name: "Gray", colors: ["#FFFFFF", "#AAAAAA", "#555555", "#000000"] },
   { name: "Pocket", colors: ["#C4CFA1", "#8B956D", "#4D533C", "#1F1F1F"] },
 ];
-const TINT_KEY = "gbpaint.tint";
-const GRID_KEY = "gbpaint.grid";
-const BUDGET_KEY = "gbpaint.tile-budget";
+const TINT_KEY = "gb-cartographer.tint";
+const GRID_KEY = "gb-cartographer.grid";
+const BUDGET_KEY = "gb-cartographer.tile-budget";
 /** GB Studio's background tile budgets (gb/limits.ts): Color Only scenes also merge flipped tiles. */
 const BUDGETS = [{ id: "colorOnly", label: "Color Only · 384", limit: 384, flips: true }, { id: "monochrome", label: "GB / Color + Mono · 192", limit: 192, flips: false }] as const;
-const CUSTOM_TINT_KEY = "gbpaint.custom-tint";
-const PROJECT_PANEL_KEY = "gbpaint.project-panel";
-const PROJECT_KIND_KEY = "gbpaint.project-kind";
+const CUSTOM_TINT_KEY = "gb-cartographer.custom-tint";
+const PROJECT_PANEL_KEY = "gb-cartographer.project-panel";
+const PROJECT_KIND_KEY = "gb-cartographer.project-kind";
 /** The dev server and the desktop app serve the open GB Studio project (server/endpoints.ts). */
-const PROJECT_URL = "./__gbpaint/gbstudio-assets";
-const ASSET_URL = "./__gbpaint/gbstudio-asset";
+const PROJECT_URL = "./__cartographer/gbstudio-assets";
+const ASSET_URL = "./__cartographer/gbstudio-asset";
 const ASSET_KINDS = [["backgrounds", "Backgrounds"], ["sprites", "Sprites"], ["tilesets", "Tilesets"]] as const;
 type AssetKind = typeof ASSET_KINDS[number][0];
 const UNDO_LIMIT = 60;
@@ -60,9 +60,9 @@ interface FileHandle { name: string; getFile(): Promise<File>; createWritable():
 type PickerWindow = Window & {
   showOpenFilePicker?: (options: object) => Promise<FileHandle[]>;
   showSaveFilePicker?: (options: object) => Promise<FileHandle>;
-  __gbpaintFlushSession?: () => Promise<boolean>;
+  __gbcFlushSession?: () => Promise<boolean>;
   /** The desktop app's bridge (electron/preload.ts): a native folder dialog. */
-  gbpaint?: { platform: string; chooseProject(): Promise<string | null> };
+  gbc?: { platform: string; chooseProject(): Promise<string | null> };
 };
 const PNG_TYPES = [{ description: "PNG image", accept: { "image/png": [".png"] } }];
 
@@ -128,7 +128,7 @@ function store(key: string, value: unknown) {
 function sessionStore<T>(mode: IDBTransactionMode, run: (objects: IDBObjectStore) => IDBRequest<T>): Promise<T | null> {
   return new Promise((resolve) => {
     try {
-      const open = indexedDB.open("gbpaint", 1);
+      const open = indexedDB.open("gb-cartographer", 1);
       open.onupgradeneeded = () => open.result.createObjectStore("session");
       open.onerror = () => resolve(null);
       open.onsuccess = () => {
@@ -375,7 +375,7 @@ export default function PaintApp() {
   /** Reads the open GB Studio project (its pictures and palettes), or notes that none is open. */
   async function loadProject(): Promise<void> {
     const asJson = <T,>(response: Response) => response.ok && response.headers.get("content-type")?.includes("json") ? response.json() as Promise<T> : null;
-    const ping = await fetch("./__gbpaint/ping", { cache: "no-cache" }).then((response) => asJson<{ ok?: boolean; project?: { path: string } | null }>(response)).catch(() => null);
+    const ping = await fetch("./__cartographer/ping", { cache: "no-cache" }).then((response) => asJson<{ ok?: boolean; project?: { path: string } | null }>(response)).catch(() => null);
     setServed(Boolean(ping?.ok));
     const opened = ping?.ok && ping.project ? await fetch(PROJECT_URL, { cache: "no-cache" }).then((response) => asJson<{ ok?: boolean } & Project>(response)).catch(() => null) : null;
     if (opened?.ok) {
@@ -390,14 +390,14 @@ export default function PaintApp() {
 
   /** Asks for a GB Studio project folder: the desktop app's folder dialog, or a typed path on the dev server. */
   async function chooseProject() {
-    const native = (window as PickerWindow).gbpaint;
+    const native = (window as PickerWindow).gbc;
     try {
       if (native) {
         if (!await native.chooseProject()) return;
       } else {
         const path = window.prompt("Path of the GB Studio project folder (the one with the .gbsproj file):", project?.path ?? "");
         if (!path) return;
-        const response = await fetch("./__gbpaint/project", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path }) });
+        const response = await fetch("./__cartographer/project", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path }) });
         const result = await response.json() as { ok?: boolean; error?: string };
         if (!response.ok || !result.ok) return say(result.error ?? response.statusText);
       }
@@ -462,7 +462,7 @@ export default function PaintApp() {
       if (slot === undefined) outside += 1;
       return slot === undefined || slot === asset.opened?.[cell] ? null : slot;
     });
-    const post = (force: boolean) => fetch(`./__gbpaint/gbstudio-tile-colors?${new URLSearchParams({ kind: asset.kind, file: asset.file })}${asset.metaMtime != null ? `&metaMtime=${asset.metaMtime}` : ""}${force ? "&force=1" : ""}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slots }) });
+    const post = (force: boolean) => fetch(`./__cartographer/gbstudio-tile-colors?${new URLSearchParams({ kind: asset.kind, file: asset.file })}${asset.metaMtime != null ? `&metaMtime=${asset.metaMtime}` : ""}${force ? "&force=1" : ""}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slots }) });
     let response = await post(false);
     if (response.status === 409) {
       if (!window.confirm(`The palettes of ${asset.name} changed in GB Studio since you opened it. Replace them with this picture's?`)) return ["Tile palettes not written"];
@@ -765,7 +765,7 @@ export default function PaintApp() {
     window.addEventListener("paste", onPaste);
     window.addEventListener("pagehide", onHide);
     // The desktop app waits for this before its window closes.
-    (window as PickerWindow).__gbpaintFlushSession = () => latest.current.writeSession();
+    (window as PickerWindow).__gbcFlushSession = () => latest.current.writeSession();
     return () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
@@ -782,7 +782,7 @@ export default function PaintApp() {
     return () => { detachWheel(); detachPan(); };
   }, []);
 
-  useEffect(() => { document.title = doc ? `${doc.dirty ? "• " : ""}${doc.name} · GBPaint` : "GBPaint"; });
+  useEffect(() => { document.title = doc ? `${doc.dirty ? "• " : ""}${doc.name} · GB Cartographer` : "GB Cartographer"; });
   useEffect(() => { store(TINT_KEY, tint); store(CUSTOM_TINT_KEY, customTint); store(GRID_KEY, grid); store(BUDGET_KEY, budgetId); store(PROJECT_PANEL_KEY, showProject); store(PROJECT_KIND_KEY, projectKind); }, [tint, customTint, grid, budgetId, showProject, projectKind]);
 
   const budget = BUDGETS.find((item) => item.id === budgetId) ?? BUDGETS[0];
@@ -842,7 +842,7 @@ export default function PaintApp() {
   return (
     <div className="gbp-shell" onDragOver={(event) => event.preventDefault()} onDrop={(event) => void onDrop(event)}>
       <header className="gbp-bar">
-        <span className="gbp-brand"><LogoMark size={22} /><b>GBPaint</b></span>
+        <span className="gbp-brand"><LogoMark size={22} /><b>GB Cartographer</b></span>
         <button className="quiet-button" title="Open PNG files · Ctrl+O (or drop them on the window)" onClick={() => void pickFiles()}><FolderOpen size={14} />Open</button>
         {project && <button className={`quiet-button ${showProject ? "active-tool" : ""}`} aria-pressed={showProject} title={`Show or hide the GB Studio project's pictures (${project.path})`} onClick={() => setShowProject(!showProject)}><FolderTree size={14} />Project</button>}
         {served && !project && <button className="quiet-button" title="Open a GB Studio project folder: its backgrounds, sprites and tilesets open here and save back into it" onClick={() => void chooseProject()}><FolderTree size={14} />Open project…</button>}

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, clipRect, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, hexRgb, lift, linePoints, mirrorPoints, quantize, snapRect, toRgba } from "./paint";
 
-describe("GBPaint pixels", () => {
+describe("GB Cartographer pixels", () => {
   it("reads the GB greens exactly and writes them back unchanged", () => {
     const shades = new Uint8Array([0, 1, 2, 3, CLEAR, 3]);
     const rgba = toRgba(shades, new Uint8Array(1), 3);

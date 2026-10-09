@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { deflateSync } from "node:zlib";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { encodePng } from "../src/gb/png";
-import { handleGbPaintRequest } from "./endpoints";
+import { handleCartographerRequest } from "./endpoints";
 import { setProjectFolder } from "./project";
 
 // A throwaway folder with a tiny fake GB Studio 4 project.
@@ -15,7 +15,7 @@ let server: Server;
 let base = "";
 
 beforeAll(async () => {
-  root = mkdtempSync(join(tmpdir(), "gbpaint-"));
+  root = mkdtempSync(join(tmpdir(), "gbc-"));
   project = join(root, "gbstudio");
   for (const folder of ["project/scenes/town/actors", "project/palettes", "assets/backgrounds", "assets/sprites", "assets/tilesets"]) mkdirSync(join(project, folder), { recursive: true });
   writeFileSync(join(project, "my-game.gbsproj"), JSON.stringify({ _resourceType: "project", name: "My Game" }));
@@ -36,9 +36,9 @@ beforeAll(async () => {
   writeFileSync(join(project, "assets/tilesets/props.png"), encodePng(new Uint8ClampedArray(8 * 8 * 4).fill(255), 8, 8, deflateSync));
   writeFileSync(join(project, "assets/tilesets/notes.txt"), "not a picture");
   setProjectFolder(null);
-  server = createServer((req, res) => { void handleGbPaintRequest(req, res, { root, backupDir: join(root, "backups"), settingsFile: join(root, "settings.json") }); });
+  server = createServer((req, res) => { void handleCartographerRequest(req, res, { root, backupDir: join(root, "backups"), settingsFile: join(root, "settings.json") }); });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  base = `http://127.0.0.1:${(server.address() as { port: number }).port}/__gbpaint`;
+  base = `http://127.0.0.1:${(server.address() as { port: number }).port}/__cartographer`;
 });
 
 afterAll(() => {

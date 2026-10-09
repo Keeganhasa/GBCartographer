@@ -1,4 +1,4 @@
-/* GBPaint's own layout; colors, fonts and the shared controls come from ui/theme.css. */
+/* GB Cartographer's own layout; colors, fonts and the shared controls come from ui/theme.css. */
 .gbp-shell { height: 100vh; display: flex; flex-direction: column; overflow: hidden; color: var(--ink); background: var(--paper); font: var(--fs-sm) var(--ui); }
 .gbp-bar { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
 .gbp-bar .quiet-button { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 10px; color: var(--ink); }

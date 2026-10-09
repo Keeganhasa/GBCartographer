@@ -37,8 +37,8 @@ export const FONTS: { id: FontChoice; label: string; title: string }[] = [
   { id: "dyslexic", label: "OpenDyslexic", title: "OpenDyslexic, fetched the first time it is turned on" },
 ];
 
-const THEME_KEY = "gbpaint.theme";
-const FONT_KEY = "gbpaint.font";
+const THEME_KEY = "gb-cartographer.theme";
+const FONT_KEY = "gb-cartographer.font";
 const DYSLEXIC_CSS = "https://cdn.jsdelivr.net/npm/@fontsource/opendyslexic@5.3.0/index.css";
 
 function read(key: string): string | null {

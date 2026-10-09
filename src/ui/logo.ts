@@ -1,5 +1,5 @@
 /**
- * The GBPaint logo (the author's pixel art): a folded map in the four GB greens. One string per
+ * The GB Cartographer logo (the author's pixel art): a folded map in the four GB greens. One string per
  * row, "." transparent, 0–3 lightest to darkest. `npm run build-app-icon` writes the favicon and the app icon from it.
  */
 export const APP_LOGO: readonly string[] = [

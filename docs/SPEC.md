@@ -1,16 +1,16 @@
-# GBPaint specification
+# GB Cartographer specification
 
 A precise description of the app, kept in step with the code. Section numbers follow the old numbering only loosely.
 
 ## 1 Purpose
 
-GBPaint is a small app: a painter for **Game Boy PNGs** (exported backgrounds, or any picture in the four greens) and for the **pictures inside a GB Studio project** (its backgrounds, sprite sheets and tilesets). It is for touch-ups. It knows nothing about tilesets, stamps or layers: each open file is one flat picture. Of a GB Studio project it knows only where the pictures and palettes live (the GB Studio project section below).
+GB Cartographer is a small app: a painter for **Game Boy PNGs** (exported backgrounds, or any picture in the four greens) and for the **pictures inside a GB Studio project** (its backgrounds, sprite sheets and tilesets). It is for touch-ups. It knows nothing about tilesets, stamps or layers: each open file is one flat picture. Of a GB Studio project it knows only where the pictures and palettes live (the GB Studio project section below).
 
 ## 2 Starting it
 
-- Desktop: `npm run desktop` builds the page and opens it in an Electron window titled "GBPaint", served from a local server on the fixed port **62933** (so browser storage persists between launches; a random port when it is busy).
+- Desktop: `npm run desktop` builds the page and opens it in an Electron window titled "GB Cartographer", served from a local server on the fixed port **62932** (so browser storage persists between launches; a random port when it is busy).
 - Browser: the page on the development server (`npm run dev`).
-- Theme and font are chosen in its header (Slate, OLED orange / mauve / green, Shuffle, DMG, Pocket, Berry; JetBrains Mono, Public Pixel, OpenDyslexic) and remembered per browser. Its browser tab title is "GBPaint", or "• name · GBPaint" with a bullet while the picture has unsaved changes.
+- Theme and font are chosen in its header (Slate, OLED orange / mauve / green, Shuffle, DMG, Pocket, Berry; JetBrains Mono, Public Pixel, OpenDyslexic) and remembered per browser. Its browser tab title is "GB Cartographer", or "• name · GB Cartographer" with a bullet while the picture has unsaved changes.
 - It has no system-menu integration of its own.
 
 ## 3 The picture model
@@ -46,7 +46,7 @@ Guarantees fixed by the tests:
 Top to bottom, full window:
 
 1. **Header bar** (wraps when narrow; 6 px gaps, 6 × 10 px padding, hairline below):
-   - the logo at 22 px and "GBPaint" in bold 14 px;
+   - the logo at 22 px and "GB Cartographer" in bold 14 px;
    - quiet buttons **Open**, **Save**, **Export copy** (30 px tall, icon + word);
    - icon buttons Undo and Redo (30 × 30);
    - a flexible gap;
@@ -95,7 +95,7 @@ Other keys:
 | Delete / Backspace | Clear the selection to the blank shade (or discard a floating piece) |
 | Escape | Drop the floating piece where it is and deselect |
 | Ctrl+A | Select the whole picture (switches to Select) |
-| Ctrl+C / Ctrl+X / Ctrl+V | Copy / cut / paste. Paste lands as a floating piece at the top-left of the visible area, aligned to a tile, and switches to Select. If nothing was copied inside GBPaint, pasting an image from the system clipboard opens it as a new picture. |
+| Ctrl+C / Ctrl+X / Ctrl+V | Copy / cut / paste. Paste lands as a floating piece at the top-left of the visible area, aligned to a tile, and switches to Select. If nothing was copied inside GB Cartographer, pasting an image from the system clipboard opens it as a new picture. |
 | Ctrl+Z · Ctrl+Shift+Z or Ctrl+Y | Undo · redo |
 | Ctrl+O | Open files |
 | Ctrl+S | Save |
@@ -138,7 +138,7 @@ Zoom steps: 50, 100, 200, 300, 400, 600, 800, 1200, 1600, 2400, 3200, 4800 %. A 
 
 ## 9 GB Studio project
 
-The development server and the desktop app both answer the `/__gbpaint/*` endpoints. The project folder is chosen in the app: the desktop app shows a native folder dialog and remembers the choice in its settings file; the dev server asks for a typed path, or reads `GBPAINT_PROJECT` / `gbpaint.local.json`. A folder is a project when it has `assets/` and `project/` folders (GB Studio 4). Without a project the header shows **Open project…** and GBPaint is the file painter described above; on a plain static host (no endpoints) that button does not appear.
+The development server and the desktop app both answer the `/__cartographer/*` endpoints. The project folder is chosen in the app: the desktop app shows a native folder dialog and remembers the choice in its settings file; the dev server asks for a typed path, or reads `GBC_PROJECT` / `cartographer.local.json`. A folder is a project when it has `assets/` and `project/` folders (GB Studio 4). Without a project the header shows **Open project…** and GB Cartographer is the file painter described above; on a plain static host (no endpoints) that button does not appear.
 
 - **Endpoints** (read-only except the writes named):
   - *list*: the project's display name (from its `.gbsproj`, else the folder name), its path, every PNG under `assets/backgrounds`, `assets/sprites` and `assets/tilesets` (kind, file name, the sidecar's name, the PNG's size, modification time), and the palettes of `project/palettes` (id, name, four `#RRGGBB` colours, sorted by name).
@@ -146,7 +146,7 @@ The development server and the desktop app both answer the `/__gbpaint/*` endpoi
   - *write*: overwrite that PNG with the posted bytes. Refused (400) when the bytes are not a PNG or its size differs from the file on disk; refused (409, with the current time) when the file's modification time differs from the one the client opened, unless forced. Before writing, the old file is copied to the backups folder (`backups/gbstudio/<kind>/<file>` under the app's data folder, or the repo's `backups/` on the dev server) (one previous version); the write goes through a temporary file and rename. The sidecar `.gbsres` and every other project file are never written.
   - *tile colours*: POST, for a background, an array with one entry per cell: a slot 0–7, or null to leave that cell alone. The server reads the sidecar's current `tileColors` (missing cells count as 0, the array sized from the PNG), replaces only the low three bits of the named cells (priority and flip bits stay), encodes it as GB Studio does (`07!` for one cell, `0714+` for a run of 0x14 cells), and rewrites the sidecar as two-space JSON without a trailing newline with every other field untouched. Nothing is written when the result equals what is there. 400 when the background has no sidecar or an entry is out of range; 409 (with the sidecar's time) when the sidecar's modification time differs from the one the client opened with, unless forced; the old sidecar is copied to the backup folder first.
   - *tile colours* for a sprite sheet (same call, kind `sprites`): every slice whose top cell (or, failing that, bottom cell) has a slot gets that `paletteIndex` on every frame tile that uses the slice; the older `palette` field and everything else stay. Same 400 / 409 / backup / unchanged rules.
-  - A file name must be a plain `*.png` name inside one of the three folders and must already exist: GBPaint never adds assets.
+  - A file name must be a plain `*.png` name inside one of the three folders and must already exist: GB Cartographer never adds assets.
 - **Project panel** (left of the tools, 232 px, toggled by a **Project** button in the header that appears only when a project is served): the project's name, three tabs with counts (Backgrounds · Sprites · Tilesets), a name filter, and the list of pictures, each with a lazily loaded 36 × 28 px thumbnail (checkerboard behind, pixelated), its name and its size. The open picture's row is outlined; other open ones are shaded; an unsaved one shows a bullet.
 - **Opening** a row fetches the PNG and its info and opens it as a tab named after the asset (or shows the already open tab). Sprites read key green as see-through. Backgrounds with tile colours have their cells dressed (above). The status bar shows `assets/<kind>/<file>`.
 - **Saving** a background also writes its tile palettes: every tile wearing one of the scene's eight palettes (matched by palette id) becomes that slot; tiles wearing "None" or a palette outside the scene keep the slot they have, and the count of the latter is reported. The sidebar note says so for backgrounds, and the scene's eight palettes are listed first with their slot number (1–8) as a small tag. The result is appended to the save message ("6 tile palettes written to GB Studio"); a 409 asks "The tile palettes of … changed in GB Studio since you opened it. Replace them with this picture's?". GB Studio shows the change when it next reads the project.
