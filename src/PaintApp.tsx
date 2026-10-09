@@ -26,7 +26,7 @@ const TOOLS = [
   ["fill", "Flood fill", PaintBucket, "G", "Click an area to fill it with the active shade."],
   ["fillErase", "Flood erase", DropletOff, "Shift+G", "Click an area to erase it."],
   ["eyedropper", "Pick", Pipette, "I", "Click a pixel to paint with its shade; with the palette brush, click a tile to paint with its palette."],
-  ["palette", "Palette brush", PaletteIcon, "P", "Pick a palette on the right, then drag over tiles to give it to them. Right-click picks a tile's palette."],
+  ["palette", "Palette brush", PaletteIcon, "P", "Pick a palette on the right, then drag over tiles to give it to them. Shift-click draws a straight line of tiles; [ ] set the brush to 1, 2 × 2 or 3 × 3 tiles; right-click picks a tile's palette."],
   ["select", "Select", BoxSelect, "M", "Drag a box; drag inside it to move (Alt copies). Arrows nudge, Delete clears, Esc drops it."],
   ["move", "Move", Move, "V", "Drag the selection, or the whole picture when nothing is selected (Alt copies)."],
   ["hand", "Pan", Hand, "H", "Drag to pan. Space or the middle button pans with any tool."],
@@ -165,6 +165,8 @@ export default function PaintApp() {
   const [tool, setToolState] = useState<ToolId>("pencil");
   const [shade, setShade] = useState(3);
   const [brush, setBrush] = useState(1);
+  /** The palette brush's size in tiles (1, 2 × 2 or 3 × 3). */
+  const [cellBrush, setCellBrush] = useState(1);
   const [mirror, setMirror] = useState<Mirror>("off");
   const [grid, setGrid] = useState<0 | 8 | 16>(() => readStored(GRID_KEY, 8));
   const [budgetId, setBudgetId] = useState<string>(() => readStored(BUDGET_KEY, "colorOnly"));
@@ -484,6 +486,7 @@ export default function PaintApp() {
       response = await post(true);
     }
     const result = await response.json() as { ok?: boolean; error?: string; mtime?: number };
+    if (response.status === 404) throw new Error(`${asset.file} is no longer in the project folder (it was moved or deleted). Put it back, or Export copy to save elsewhere.`);
     if (!response.ok || !result.ok) throw new Error(result.error ?? response.statusText);
     asset.mtime = result.mtime ?? asset.mtime;
     target.dirty = false;
@@ -603,12 +606,22 @@ export default function PaintApp() {
     for (const [mx, my] of mirrorPoints(x, y, target.width, target.height, mirror)) dot(target.pixels, target.width, target.height, mx, my, brush, value);
   }
 
-  /** The palette brush covers one 8 × 8 tile, or on a sprite sheet the 8 × 16 pair GB Studio's sprite tiles are made of. */
+  /**
+   * The palette brush covers `cellBrush` × `cellBrush` tiles around the pointer (8 × 8 each, or on a sprite sheet
+   * the 8 × 16 pairs GB Studio's sprite tiles are made of).
+   */
   function setCell(target: Doc, point: Point) {
     if (!inside(target, point)) return;
-    const cw = cellsWide(target.width), cx = point.x >> 3, cy = target.keyGreen ? point.y >> 4 << 1 : point.y >> 3;
-    target.cells[cy * cw + cx] = activePalette;
-    if (target.keyGreen && (cy + 1) * CELL < target.height) target.cells[(cy + 1) * cw + cx] = activePalette;
+    const cw = cellsWide(target.width), ch = Math.ceil(target.height / CELL);
+    const tall = target.keyGreen ? 2 : 1;
+    const offset = Math.floor((cellBrush - 1) / 2);
+    const cx0 = (point.x >> 3) - offset, cy0 = (target.keyGreen ? point.y >> 4 << 1 : point.y >> 3) - offset * tall;
+    for (let by = 0; by < cellBrush * tall; by += 1) {
+      for (let bx = 0; bx < cellBrush; bx += 1) {
+        const cx = cx0 + bx, cy = cy0 + by;
+        if (cx >= 0 && cy >= 0 && cx < cw && cy < ch) target.cells[cy * cw + cx] = activePalette;
+      }
+    }
   }
 
   function drawShape(target: Doc, a: Point, b: Point, value: number) {
@@ -658,8 +671,9 @@ export default function PaintApp() {
       }
     } else if (tool === "palette") {
       pushUndo(doc);
-      setCell(doc, point);
+      for (const [x, y] of event.shiftKey && lastPoint.current ? linePoints(lastPoint.current.x, lastPoint.current.y, point.x, point.y) : [[point.x, point.y]]) setCell(doc, { x, y });
       drag.current = { kind: "cells", last: point };
+      lastPoint.current = point;
     } else if (tool === "fill" || tool === "fillErase") {
       pushUndo(doc);
       if (!floodFill(doc.pixels, doc.width, doc.height, point.x, point.y, value)) doc.undo.pop();
@@ -687,10 +701,11 @@ export default function PaintApp() {
     const outline = brushRef.current;
     if (outline) {
       const cells = tool === "palette", tall = cells && doc.keyGreen;
-      const size = cells ? CELL : brush, offset = cells ? 0 : Math.floor((brush - 1) / 2);
-      const [x, y] = cells ? [point.x & ~7, tall ? point.y & ~15 : point.y & ~7] : [point.x - offset, point.y - offset];
+      const cellH = tall ? 2 * CELL : CELL, cellOffset = Math.floor((cellBrush - 1) / 2);
+      const size = cells ? CELL * cellBrush : brush, offset = cells ? 0 : Math.floor((brush - 1) / 2);
+      const [x, y] = cells ? [(point.x & ~7) - cellOffset * CELL, (tall ? point.y & ~15 : point.y & ~7) - cellOffset * cellH] : [point.x - offset, point.y - offset];
       const visible = inside(doc, point) && tool !== "hand" && tool !== "select" && tool !== "move";
-      Object.assign(outline.style, { display: visible ? "block" : "none", left: `${x * doc.zoom}px`, top: `${y * doc.zoom}px`, width: `${size * doc.zoom}px`, height: `${(tall ? 2 * CELL : size) * doc.zoom}px` });
+      Object.assign(outline.style, { display: visible ? "block" : "none", left: `${x * doc.zoom}px`, top: `${y * doc.zoom}px`, width: `${size * doc.zoom}px`, height: `${(cells ? cellH * cellBrush : size) * doc.zoom}px` });
     }
     const state = drag.current;
     if (!state) return;
@@ -708,7 +723,7 @@ export default function PaintApp() {
       for (const [x, y] of mirrorPoints(point.x, point.y, doc.width, doc.height, mirror)) spray(doc.pixels, doc.width, doc.height, x, y, brush, value);
     } else if (state.kind === "cells") {
       for (const [x, y] of linePoints(state.last.x, state.last.y, point.x, point.y)) setCell(doc, { x, y });
-      state.last = point;
+      state.last = lastPoint.current = point;
     } else if (state.kind === "shape") {
       doc.pixels.set(state.base);
       drawShape(doc, state.start, point, value);
@@ -771,8 +786,8 @@ export default function PaintApp() {
     if (event.shiftKey && key === "m") return setMirror(MIRRORS[(MIRRORS.indexOf(mirror) + 1) % MIRRORS.length]);
     if (key >= "1" && key <= "4") return setShade(Number(key) - 1);
     if (key === "0" && doc?.hasAlpha) return setShade(CLEAR);
-    if (key === "[") return setBrush(Math.max(1, brush - 1));
-    if (key === "]") return setBrush(Math.min(16, brush + 1));
+    if (key === "[") return tool === "palette" ? setCellBrush(Math.max(1, cellBrush - 1)) : setBrush(Math.max(1, brush - 1));
+    if (key === "]") return tool === "palette" ? setCellBrush(Math.min(3, cellBrush + 1)) : setBrush(Math.min(16, brush + 1));
     if (!doc) return;
     if (key === "Escape") {
       dropFloat(doc);
@@ -977,11 +992,19 @@ export default function PaintApp() {
         <aside className="gbp-tools pixel-toolbar vertical" role="toolbar" aria-label="Paint tools">
           {TOOLS.map(([id, label, Icon, keys]) => <button key={id} className={`tool-button ${tool === id ? "active" : ""}`} aria-label={label} aria-pressed={tool === id} title={`${label} · ${keys}`} onClick={() => setTool(id)}><Icon size={17} /></button>)}
           <button className={`tool-button ${mirror !== "off" ? "active" : ""}`} aria-label={MIRROR_LABEL[mirror]} title={`${MIRROR_LABEL[mirror]}: paint both halves at once · Shift+M`} onClick={() => setMirror(MIRRORS[(MIRRORS.indexOf(mirror) + 1) % MIRRORS.length])}><FlipHorizontal2 size={17} /></button>
-          <span className="gbp-brush" role="group" aria-label="Brush size" title="Brush size · [ smaller, ] bigger">
-            <button className="tool-button" aria-label="Smaller brush" disabled={brush <= 1} onClick={() => setBrush(brush - 1)}><Minus size={12} /></button>
-            <b>{brush}</b>
-            <button className="tool-button" aria-label="Bigger brush" disabled={brush >= 16} onClick={() => setBrush(brush + 1)}><Plus size={12} /></button>
-          </span>
+          {tool === "palette" ? (
+            <span className="gbp-brush" role="group" aria-label="Palette brush size" title="Palette brush: 1, 2 × 2 or 3 × 3 tiles · [ smaller, ] bigger">
+              <button className="tool-button" aria-label="Smaller palette brush" disabled={cellBrush <= 1} onClick={() => setCellBrush(cellBrush - 1)}><Minus size={12} /></button>
+              <b>{cellBrush}×{cellBrush}</b>
+              <button className="tool-button" aria-label="Bigger palette brush" disabled={cellBrush >= 3} onClick={() => setCellBrush(cellBrush + 1)}><Plus size={12} /></button>
+            </span>
+          ) : (
+            <span className="gbp-brush" role="group" aria-label="Brush size" title="Brush size · [ smaller, ] bigger">
+              <button className="tool-button" aria-label="Smaller brush" disabled={brush <= 1} onClick={() => setBrush(brush - 1)}><Minus size={12} /></button>
+              <b>{brush}</b>
+              <button className="tool-button" aria-label="Bigger brush" disabled={brush >= 16} onClick={() => setBrush(brush + 1)}><Plus size={12} /></button>
+            </span>
+          )}
         </aside>
         <div className="gbp-scroller" ref={scrollerRef}>
           {doc ? (

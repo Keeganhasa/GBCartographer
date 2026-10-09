@@ -22,6 +22,8 @@ into PROGRESS.md when they deserve a note.
 - [x] Less text: the palette-brush explainer sits behind a ? next to the Palettes heading.
 - [x] Project panel: name, then Demo / Change…, then the four kinds as a 2 × 2 grid with counts.
 - [ ] Decide on rooms (Paint · Palettes · Project) versus the single page with a modal and a side panel.
+- [x] Palette brush: [ ] set it to 1, 2 × 2 or 3 × 3 tiles; Shift-click draws a straight line of tiles; I picks a tile's palette.
+- [ ] Bake the author's Cabin Interior tile colors into the demo once saved (the generator has the hook).
 - [ ] Hint line under the tabs: shorten each tool's hint to one clause; the rest behind the same ? pattern.
 
 ## Before anyone else runs it
