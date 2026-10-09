@@ -1,0 +1,16 @@
+# Dependencies and build output (rebuilt with npm install / npm run build)
+node_modules/
+dist/
+dist-electron/
+
+# Per-machine: which GB Studio project the dev server opens, and the backups GBPaint keeps before writing
+gbpaint.local.json
+backups/
+
+# OS / editor clutter
+.DS_Store
+Thumbs.db
+*.log
+
+# Never commit a GB Studio project
+*.gbsproj

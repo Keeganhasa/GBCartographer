@@ -1,0 +1,36 @@
+{
+  "name": "gbpaint",
+  "version": "0.1.0",
+  "description": "A small pixel painter for GB Studio projects: backgrounds, sprite sheets and tilesets in the four Game Boy shades, with per-tile palettes written back to the project.",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist-electron/main.cjs",
+  "scripts": {
+    "dev": "vite --open",
+    "build": "tsc -b && vite build",
+    "test": "vitest run",
+    "desktop:build": "vite build && esbuild electron/main.ts --bundle --platform=node --format=cjs --outfile=dist-electron/main.cjs --external:electron && esbuild electron/preload.ts --bundle --platform=node --format=cjs --outfile=dist-electron/preload.cjs --external:electron",
+    "desktop": "npm run desktop:build && electron .",
+    "desktop:dev": "esbuild electron/main.ts --bundle --platform=node --format=cjs --outfile=dist-electron/main.cjs --external:electron && esbuild electron/preload.ts --bundle --platform=node --format=cjs --outfile=dist-electron/preload.cjs --external:electron && electron . --dev",
+    "build-app-icon": "vite-node scripts/build-app-icon.ts --",
+    "install-mac-app": "scripts/mac/install-app.sh",
+    "install-shortcut": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/install-shortcut.ps1"
+  },
+  "dependencies": {
+    "lucide-react": "^1.48.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.4",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.4.0",
+    "electron": "^44.4.5",
+    "esbuild": "^0.25.12",
+    "typescript": "~5.7.2",
+    "vite": "^6.1.0",
+    "vite-node": "^3.0.5",
+    "vitest": "^3.0.5"
+  }
+}
