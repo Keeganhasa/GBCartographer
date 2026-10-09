@@ -19,12 +19,17 @@ into PROGRESS.md when they deserve a note.
 
 ## UI pass (asked 2026-10-09)
 
-- [x] Less text: the palette-brush explainer sits behind a ? next to the Palettes heading.
-- [x] Project panel: name, then Demo / Change…, then the four kinds as a 2 × 2 grid with counts.
-- [ ] Decide on rooms (Paint · Palettes · Project) versus the single page with a modal and a side panel.
+- [x] One theme for now: OLED Mauve, with a true mauve accent (not purple). Other themes stay unlisted in theme.ts.
+- [x] Layout A (chosen from three mockups in `review/mockups-2026-10-09`): one toolbar row with grouped buttons,
+      a kind rail with counts, the thumbnail list, the inspector as a shades row + Palettes / Picture tabs, the
+      scene's eight palette slots as a strip at the top of Palettes (borrowed from mockup B), short tool hints in
+      the status bar, the long text and all keys behind a ? help panel. Tint, tile budget and Font moved to Picture.
+- [x] Rooms: decided against for now (three jobs, not nine; the modal and the panel cover them).
+- [ ] Next mockups (round 2, `review/mockups-2026-10-09/round2-*`): the start screen, the palette manager in the
+      new language, a sprite sheet open with a frames strip.
 - [x] Palette brush: [ ] set it to 1, 2 × 2 or 3 × 3 tiles; Shift-click draws a straight line of tiles; I picks a tile's palette.
 - [ ] Bake the author's Cabin Interior tile colors into the demo once saved (the generator has the hook).
-- [ ] Hint line under the tabs: shorten each tool's hint to one clause; the rest behind the same ? pattern.
+- [x] Hint line: gone; one clause per tool in the status bar, the full text behind ?.
 
 ## Before anyone else runs it
 

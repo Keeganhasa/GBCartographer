@@ -4,7 +4,7 @@
  * A tint only changes how the plain tiles look while painting. Saving writes one flat PNG, and for a project
  * picture also its tile palettes (see server/endpoints.ts).
  */
-import { BoxSelect, Circle, Download, DropletOff, Eraser, FlipHorizontal2, FolderOpen, FolderTree, Grid3x3, Hand, Magnet, Minus, Move, PaintBucket, Palette as PaletteIcon, Pencil, Pipette, Plus, RectangleHorizontal, Redo2, Save, Slash, SprayCan, Square, Undo2, X } from "lucide-react";
+import { ArrowLeftRight, BoxSelect, Circle, CircleHelp, Download, DropletOff, Eraser, FlipHorizontal2, FolderOpen, FolderTree, Ghost, Grid3x3, Hand, Image, LayoutGrid, Magnet, Minus, Move, PaintBucket, Palette as PaletteIcon, Pencil, Pipette, Plus, RectangleHorizontal, Redo2, Save, Slash, SprayCan, Square, Type, Undo2, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useReducer, useRef, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { LogoMark } from "./ui/LogoMark";
@@ -15,22 +15,24 @@ import { CELL, CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, cellsWide
 
 type ToolId = "pencil" | "eraser" | "spray" | "line" | "rect" | "rectFill" | "ellipse" | "fill" | "fillErase" | "eyedropper" | "palette" | "select" | "move" | "hand";
 
+/** id, label, icon, key, one-clause hint (status bar), the longer explanation (the ? help). */
 const TOOLS = [
-  ["pencil", "Pencil", Pencil, "B", "Drag to paint. Shift-click draws a straight line from the last point. Right-click picks a shade."],
-  ["eraser", "Eraser", Eraser, "E", "Drag to erase to the lightest shade (see-through in a picture that has see-through pixels)."],
-  ["spray", "Spray can", SprayCan, "S", "Drag to scatter pixels."],
-  ["line", "Line", Slash, "L", "Drag from one end to the other."],
-  ["rect", "Rectangle", Square, "R", "Drag a box to outline it."],
-  ["rectFill", "Filled rectangle", RectangleHorizontal, "Shift+R", "Drag a box to fill it."],
-  ["ellipse", "Ellipse", Circle, "O", "Drag a box; the ellipse fills it."],
-  ["fill", "Flood fill", PaintBucket, "G", "Click an area to fill it with the active shade."],
-  ["fillErase", "Flood erase", DropletOff, "Shift+G", "Click an area to erase it."],
-  ["eyedropper", "Pick", Pipette, "I", "Click a pixel to paint with its shade; with the palette brush, click a tile to paint with its palette."],
-  ["palette", "Palette brush", PaletteIcon, "P", "Pick a palette on the right, then drag over tiles to give it to them. Shift-click draws a straight line of tiles; [ ] set the brush to 1, 2 × 2 or 3 × 3 tiles; right-click picks a tile's palette."],
-  ["select", "Select", BoxSelect, "M", "Drag a box; drag inside it to move (Alt copies). Arrows nudge, Delete clears, Esc drops it."],
-  ["move", "Move", Move, "V", "Drag the selection, or the whole picture when nothing is selected (Alt copies)."],
-  ["hand", "Pan", Hand, "H", "Drag to pan. Space or the middle button pans with any tool."],
+  ["pencil", "Pencil", Pencil, "B", "drag to paint · Shift-click line · right-click picks a shade", "Drag to paint with the active shade. Shift-click draws a straight line from the last point. Right-click picks the shade under the pointer."],
+  ["eraser", "Eraser", Eraser, "E", "drag to erase", "Drag to erase to the lightest shade, or to see-through in a picture that has see-through pixels."],
+  ["spray", "Spray can", SprayCan, "S", "drag to scatter pixels", "Drag to scatter pixels of the active shade inside the brush."],
+  ["line", "Line", Slash, "L", "drag from one end to the other", "Drag from one end of the line to the other."],
+  ["rect", "Rectangle", Square, "R", "drag a box", "Drag a box to outline it in the active shade."],
+  ["rectFill", "Filled rectangle", RectangleHorizontal, "Shift+R", "drag a box to fill", "Drag a box to fill it with the active shade."],
+  ["ellipse", "Ellipse", Circle, "O", "drag a box; the ellipse fills it", "Drag a box; the ellipse fills it."],
+  ["fill", "Flood fill", PaintBucket, "G", "click an area to fill", "Click an area to fill it with the active shade."],
+  ["fillErase", "Flood erase", DropletOff, "Shift+G", "click an area to erase", "Click an area to erase it."],
+  ["eyedropper", "Pick", Pipette, "I", "click to pick a shade, or a tile's palette", "Click a pixel to paint with its shade. Reached from the palette brush, it picks the tile's palette instead and goes back to the brush."],
+  ["palette", "Palette brush", PaletteIcon, "P", "drag over tiles · Shift-click line · [ ] size · right-click picks", "Pick a palette on the right, then drag over tiles to give it to them. Shift-click draws a straight line of tiles. [ and ] set the brush to 1, 2 × 2 or 3 × 3 tiles. Right-click picks a tile's palette. On a project background or sprite sheet, Save writes each tile's palette into GB Studio as its slot; None leaves a tile's slot as it is."],
+  ["select", "Select", BoxSelect, "M", "drag a box · drag inside to move · Alt copies", "Drag a box to select. Drag inside it to move the selection (Alt copies). Arrow keys nudge, Delete clears, Esc drops it."],
+  ["move", "Move", Move, "V", "drag the selection or the whole picture", "Drag the selection, or the whole picture when nothing is selected (Alt copies)."],
+  ["hand", "Pan", Hand, "H", "drag to pan · Space or middle button with any tool", "Drag to pan. Space or the middle mouse button pans with any tool."],
 ] as const;
+const KIND_ICONS = { backgrounds: Image, sprites: Ghost, tilesets: LayoutGrid, fonts: Type } as const;
 
 const MIRRORS: Mirror[] = ["off", "x", "y", "xy"];
 const MIRROR_LABEL = { off: "Mirror off", x: "Mirror ↔", y: "Mirror ↕", xy: "Mirror ↔↕" } as const;
@@ -182,6 +184,8 @@ export default function PaintApp() {
   /** Whether the page is served by something that can open a project (the dev server or the desktop app). */
   const [served, setServed] = useState(false);
   const [showPalettes, setShowPalettes] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const [sideTab, setSideTab] = useState<"palettes" | "picture">("palettes");
   const [font, setFont] = useState<FontChoice>(() => loadFont());
   const [showProject, setShowProject] = useState<boolean>(() => readStored(PROJECT_PANEL_KEY, true));
   const [projectKind, setProjectKind] = useState<AssetKind>(() => readStored(PROJECT_KIND_KEY, "backgrounds"));
@@ -893,61 +897,54 @@ export default function PaintApp() {
     await openFiles(files);
   }
 
-  const hint = TOOLS.find(([id]) => id === tool)![4];
+  const hint = TOOLS.find(([id]) => id === tool)!;
   const gridLines = doc && grid && grid * doc.zoom >= 3 ? `${grid * doc.zoom}px` : null;
   const matches = (name: string, filter: string) => !filter.trim() || name.toLowerCase().includes(filter.trim().toLowerCase());
   const shownAssets = project ? project.assets.filter((asset) => asset.kind === projectKind && matches(asset.name, projectFilter)) : [];
-  // A project background lists its scene's eight palettes first, each with its slot number.
+  const kindLabel = ASSET_KINDS.find(([kind]) => kind === projectKind)?.[1] ?? "";
+  // A project background or sprite sheet carries its eight palette slots: shown as a strip, and first in the list.
   const sceneSlots = doc?.asset?.slots ?? [];
   const slotOf = (palette: Palette) => palette.id ? sceneSlots.indexOf(palette.id) : -1;
+  const slotPalettes = sceneSlots.map((id) => docPalettes.findIndex((palette) => palette.id === id));
   const paletteList = [{ name: "None (GB greens)", colors: [...GB_SHADES] } as Palette, ...docPalettes].map((palette, index) => ({ palette, index, slot: index ? slotOf(palette) : -1 }));
   const shownPalettes = paletteList
     .filter(({ palette, index }) => index === activePalette || matches(palette.name, paletteFilter))
     .sort((a, b) => (a.index === 0 ? -1 : b.index === 0 ? 1 : a.slot >= 0 && b.slot >= 0 ? a.slot - b.slot : a.slot >= 0 ? -1 : b.slot >= 0 ? 1 : a.index - b.index));
+  const pickPalette = (index: number) => { setActivePalette(index); if (index && tool !== "palette") setTool("palette"); };
+  const paletteHelp = doc?.asset?.kind === "sprites" && sceneSlots.length ? "Each 8 × 16 sprite tile wears one of the scene's eight sprite palettes; a palette's colors 1–3 dress the shades and color 0 is see-through. Save writes the sheet in the GB greens and each tile's palette as its slot." : doc?.asset?.kind === "backgrounds" && sceneSlots.length ? "Each 8 × 8 tile wears one of the scene's eight palettes. Save writes the picture in the GB greens and each tile's palette into GB Studio as its slot. None leaves a tile's slot as it is." : "Each 8 × 8 tile wears one palette, or none. Palettes are only for looking here: saving always writes the GB greens.";
 
   return (
     <div className="gbp-shell" onDragOver={(event) => event.preventDefault()} onDrop={(event) => void onDrop(event)}>
       <header className="gbp-bar">
         <span className="gbp-brand"><LogoMark size={22} /><b>GB Cartographer</b></span>
-        <button className="quiet-button" title="Open PNG files · Ctrl+O (or drop them on the window)" onClick={() => void pickFiles()}><FolderOpen size={14} />Open</button>
-        {project && <button className={`quiet-button ${showProject ? "active-tool" : ""}`} aria-pressed={showProject} title={`Show or hide the GB Studio project's pictures (${project.path})`} onClick={() => setShowProject(!showProject)}><FolderTree size={14} />Project</button>}
-        {served && !project && <button className="quiet-button" title="Open a GB Studio project folder: its backgrounds, sprites, tilesets and fonts open here and save back into it" onClick={() => void chooseProject()}><FolderTree size={14} />Open project…</button>}
-        <button className="quiet-button" title="Palette manager: the project's palettes, a library, and your own; edit colors, add palettes to the project" onClick={() => setShowPalettes(true)}><PaletteIcon size={14} />Palettes</button>
-        <button className="quiet-button" disabled={!doc} title={doc?.asset ? `Flatten and save over ${doc.asset.file} in the GB Studio project (the old file goes to the backups folder) · Ctrl+S` : doc?.handle ? `Flatten and save over ${doc.name}, in the GB greens · Ctrl+S` : "Flatten and save as a PNG, in the GB greens · Ctrl+S"} onClick={() => void save(false)}><Save size={14} />Save</button>
-        <button className="quiet-button" disabled={!doc} title="Flatten and export a copy, in the GB greens · Ctrl+E" onClick={() => void save(true)}><Download size={14} />Export copy</button>
+        <span className="gbp-seg" role="group" aria-label="File">
+          <button className="quiet-button" title="Open PNG files · Ctrl+O (or drop them on the window)" onClick={() => void pickFiles()}><FolderOpen size={14} />Open</button>
+          <button className="quiet-button" disabled={!doc} title={doc?.asset ? `Save over ${doc.asset.file} in the GB Studio project (the old file goes to the backups folder) · Ctrl+S` : doc?.handle ? `Save over ${doc.name}, in the GB greens · Ctrl+S` : "Save as a PNG, in the GB greens · Ctrl+S"} onClick={() => void save(false)}><Save size={14} />Save</button>
+          <button className="quiet-button" disabled={!doc} title="Export a copy, in the GB greens · Ctrl+E" onClick={() => void save(true)}><Download size={14} />Export</button>
+        </span>
+        <span className="gbp-seg" role="group" aria-label="Project and palettes">
+          {project && <button className={`quiet-button ${showProject ? "active-tool" : ""}`} aria-pressed={showProject} title={`Show or hide the project's pictures (${project.path})`} onClick={() => setShowProject(!showProject)}><FolderTree size={14} />Project</button>}
+          {served && !project && <button className="quiet-button" title="Open a GB Studio project folder: its backgrounds, sprites, tilesets and fonts open here and save back into it" onClick={() => void chooseProject()}><FolderTree size={14} />Open project…</button>}
+          <button className="quiet-button" title="Palette manager: the project's palettes, a library, and your own" onClick={() => setShowPalettes(true)}><PaletteIcon size={14} />Palettes</button>
+        </span>
         <button className="icon-button" aria-label="Undo" title="Undo · Ctrl+Z" disabled={!doc?.undo.length} onClick={() => stepHistory("undo")}><Undo2 size={15} /></button>
         <button className="icon-button" aria-label="Redo" title="Redo · Ctrl+Shift+Z" disabled={!doc?.redo.length} onClick={() => stepHistory("redo")}><Redo2 size={15} /></button>
         <span className="gbp-spacer" />
         {doc && (
-          <label className={`gbp-tiles ${tileCount > budget.limit ? "over" : ""}`} title={`Unique 8 × 8 tiles in this picture, as GB Studio counts them (${budget.flips ? "identical and flipped tiles merge" : "identical tiles merge"}). Pick the scene's color mode.`}>
+          <label className={`gbp-tiles ${tileCount > budget.limit ? "over" : ""}`} title={`Unique 8 × 8 tiles in this picture, as GB Studio counts them (${budget.flips ? "identical and flipped tiles merge" : "identical tiles merge"}). The budget follows the scene's color mode (Picture tab).`}>
             <span>TILES</span>
             <span className="gbp-tiles-track" aria-hidden="true"><b style={{ width: `${Math.min(1, tileCount / budget.limit) * 100}%` }} /></span>
             <span className="gbp-tiles-count">{tileCount}/{budget.limit}</span>
-            <select aria-label="Tile budget" value={budget.id} onChange={(event) => setBudgetId(event.target.value)}>
-              {BUDGETS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-            </select>
           </label>
         )}
-        <button className={`icon-button ${grid ? "active-tool" : ""}`} aria-label="Tile grid" title={`Tile grid: ${grid ? `${grid} px` : "off"} (click for off / 8 px / 16 px)`} onClick={() => setGrid(grid === 0 ? 8 : grid === 8 ? 16 : 0)}><Grid3x3 size={15} />{grid > 0 && <small>{grid}</small>}</button>
-        <button className={`icon-button ${snap ? "active-tool" : ""}`} aria-label="Snap selections to tiles" aria-pressed={snap} title="Snap selections and moves to 8 px tiles" onClick={() => setSnap(!snap)}><Magnet size={15} /></button>
-        <span className="gbp-zoom" role="group" aria-label="Zoom">
+        <span className="gbp-seg gbp-zoom" role="group" aria-label="Zoom">
           <button className="icon-button small" aria-label="Zoom out" disabled={!doc} onClick={() => zoomBy(-1)}><Minus size={12} /></button>
           <b>{doc ? `${doc.zoom * 100}%` : "–"}</b>
           <button className="icon-button small" aria-label="Zoom in" disabled={!doc} onClick={() => zoomBy(1)}><Plus size={12} /></button>
         </span>
-        <label className="gbp-tint" title="Preview colors for tiles without a palette. Saving always writes the GB greens.">Tint
-          <select value={tint} onChange={(event) => setTint(event.target.value)}>
-            {BUILT_IN_TINTS.map(({ name }) => <option key={name}>{name}</option>)}
-            {palettes.length > 0 && <optgroup label="Palettes">{palettes.map(({ name }) => <option key={name}>{name}</option>)}</optgroup>}
-            <option>Custom</option>
-          </select>
-        </label>
-        {tint === "Custom" && customTint.map((color, index) => <input key={index} type="color" className="gbp-tint-color" aria-label={`Tint shade ${index + 1}`} value={color} onChange={(event) => setCustomTint(customTint.map((old, at) => at === index ? event.target.value.toUpperCase() : old))} />)}
-        <label className="gbp-tint" title="App font">Font
-          <select value={font} onChange={(event) => { const next = event.target.value as FontChoice; setFont(next); applyFont(next); }}>
-            {FONTS.map((item) => <option key={item.id} value={item.id} title={item.title}>{item.label}</option>)}
-          </select>
-        </label>
+        <button className={`icon-button ${grid ? "active-tool" : ""}`} aria-label="Tile grid" title={`Tile grid: ${grid ? `${grid} px` : "off"} (click for off / 8 px / 16 px)`} onClick={() => setGrid(grid === 0 ? 8 : grid === 8 ? 16 : 0)}><Grid3x3 size={15} />{grid > 0 && <small>{grid}</small>}</button>
+        <button className={`icon-button ${snap ? "active-tool" : ""}`} aria-label="Snap selections to tiles" aria-pressed={snap} title="Snap selections and moves to 8 px tiles" onClick={() => setSnap(!snap)}><Magnet size={15} /></button>
+        <button className={`icon-button ${showHelp ? "active-tool" : ""}`} aria-label="Help" title="Tools, keys and what Save writes · ?" onClick={() => setShowHelp(!showHelp)}><CircleHelp size={15} /></button>
       </header>
       <div className="map-tabs" role="tablist" aria-label="Open pictures">
         {docs.current.map((item) => (
@@ -958,30 +955,32 @@ export default function PaintApp() {
         ))}
         <button className="map-tab-add" aria-label="Open PNG files" title="Open PNG files" onClick={() => void pickFiles()}>+</button>
       </div>
-      <div className="gbp-hint">{doc ? hint : project ? `Pick a background, sprite or tileset of ${project.name} on the left, or open PNG files. Save writes the picture back into the project.` : served ? "Open a GB Studio project to paint its backgrounds, sprites and tilesets, or open PNG files. Each picture is one flat sheet in the four GB shades." : "Open one or more Game Boy PNGs to touch them up. Each stays one flat picture."}</div>
       <div className="gbp-body">
         {project && showProject && (
-          <aside className="gbp-project" aria-label="GB Studio project">
-            <h2 title={project.path}><span className="gbp-project-name">{project.name}</span></h2>
-            <div className="gbp-project-buttons"><button className="gbp-project-change" title="Open a copy of the sample project that ships with the app" onClick={() => void chooseProject(true)}>Demo</button><button className="gbp-project-change" title="Open another GB Studio project" onClick={() => void chooseProject()}>Change…</button></div>
-            <div className="gbp-project-kinds" role="tablist" aria-label="Asset folders">
-              {ASSET_KINDS.map(([kind, label]) => { const count = project.assets.filter((asset) => asset.kind === kind).length; return <button key={kind} role="tab" aria-selected={projectKind === kind} className={projectKind === kind ? "selected" : ""} onClick={() => setProjectKind(kind)}>{label}<small>{count}</small></button>; })}
-            </div>
-            <input type="search" className="gbp-filter" placeholder="Filter by name" aria-label="Filter assets by name" value={projectFilter} onChange={(event) => setProjectFilter(event.target.value)} />
-            <div className="gbp-assets" role="list">
-              {shownAssets.map((asset) => {
-                const openDoc = docs.current.find((item) => item.asset?.kind === asset.kind && item.asset.file === asset.file);
-                return (
-                  <button key={asset.file} role="listitem" className={`gbp-asset ${openDoc && openDoc.id === activeId ? "selected" : openDoc ? "open" : ""}`} title={`${asset.file} · ${asset.width} × ${asset.height} px${openDoc ? " · open" : ""}`} onClick={() => void openAsset(asset)}>
-                    <img loading="lazy" decoding="async" alt="" src={`${ASSET_URL}?${assetQuery(asset)}&v=${Math.round(asset.mtime)}`} />
-                    <span className="gbp-asset-name">{openDoc?.dirty ? "• " : ""}{asset.name}</span>
-                    <span className="gbp-asset-size">{asset.width}×{asset.height}</span>
-                  </button>
-                );
-              })}
-              {shownAssets.length === 0 && <p className="gbp-note">No {projectKind} match.</p>}
-            </div>
-          </aside>
+          <>
+            <nav className="gbp-rail" aria-label="Asset folders">
+              {ASSET_KINDS.map(([kind, label]) => { const Icon = KIND_ICONS[kind]; const count = project.assets.filter((asset) => asset.kind === kind).length; return <button key={kind} className={`icon-button ${projectKind === kind ? "active-tool" : ""}`} aria-pressed={projectKind === kind} aria-label={`${label} (${count})`} title={`${label} · ${count}`} onClick={() => setProjectKind(kind)}><Icon size={16} /><b>{count}</b></button>; })}
+              <span className="gbp-spacer" />
+              <button className="icon-button" aria-label="Open another project" title="Open another GB Studio project, or the demo" onClick={() => void chooseProject()}><ArrowLeftRight size={15} /></button>
+            </nav>
+            <aside className="gbp-project" aria-label="GB Studio project">
+              <h2 title={project.path}><span className="gbp-project-name">{project.name}</span></h2>
+              <input type="search" className="gbp-filter" placeholder={`Filter ${kindLabel.toLowerCase()}`} aria-label={`Filter ${kindLabel.toLowerCase()} by name`} value={projectFilter} onChange={(event) => setProjectFilter(event.target.value)} />
+              <div className="gbp-assets" role="list">
+                {shownAssets.map((asset) => {
+                  const openDoc = docs.current.find((item) => item.asset?.kind === asset.kind && item.asset.file === asset.file);
+                  return (
+                    <button key={asset.file} role="listitem" className={`gbp-asset ${openDoc && openDoc.id === activeId ? "selected" : openDoc ? "open" : ""}`} title={`${asset.file} · ${asset.width} × ${asset.height} px${openDoc ? " · open" : ""}`} onClick={() => void openAsset(asset)}>
+                      <img loading="lazy" decoding="async" alt="" src={`${ASSET_URL}?${assetQuery(asset)}&v=${Math.round(asset.mtime)}`} />
+                      <span className="gbp-asset-name">{openDoc?.dirty ? "• " : ""}{asset.name}</span>
+                      <span className="gbp-asset-size">{asset.width}×{asset.height}</span>
+                    </button>
+                  );
+                })}
+                {shownAssets.length === 0 && <p className="gbp-note">No {projectKind} match.</p>}
+              </div>
+            </aside>
+          </>
         )}
         <aside className="gbp-tools pixel-toolbar vertical" role="toolbar" aria-label="Paint tools">
           {TOOLS.map(([id, label, Icon, keys]) => <button key={id} className={`tool-button ${tool === id ? "active" : ""}`} aria-label={label} aria-pressed={tool === id} title={`${label} · ${keys}`} onClick={() => setTool(id)}><Icon size={17} /></button>)}
@@ -1013,7 +1012,7 @@ export default function PaintApp() {
           ) : (
             <div className="gbp-empty">
               <LogoMark size={56} />
-              <p>{project ? `Pick a picture of ${project.name} on the left, drop PNG files here, or` : "Drop PNG files here, or"}</p>
+              <p>{project ? `Pick a picture of ${project.name} on the left, drop PNG files here, or` : served ? "Open a GB Studio project, drop PNG files here, or" : "Drop PNG files here, or"}</p>
               {served && !project && <button className="quiet-button" onClick={() => void chooseProject()}><FolderTree size={14} />Open a GB Studio project</button>}
               {served && !project && <button className="quiet-button" title="A sample project with CC0 and MIT art (credits inside it): opens a copy you can paint in" onClick={() => void chooseProject(true)}><FolderTree size={14} />Try the demo project</button>}
               <button className="quiet-button" onClick={() => void pickFiles()}><FolderOpen size={14} />Open PNG files</button>
@@ -1021,45 +1020,118 @@ export default function PaintApp() {
           )}
         </div>
         <aside className="gbp-side">
-          <h2>Shades</h2>
-          <div className="pixel-swatches">
-            {swatchColors.slice(0, 4).map((color, index) => <button key={index} className={shade === index ? "selected" : ""} style={{ background: color }} aria-label={`Shade ${index + 1}`} title={`Shade ${index + 1} · ${index + 1}`} onClick={() => { setShade(index); if (tool === "eyedropper") setToolState(paintTool.current); }}><kbd>{index + 1}</kbd></button>)}
+          <div className="gbp-side-shades">
+            <div className="pixel-swatches">
+              {swatchColors.slice(0, 4).map((color, index) => <button key={index} className={shade === index ? "selected" : ""} style={{ background: color }} aria-label={`Shade ${index + 1}`} title={`Shade ${index + 1} · ${index + 1}`} onClick={() => { setShade(index); if (tool === "eyedropper") setToolState(paintTool.current); }}><kbd>{index + 1}</kbd></button>)}
+            </div>
+            {doc?.hasAlpha && <button className={`transparent-swatch ${shade === CLEAR ? "selected" : ""}`} title="See-through · 0" onClick={() => setShade(CLEAR)}><kbd>0</kbd>Transparent</button>}
           </div>
-          {doc?.hasAlpha && <button className={`transparent-swatch ${shade === CLEAR ? "selected" : ""}`} title="See-through · 0" onClick={() => setShade(CLEAR)}><kbd>0</kbd>Transparent</button>}
-          <h2>Palettes <HelpTip label="About the palette brush">{doc?.asset?.kind === "sprites" && sceneSlots.length ? "Palette brush (P): each 8 × 16 sprite tile wears one palette; its colors 1–3 dress the shades and color 0 is see-through. Save writes the sheet in the GB greens and each tile's palette into GB Studio as its sprite palette slot (the eight numbered here). None leaves a tile's slot as it is." : doc?.asset?.kind === "backgrounds" && sceneSlots.length ? "Palette brush (P): each 8 × 8 tile wears one palette. Save writes the picture in the GB greens and each tile's palette into GB Studio as its slot (the scene's eight, numbered here). None leaves a tile's slot as it is." : "Palette brush (P): each 8 × 8 tile wears one palette, or none. Palettes are only for looking here: saving always writes the GB greens."}</HelpTip></h2>
-          {docPalettes.length > 12 && <input type="search" className="gbp-filter" placeholder="Filter palettes" aria-label="Filter palettes by name" value={paletteFilter} onChange={(event) => setPaletteFilter(event.target.value)} />}
-          <div className="gbp-palettes" role="listbox" aria-label="Palettes">
-            {shownPalettes.map(({ palette, index, slot }) => (
-              <button key={`${index}-${palette.name}`} role="option" aria-selected={activePalette === index} className={activePalette === index ? "selected" : ""} onClick={() => { setActivePalette(index); if (index && tool !== "palette") setTool("palette"); }}>
-                <span className="gbp-chips">{palette.colors.map((color, at) => <i key={at} style={{ background: color }} />)}</span>
-                <span>{palette.name}</span>
-                {slot >= 0 && <small className="gbp-slot" title={doc?.asset?.kind === "sprites" ? `Sprite palette slot ${slot + 1}` : `Palette slot ${slot + 1} of this background's scene`}>{slot + 1}</small>}
-              </button>
-            ))}
+          <div className="gbp-side-tabs" role="tablist" aria-label="Inspector">
+            <button role="tab" aria-selected={sideTab === "palettes"} className={sideTab === "palettes" ? "selected" : ""} onClick={() => setSideTab("palettes")}>Palettes</button>
+            <button role="tab" aria-selected={sideTab === "picture"} className={sideTab === "picture" ? "selected" : ""} onClick={() => setSideTab("picture")}>Picture</button>
           </div>
-          {doc && picked && (
-            <div className="gbp-palette-edit">
-              <h2>{picked.name} in this picture</h2>
-              <div className="gbp-palette-colors">
-                {picked.colors.map((color, index) => <input key={index} type="color" aria-label={`${picked.name} color ${index + 1}`} title={`Color ${index + 1}: ${color}`} value={color} onChange={(event) => recolorPalette(picked.colors.map((old, at) => at === index ? event.target.value : old))} />)}
+          {sideTab === "palettes" ? (
+            <div className="gbp-side-pane">
+              {sceneSlots.length > 0 && (
+                <div className="gbp-slots" role="group" aria-label={doc?.asset?.kind === "sprites" ? "Sprite palette slots" : "The scene's palette slots"}>
+                  {slotPalettes.map((paletteIndex, slot) => {
+                    const palette = paletteIndex >= 0 ? docPalettes[paletteIndex] : null;
+                    return (
+                      <button key={slot} className={`gbp-slot-button ${palette && activePalette === paletteIndex + 1 ? "selected" : ""}`} disabled={!palette} title={palette ? `Slot ${slot + 1} · ${palette.name}` : `Slot ${slot + 1}: no palette`} onClick={() => palette && pickPalette(paletteIndex + 1)}>
+                        <b>{slot + 1}</b>
+                        <span className="gbp-chips">{(palette?.colors ?? ["#222", "#222", "#222", "#222"]).map((color, at) => <i key={at} style={{ background: color }} />)}</span>
+                        <span className="gbp-slot-name">{palette?.name ?? "—"}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              <div className="gbp-side-row">
+                <input type="search" className="gbp-filter" placeholder="Filter palettes" aria-label="Filter palettes by name" value={paletteFilter} onChange={(event) => setPaletteFilter(event.target.value)} />
+                <HelpTip label="About the palette brush">{paletteHelp}</HelpTip>
               </div>
-              <div className="gbp-palette-actions">
-                <button className="quiet-button" title="Copy these four colors, to paste onto a palette here or in another tab" onClick={() => { setCopiedColors([...picked.colors]); say(`Copied the colors of ${picked.name}`); }}>Copy values</button>
-                <button className="quiet-button" disabled={!copiedColors} title="Replace these four colors with the copied ones" onClick={() => copiedColors && recolorPalette(copiedColors)}>Paste values</button>
-                <button className="quiet-button" disabled={!libraryColors || libraryColors.join() === picked.colors.join()} title="Back to this palette's default colors" onClick={() => libraryColors && recolorPalette(libraryColors)}>Back to default</button>
+              <div className="gbp-palettes" role="listbox" aria-label="Palettes">
+                {shownPalettes.map(({ palette, index, slot }) => (
+                  <button key={`${index}-${palette.name}`} role="option" aria-selected={activePalette === index} className={activePalette === index ? "selected" : ""} onClick={() => pickPalette(index)}>
+                    <span className="gbp-chips">{palette.colors.map((color, at) => <i key={at} style={{ background: color }} />)}</span>
+                    <span>{palette.name}</span>
+                    {slot >= 0 && <small className="gbp-slot" title={doc?.asset?.kind === "sprites" ? `Sprite palette slot ${slot + 1}` : `Palette slot ${slot + 1} of this background's scene`}>{slot + 1}</small>}
+                  </button>
+                ))}
               </div>
+              {doc && picked && (
+                <div className="gbp-palette-edit">
+                  <h2>{picked.name} in this picture</h2>
+                  <div className="gbp-palette-colors">
+                    {picked.colors.map((color, index) => <input key={index} type="color" aria-label={`${picked.name} color ${index + 1}`} title={`Color ${index + 1}: ${color}`} value={color} onChange={(event) => recolorPalette(picked.colors.map((old, at) => at === index ? event.target.value : old))} />)}
+                  </div>
+                  <div className="gbp-palette-actions">
+                    <button className="quiet-button" title="Copy these four colors, to paste onto a palette here or in another tab" onClick={() => { setCopiedColors([...picked.colors]); say(`Copied the colors of ${picked.name}`); }}>Copy values</button>
+                    <button className="quiet-button" disabled={!copiedColors} title="Replace these four colors with the copied ones" onClick={() => copiedColors && recolorPalette(copiedColors)}>Paste values</button>
+                    <button className="quiet-button" disabled={!libraryColors || libraryColors.join() === picked.colors.join()} title="Back to this palette's default colors" onClick={() => libraryColors && recolorPalette(libraryColors)}>Back to default</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="gbp-side-pane gbp-picture">
+              {doc ? (
+                <dl>
+                  <dt>Picture</dt><dd>{doc.name}</dd>
+                  <dt>Size</dt><dd>{doc.width} × {doc.height} px · {Math.ceil(doc.width / CELL)} × {Math.ceil(doc.height / CELL)} tiles</dd>
+                  {doc.asset && <><dt>File</dt><dd>assets/{doc.asset.kind}/{doc.asset.file}</dd></>}
+                  <dt>Unique tiles</dt><dd>{tileCount} of {budget.limit}</dd>
+                </dl>
+              ) : <p className="gbp-note">No picture open.</p>}
+              <label className="gbp-field">Tile budget
+                <select aria-label="Tile budget" value={budget.id} onChange={(event) => setBudgetId(event.target.value)}>
+                  {BUDGETS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+                </select>
+              </label>
+              <label className="gbp-field" title="Preview colors for tiles without a palette. Saving always writes the GB greens.">Tint
+                <select value={tint} onChange={(event) => setTint(event.target.value)}>
+                  {BUILT_IN_TINTS.map(({ name }) => <option key={name}>{name}</option>)}
+                  {palettes.length > 0 && <optgroup label="Palettes">{palettes.map(({ name }) => <option key={name}>{name}</option>)}</optgroup>}
+                  <option>Custom</option>
+                </select>
+              </label>
+              {tint === "Custom" && <div className="gbp-palette-colors">{customTint.map((color, index) => <input key={index} type="color" aria-label={`Tint shade ${index + 1}`} value={color} onChange={(event) => setCustomTint(customTint.map((old, at) => at === index ? event.target.value.toUpperCase() : old))} />)}</div>}
+              <label className="gbp-field">Font
+                <select value={font} onChange={(event) => { const next = event.target.value as FontChoice; setFont(next); applyFont(next); }}>
+                  {FONTS.map((item) => <option key={item.id} value={item.id} title={item.title}>{item.label}</option>)}
+                </select>
+              </label>
             </div>
           )}
         </aside>
       </div>
       <footer className="gbp-status">
+        <span className="gbp-status-hint"><b>{hint[1]}</b> · {hint[4]}</span>
         <span ref={readoutRef} className="gbp-readout" />
         <span className="gbp-spacer" />
-        {doc?.sel && <span>Selection {doc.sel.w} × {doc.sel.h} at {doc.sel.x}, {doc.sel.y}</span>}
-        {doc?.asset && <span title="Save writes this file in the GB Studio project">assets/{doc.asset.kind}/{doc.asset.file}</span>}
-        {doc && <span>{doc.width} × {doc.height} px · {doc.width / CELL} × {doc.height / CELL} tiles</span>}
+        {doc?.sel && <span>sel {doc.sel.w} × {doc.sel.h} at {doc.sel.x}, {doc.sel.y}</span>}
+        {doc && <span title={doc.asset ? `assets/${doc.asset.kind}/${doc.asset.file}` : doc.name}>{doc.width} × {doc.height} · {doc.width / CELL} × {doc.height / CELL} tiles</span>}
       </footer>
       {toast && <div className="gbp-toast" role="status">{toast}</div>}
+      {showHelp && (
+        <div className="gbp-modal-backdrop" onClick={() => setShowHelp(false)}>
+          <div className="gbp-modal gbp-help" role="dialog" aria-label="Help" onClick={(event) => event.stopPropagation()}>
+            <header className="gbp-modal-head"><h2>Tools and keys</h2><span className="gbp-spacer" /><button className="icon-button small" aria-label="Close" onClick={() => setShowHelp(false)}><X size={14} /></button></header>
+            <div className="gbp-help-body">
+              <table>
+                <tbody>
+                  {TOOLS.map(([id, label, Icon, keys, , long]) => <tr key={id}><td><Icon size={14} /></td><td><b>{label}</b></td><td><kbd>{keys}</kbd></td><td>{long}</td></tr>)}
+                  <tr><td /><td><b>Mirror</b></td><td><kbd>Shift+M</kbd></td><td>Paint both halves at once: off, left-right, top-bottom, both.</td></tr>
+                  <tr><td /><td><b>Shades</b></td><td><kbd>1–4</kbd> <kbd>0</kbd></td><td>Pick a shade; 0 is see-through in a picture that has it.</td></tr>
+                  <tr><td /><td><b>Brush</b></td><td><kbd>[</kbd> <kbd>]</kbd></td><td>Smaller or bigger: pixels, or tiles with the palette brush.</td></tr>
+                  <tr><td /><td><b>Files</b></td><td><kbd>Ctrl+O</kbd> <kbd>Ctrl+S</kbd> <kbd>Ctrl+E</kbd></td><td>Open PNGs, save, export a copy. Ctrl+Z / Ctrl+Shift+Z undo and redo; Ctrl+C / X / V and Ctrl+A work on the selection; Ctrl+= / Ctrl+- zoom; Esc drops the selection.</td></tr>
+                </tbody>
+              </table>
+              <p className="gbp-note">What Save writes into a GB Studio project: the PNG (same size), a background's tile palettes (<code>tileColors</code>), a sprite sheet's slice palettes (<code>paletteIndex</code>), and palette files from the palette manager. Nothing else. The old file is copied to the backups folder first.</p>
+            </div>
+          </div>
+        </div>
+      )}
       {showPalettes && (
         <PaletteManager
           projectName={project?.name ?? null}
