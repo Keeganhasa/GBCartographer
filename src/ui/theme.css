@@ -1,16 +1,20 @@
 /* GB Cartographer's theme: tokens, themes and the shared controls (the author's stylesheet, trimmed to what the painter uses). */
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');
+/* Inter (SIL Open Font License 1.1) is the UI font; JetBrains Mono (OFL 1.1) stays as an option. Both come from Google Fonts. */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 :root {
-  /* JetBrains Mono everywhere; --ui and --mono are kept as names so rules can still tell text from data. */
-  --ui: 'JetBrains Mono', ui-monospace, Consolas, 'Courier New', monospace;
+  /* Inter everywhere (tabular figures keep counts steady); --ui and --mono are kept as names so rules can still tell text from data. */
+  --ui: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   font-family: var(--ui);
   font-variant-numeric: tabular-nums;
   color: var(--ink);
   background: var(--deep);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  --mono: 'JetBrains Mono', ui-monospace, Consolas, 'Courier New', monospace;
+  --mono: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-feature-settings: 'tnum' 1, 'cv11' 1;
 }
+:root[data-font="mono"] { --ui: 'JetBrains Mono', ui-monospace, Consolas, 'Courier New', monospace; --mono: 'JetBrains Mono', ui-monospace, Consolas, 'Courier New', monospace; font-feature-settings: normal; }
+:root[data-font="mono"] body, :root[data-font="mono"] button, :root[data-font="mono"] input, :root[data-font="mono"] select, :root[data-font="mono"] textarea { font-family: var(--ui); }
 :root {
   --ink: #b5bac3;
   --moss: #4d6689;
@@ -467,5 +471,5 @@ select:hover:not(:disabled) { border-color: var(--bar-hover-line); }
 
 /* Public Pixel (GGBotNet, CC0): an 8 x 8 pixel font, shown at whole multiples of 8 px so it stays crisp. */
 @font-face { font-family: 'Public Pixel'; src: url('./fonts/PublicPixel.woff2') format('woff2'); font-display: swap; }
-:root[data-font="pixel"] { --ui: 'Public Pixel', 'JetBrains Mono', monospace; --mono: 'Public Pixel', 'JetBrains Mono', monospace; --fs-xs: 8px; --fs-sm: 8px; --fs-md: 8px; --fs-lg: 16px; --fs-xl: 16px; font-family: var(--ui); }
+:root[data-font="pixel"] { --ui: 'Public Pixel', 'Inter', sans-serif; --mono: 'Public Pixel', 'Inter', sans-serif; font-feature-settings: normal; --fs-xs: 8px; --fs-sm: 8px; --fs-md: 8px; --fs-lg: 16px; --fs-xl: 16px; font-family: var(--ui); }
 :root[data-font="pixel"] body, :root[data-font="pixel"] button, :root[data-font="pixel"] input, :root[data-font="pixel"] select, :root[data-font="pixel"] textarea { font-family: var(--ui); }

@@ -4,7 +4,7 @@ A small pixel painter for [GB Studio](https://www.gbstudio.dev) projects. Open y
 backgrounds, sprite sheets, tilesets and fonts in the four Game Boy shades, give tiles their palettes, and save straight
 back into the project. It also opens any Game Boy PNG on its own.
 
-![GB Cartographer with a village background open: the project's pictures on the left, the paint tools, and the scene's palettes on the right](docs/screenshot.png)
+![GB Cartographer with the demo's winter scene open: the project's pictures on the left, the paint tools, and the scene's palettes on the right](docs/screenshot.png)
 
 - **One flat picture per file.** No layers, no tileset management: what you see is the PNG.
 - **GB Studio's own rules.** Pictures stay in the four greens; sprite sheets keep their key green (`#65FF00`)
@@ -78,6 +78,6 @@ npm run build
 ## Credits and license
 
 Code: MIT (see LICENSE). The logo is the author's pixel art, CC0. [Public Pixel](https://ggbot.itch.io/public-pixel-font)
-by GGBotNet (CC0, shipped in `public/fonts/`) is an optional UI font. JetBrains Mono is loaded from Google Fonts (SIL Open Font License).
+by GGBotNet (CC0, shipped in `public/fonts/`) is an optional UI font. Inter by Rasmus Andersson and JetBrains Mono are loaded from Google Fonts (SIL Open Font License 1.1).
 The demo project's art is credited in [demo/CREDITS.md](demo/CREDITS.md). GB Studio is by Chris Maltby and
 contributors; GB Cartographer is not affiliated with it.

@@ -14,7 +14,8 @@
     "desktop:dev": "esbuild electron/main.ts --bundle --platform=node --format=cjs --outfile=dist-electron/main.cjs --external:electron && esbuild electron/preload.ts --bundle --platform=node --format=cjs --outfile=dist-electron/preload.cjs --external:electron && electron . --dev",
     "build-app-icon": "vite-node scripts/build-app-icon.ts --",
     "install-mac-app": "scripts/mac/install-app.sh",
-    "install-shortcut": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/install-shortcut.ps1"
+    "install-shortcut": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/install-shortcut.ps1",
+    "screenshot": "node scripts/screenshot.mjs http://127.0.0.1:5173/ docs/screenshot.png scripts/screenshot-demo.js"
   },
   "dependencies": {
     "lucide-react": "^1.48.0",

@@ -39,6 +39,12 @@ into PROGRESS.md when they deserve a note.
 - [x] Palette colors edited in the sidebar go into the GB Studio project on Save (and a Save to project button);
       a once-per-session warning when GB Studio looks open, since it writes the project back when it saves.
 - [x] The inspector no longer clips sideways: rows shrink, names ellipsize.
+- [x] UI font is Inter (JetBrains Mono, Public Pixel and OpenDyslexic stay as options); the saved-font key was bumped.
+- [x] Tools in a compact two-column palette that never scrolls; the grays are much lighter (text, icons, borders,
+      control fills) so everything is easier to see on the black.
+- [x] README screenshot retaken (maroon, Inter, the demo's winter scene); `npm run screenshot` makes it.
+- [ ] Bundle Inter and JetBrains Mono with the app (both OFL) so it works offline; they load from Google Fonts for
+      now. Needs the font files downloaded and their licenses shipped.
 - [x] Hint line: gone; one clause per tool in the status bar, the full text behind ?.
 
 ## Before anyone else runs it

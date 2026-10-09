@@ -150,7 +150,7 @@
 .gbp-project h2 { display: flex; gap: 6px; padding: 8px 10px 6px; }
 .gbp-project-kind { flex: none; color: var(--muted); text-transform: none; letter-spacing: 0; }
 .gbp-project-buttons, .gbp-project-kinds { display: none; }
-.gbp-side { width: 250px; padding: 0; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.gbp-side { width: 280px; padding: 0; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
 .gbp-side-shades { padding: 10px 10px 8px; }
 .gbp-side-shades .pixel-swatches { margin-top: 0; }
 .gbp-side-tabs { display: flex; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
@@ -270,3 +270,36 @@
 .gbp-side-pane > * { max-width: 100%; box-sizing: border-box; }
 .gbp-side-pane input, .gbp-side-pane select, .gbp-side-pane .gbp-filter { box-sizing: border-box; max-width: 100%; }
 .gbp-side-pane .gbp-palette-colors input { min-width: 0; }
+
+/* Tools: a compact two-column palette that never scrolls (15 buttons make 8 short rows). */
+.gbp-tools.pixel-toolbar.vertical { display: grid; grid-template-columns: repeat(2, 28px); grid-auto-rows: 28px; gap: 4px; justify-content: center; align-content: start; width: auto; padding: 8px 8px; overflow: visible; margin: 0; }
+.gbp-tools.pixel-toolbar.vertical .tool-button { width: 28px; height: 28px; }
+.gbp-tools.pixel-toolbar.vertical .tool-button svg { width: 16px; height: 16px; }
+.gbp-tools .gbp-brush { grid-column: 1 / -1; flex-direction: row; justify-content: space-between; width: 100%; height: 28px; margin-top: 4px; padding-top: 6px; }
+.gbp-tools .gbp-brush .tool-button { width: 18px; height: 22px; }
+.gbp-tools .gbp-brush b { font-size: 10px; }
+
+/* Lighter, higher-contrast grays: text, icons, borders and control fills are all easier to see on the black. */
+:root[data-theme="oled"] {
+  --ink: #e8eaee;
+  --muted: #bcc0c8;
+  --line: #474b54;
+  --paper-deep: #202328;
+  --bar-line: #3d414a;
+  --status-ink: #e0e3e8;
+  --bar-hover: #2c3037;
+  --bar-hover-line: #868b96;
+  --tone-657065: #d4d7dd;
+  --tone-596557: #d4d7dd;
+  --tone-49584b: #d0d3d9;
+  --tone-5d6b5c: #cdd0d6;
+  --tone-8a9082: #bcc0c8;
+  --tone-b9b6a7: #70757f;
+  --tone-d8d3c2: #474b54;
+  --tone-e9e5d6: #262a30;
+  --tone-ecebdd: #262a30;
+  --asset-bg: #101114;
+}
+.tool-button:disabled, .quiet-button:disabled, .icon-button:disabled { opacity: .55; }
+.gbp-asset-size, .gbp-frame small, .gbp-slot-button b, .gbp-asset-name { color: var(--muted); }
+.gbp-asset-name { color: var(--ink); }

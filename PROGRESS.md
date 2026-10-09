@@ -78,7 +78,12 @@ server layer (`server/`) and the Electron shell (`electron/`). Nothing from any 
   project's colors. Before any project JSON write, `gbstudio-running` (a process list check) can trigger a
   once-per-session warning: GB Studio keeps the project in memory and writes it back when it saves.
 
+- The UI font is Inter (JetBrains Mono, Public Pixel and OpenDyslexic are options); tools sit in two compact
+  columns; grays are much lighter. `npm run screenshot` (headless Edge or Chrome over the DevTools protocol)
+  makes `docs/screenshot.png`; Electron-based capture crashes on this machine.
+
 ### Known issues
+- Inter and JetBrains Mono load from Google Fonts: offline, the app falls back to the system font.
 - GB Studio's animation speed is not read yet: the frames strip plays at a fixed 8 fps.
 - A PNG drawn in colours that are not the GB greens (some teams draw sprites in real colours) is kept as palettes
   of the file and saved as greens in brightness order, which may not match GB Studio's own colour conversion.

@@ -10,7 +10,7 @@
 import { LIGHT_TOKENS } from "./themeTokens";
 
 export type ThemeChoice = "shuffle" | "oled" | "oled-maroon" | "oled-green" | "slate" | "dmg" | "pocket" | "berry";
-export type FontChoice = "mono" | "dyslexic" | "pixel";
+export type FontChoice = "inter" | "mono" | "dyslexic" | "pixel";
 
 export interface ThemeInfo {
   id: ThemeChoice;
@@ -33,13 +33,15 @@ export const THEMES: ThemeInfo[] = [
 ];
 
 export const FONTS: { id: FontChoice; label: string; title: string }[] = [
-  { id: "mono", label: "JetBrains Mono", title: "JetBrains Mono (default)" },
+  { id: "inter", label: "Inter", title: "Inter (default)" },
+  { id: "mono", label: "JetBrains Mono", title: "JetBrains Mono: a monospaced face" },
   { id: "pixel", label: "Public Pixel", title: "Public Pixel: GGBotNet's 8 × 8 pixel font (CC0)" },
   { id: "dyslexic", label: "OpenDyslexic", title: "OpenDyslexic, fetched the first time it is turned on" },
 ];
 
 const THEME_KEY = "gb-cartographer.theme";
-const FONT_KEY = "gb-cartographer.font";
+/** v2: Inter became the default (2026-10-09); an older saved pick (JetBrains Mono was the default) starts over. */
+const FONT_KEY = "gb-cartographer.font-v2";
 const DYSLEXIC_CSS = "https://cdn.jsdelivr.net/npm/@fontsource/opendyslexic@5.3.0/index.css";
 
 function read(key: string): string | null {
@@ -165,7 +167,7 @@ export function applyTheme(choice: ThemeChoice, remember = true) {
 
 export function loadFont(): FontChoice {
   const value = read(FONT_KEY);
-  return FONTS.some((font) => font.id === value) ? value as FontChoice : "mono";
+  return FONTS.some((font) => font.id === value) ? value as FontChoice : "inter";
 }
 
 /** Switches every text in the app to the chosen font (OpenDyslexic is fetched the first time it is turned on). */
@@ -177,7 +179,7 @@ export function applyFont(choice: FontChoice, remember = true) {
     link.href = DYSLEXIC_CSS;
     document.head.appendChild(link);
   }
-  if (choice === "mono") delete document.documentElement.dataset.font;
+  if (choice === "inter") delete document.documentElement.dataset.font;
   else document.documentElement.dataset.font = choice;
   if (remember) write(FONT_KEY, choice);
 }
