@@ -53,6 +53,10 @@ const PROJECT_KIND_KEY = "gb-cartographer.project-kind";
 /** The dev server and the desktop app serve the open GB Studio project (server/endpoints.ts). */
 const PROJECT_URL = "./__cartographer/gbstudio-assets";
 const ASSET_URL = "./__cartographer/gbstudio-asset";
+/** What the system file manager is called here. */
+const FILE_MANAGER_LABEL = /Mac/i.test(navigator.userAgent) ? "Show in Finder" : /Win/i.test(navigator.userAgent) ? "Show in Explorer" : "Show in folder";
+/** Bumped when the server's previews change, so cached thumbnails are fetched again (2: sprites show their first frame). */
+const PREVIEW_VERSION = 2;
 const ASSET_KINDS = [["backgrounds", "Backgrounds"], ["sprites", "Sprites"], ["tilesets", "Tilesets"], ["fonts", "Fonts"]] as const;
 type AssetKind = typeof ASSET_KINDS[number][0];
 /** Backgrounds and sprite sheets carry palette slots GB Studio reads; tilesets and fonts are plain pictures. */
@@ -192,6 +196,8 @@ export default function PaintApp() {
   const gbStudioWarned = useRef(false);
   const shadeInputs = useRef<(HTMLInputElement | null)[]>([]);
   const [recent, setRecent] = useState<{ name: string; path: string }[]>([]);
+  /** The right-click menu on a picture card: where it opened and for which asset. */
+  const [assetMenu, setAssetMenu] = useState<{ x: number; y: number; asset: Asset } | null>(null);
   /** The frames strip: which animation and frame of the open sprite sheet is current, and whether it plays. */
   const [frame, setFrame] = useState({ animation: 0, index: 0 });
   const [playing, setPlaying] = useState(false);
@@ -1108,10 +1114,9 @@ export default function PaintApp() {
                 {shownAssets.map((asset) => {
                   const openDoc = docs.current.find((item) => item.asset?.kind === asset.kind && item.asset.file === asset.file);
                   return (
-                    <button key={asset.file} role="listitem" className={`gbp-asset ${openDoc && openDoc.id === activeId ? "selected" : openDoc ? "open" : ""}`} title={`${asset.file} · ${asset.width} × ${asset.height} px${openDoc ? " · open" : ""}`} onClick={() => void openAsset(asset)}>
-                      <img loading="lazy" decoding="async" alt="" src={`${ASSET_URL}-preview?${assetQuery(asset)}&v=${Math.round(asset.mtime)}`} />
-                      <span className="gbp-asset-name">{openDoc?.dirty ? "• " : ""}{asset.name}</span>
-                      <span className="gbp-asset-size">{asset.width}×{asset.height}</span>
+                    <button key={asset.file} role="listitem" onContextMenu={(event) => { event.preventDefault(); setAssetMenu({ x: event.clientX, y: event.clientY, asset }); }} className={`gbp-asset ${openDoc && openDoc.id === activeId ? "selected" : openDoc ? "open" : ""}`} title={`${asset.file} · ${asset.width} × ${asset.height} px${openDoc ? " · open" : ""}`} onClick={() => void openAsset(asset)}>
+                      <img className="gbp-asset-thumb" loading="lazy" decoding="async" alt="" src={`${ASSET_URL}-preview?${assetQuery(asset)}&v=${Math.round(asset.mtime)}&pv=${PREVIEW_VERSION}`} />
+                      <span className="gbp-asset-meta"><span className="gbp-asset-name">{openDoc?.dirty ? "• " : ""}{asset.name}</span><span className="gbp-asset-size">{asset.width}×{asset.height}</span></span>
                     </button>
                   );
                 })}
@@ -1299,6 +1304,17 @@ export default function PaintApp() {
         {doc && <span title={doc.asset ? `assets/${doc.asset.kind}/${doc.asset.file}` : doc.name}>{doc.width} × {doc.height} · {doc.width / CELL} × {doc.height / CELL} tiles</span>}
       </footer>
       {toast && <div className="gbp-toast" role="status">{toast}</div>}
+      {assetMenu && (
+        <div className="gbp-menu-backdrop" onMouseDown={() => setAssetMenu(null)} onContextMenu={(event) => { event.preventDefault(); setAssetMenu(null); }}>
+          <div className="gbp-menu" role="menu" style={{ left: Math.min(assetMenu.x, window.innerWidth - 220), top: Math.min(assetMenu.y, window.innerHeight - 130) }} onMouseDown={(event) => event.stopPropagation()}>
+            <button role="menuitem" onClick={() => { void openAsset(assetMenu.asset); setAssetMenu(null); }}>Open</button>
+            <button role="menuitem" onClick={() => { void fetch(`./__cartographer/reveal?${assetQuery(assetMenu.asset)}`, { method: "POST" }); setAssetMenu(null); }}>{FILE_MANAGER_LABEL}</button>
+            <button role="menuitem" onClick={() => { void navigator.clipboard?.writeText(`${project?.path ?? ""}/assets/${assetMenu.asset.kind}/${assetMenu.asset.file}`).then(() => say("Copied the file path")); setAssetMenu(null); }}>Copy file path</button>
+            <hr />
+            <button role="menuitem" onClick={() => { void fetch("./__cartographer/reveal", { method: "POST" }); setAssetMenu(null); }}>Show project folder</button>
+          </div>
+        </div>
+      )}
       {showHelp && (
         <div className="gbp-modal-backdrop" onClick={() => setShowHelp(false)}>
           <div className="gbp-modal gbp-help" role="dialog" aria-label="Help" onClick={(event) => event.stopPropagation()}>

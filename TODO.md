@@ -21,6 +21,8 @@ into PROGRESS.md when they deserve a note.
 
 - [x] One theme for now: OLED Game Boy green (mauve, then maroon, then the two Game Boy greens: pink felt too GB Studio).
       Other themes stay unlisted in theme.ts.
+- [x] The picture selector is a grid of thumbnail cards; sprite cards show their first frame, not the whole strip.
+- [x] Right-click a card: Open, Show in Finder / Explorer, Copy file path, Show project folder.
 - [x] Open project accepts the .gbsproj file or its folder (macOS greyed out Open inside a folder in folder-only mode).
 - [x] Soft cards restyle of every control, border and panel (picked from three mockups); the start screen, frames
       strip and palette manager follow it.
@@ -91,7 +93,7 @@ into PROGRESS.md when they deserve a note.
 ## Nice to have
 
 - [ ] GB Studio 3 projects (everything in one `.gbsproj`): read-only support, or a clear "not supported" message.
-- [ ] A "reveal in Finder / Explorer" for the open asset and for the backups folder.
+- [ ] A "reveal in Finder / Explorer" for the backups folder (pictures have it on right-click).
 - [ ] Thumbnails for very large projects: a cached contact sheet instead of one request per PNG.
 - [ ] Keyboard: next / previous tab, close tab.
 - [ ] Reload a picture from disk when GB Studio changed it (watch the file, offer to reload).

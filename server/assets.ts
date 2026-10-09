@@ -319,7 +319,28 @@ export function renderPreview(project: string, kind: AssetKind, path: string): U
   const picture = quantize(image.pixels, image.width, image.height, palettes, sprite);
   if (info.tileColors.length) assignSlots(picture.cells, info.tileColors, info.slots, picture.palettes);
   const shown = picture.palettes.map((palette) => ({ ...palette, colors: sprite ? spriteShades(palette.colors) : palette.colors }));
-  return encodePng(toRgba(picture.pixels, picture.cells, image.width, shown, sprite && !picture.hasAlpha ? KEY_GREEN : undefined), image.width, image.height, (bytes) => deflateSync(bytes));
+  const rgba = toRgba(picture.pixels, picture.cells, image.width, shown, sprite && !picture.hasAlpha ? KEY_GREEN : undefined);
+  if (sprite) {
+    // A sprite sheet's thumbnail is its first frame, put together from its slices (or the sheet's first square).
+    const frame = info.animations[0]?.frames[0];
+    const tiles = frame?.tiles.length ? frame.tiles : [{ x: 0, y: 0, sliceX: 0, sliceY: 0, flipX: false, flipY: false }, { x: 8, y: 0, sliceX: 8, sliceY: 0, flipX: false, flipY: false }];
+    const width = Math.max(8, ...tiles.map((tile) => tile.x + 8)), height = Math.max(16, ...tiles.map((tile) => tile.y + 16));
+    const out = new Uint8ClampedArray(width * height * 4);
+    for (const tile of tiles) {
+      for (let y = 0; y < 16; y += 1) {
+        for (let x = 0; x < 8; x += 1) {
+          const sx = tile.sliceX + (tile.flipX ? 7 - x : x), sy = tile.sliceY + (tile.flipY ? 15 - y : y);
+          const dx = tile.x + x, dy = tile.y + y;
+          if (sx >= image.width || sy >= image.height || dx < 0 || dy < 0 || dx >= width || dy >= height) continue;
+          const from = (sy * image.width + sx) * 4, to = (dy * width + dx) * 4;
+          if (rgba[from + 3] === 0) continue;
+          out.set(rgba.subarray(from, from + 4), to);
+        }
+      }
+    }
+    return encodePng(out, width, height, (bytes) => deflateSync(bytes));
+  }
+  return encodePng(rgba, image.width, image.height, (bytes) => deflateSync(bytes));
 }
 
 export class AssetWriteError extends Error {

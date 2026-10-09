@@ -11,9 +11,11 @@
  *   POST /__cartographer/gbstudio-tile-colors { slots } per-cell palette slots into the sidecar (?kind=&file=&metaMtime=&force=1)
  *   POST /__cartographer/gbstudio-palette     { name, colors } adds a palette file to the project; { id, name, colors } rewrites one
  *   GET  /__cartographer/gbstudio-running     whether a GB Studio process is running (it may overwrite project JSON when it saves)
+ *   POST /__cartographer/reveal               ?kind=&file= shows that asset in Finder / Explorer (no kind: the project folder)
  * GB Cartographer writes asset PNGs, a background's tileColors, a sprite's paletteIndex and palette files; nothing else.
  */
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
+import { dirname } from "node:path";
 import { readFileSync, statSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { AssetWriteError, assetInfo, assetPath, listAssets, listPalettes, projectName, renderPreview, writeAsset, writePalette, writeSpritePalettes, writeTileColors, type AssetKind } from "./assets";
@@ -44,6 +46,14 @@ function readBody(req: IncomingMessage): Promise<Buffer> {
     req.on("end", () => resolve(Buffer.concat(chunks)));
     req.on("error", reject);
   });
+}
+
+/** Shows a file selected in its folder (Finder, Explorer), or opens a folder; Linux opens the folder. */
+function revealInFileManager(path: string, isFile: boolean) {
+  const [command, args] = process.platform === "darwin" ? ["open", isFile ? ["-R", path] : [path]]
+    : process.platform === "win32" ? ["explorer.exe", isFile ? [`/select,${path}`] : [path]]
+    : ["xdg-open", [isFile ? dirname(path) : path]];
+  spawn(command, args, { detached: true, stdio: "ignore" }).unref();
 }
 
 /** Best effort: is a process called GB Studio running? (It keeps the project in memory and writes it back when it saves.) */
@@ -150,6 +160,17 @@ export async function handleCartographerRequest(req: IncomingMessage, res: Serve
         }
         return true;
       }
+    }
+    if (url.pathname === "/__cartographer/reveal" && req.method === "POST") {
+      const kind = url.searchParams.get("kind");
+      const path = kind ? assetPath(project, kind, url.searchParams.get("file") ?? "") : project;
+      if (!path) {
+        reply(res, 404, { error: "No such asset" });
+        return true;
+      }
+      revealInFileManager(path, Boolean(kind));
+      reply(res, 200, { ok: true });
+      return true;
     }
     if (url.pathname === "/__cartographer/gbstudio-tile-colors" && req.method === "POST") {
       const kind = url.searchParams.get("kind") ?? "backgrounds";

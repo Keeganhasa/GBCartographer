@@ -124,9 +124,13 @@ describe("assets", () => {
     // Cell 0 is slot 1 = pal-town, whose lightest color is #E6FFCE; the rest are slot 0 = pal-default, unknown, so GB green.
     expect([...preview.pixels.slice(0, 3)]).toEqual([0xe6, 0xff, 0xce]);
     expect([...preview.pixels.slice(8 * 4, 8 * 4 + 3)]).toEqual([0xe0, 0xf8, 0xcf]);
+    // A sprite's preview is its first frame (two 8 x 16 slices), key green see-through.
     const sprite = decodePng(new Uint8Array(await (await fetch(`${base}/gbstudio-asset-preview?kind=sprites&file=hero.png`)).arrayBuffer()), (bytes) => inflateSync(bytes));
+    expect([sprite.width, sprite.height]).toEqual([16, 16]);
     expect(sprite.pixels[3]).toBe(0);
     expect((await fetch(`${base}/gbstudio-asset-preview?kind=backgrounds&file=missing.png`)).status).toBe(404);
+    expect((await fetch(`${base}/reveal?kind=backgrounds&file=missing.png`, { method: "POST" })).status).toBe(404);
+    expect((await fetch(`${base}/reveal?kind=backgrounds&file=..%2F..%2Fsecret.png`, { method: "POST" })).status).toBe(404);
   });
 
   it("overwrites a PNG of the same size, keeps a backup, and refuses stale or resized writes", async () => {

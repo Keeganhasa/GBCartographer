@@ -89,6 +89,11 @@ server layer (`server/`) and the Electron shell (`electron/`). Nothing from any 
 - Screenshot scripts must never remove `.gbp-toast` by hand (React then crashes on unmount and the page paints
   black): hide it with `visibility` instead.
 
+- The picture selector is a two-column grid of thumbnail cards (preview on a checkerboard, name and size under
+  it). A sprite's preview is its first frame put together from its slices. Thumbnail URLs carry `pv`
+  (`PREVIEW_VERSION`) so a change to the previews refreshes cached images. Right-click a card for Open, Show in
+  Finder / Explorer (`POST /__cartographer/reveal`, the asset or the project folder), Copy file path.
+
 ### Known issues
 - Inter and JetBrains Mono load from Google Fonts: offline, the app falls back to the system font.
 - GB Studio's animation speed is not read yet: the frames strip plays at a fixed 8 fps.
