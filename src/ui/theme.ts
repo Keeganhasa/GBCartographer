@@ -20,10 +20,11 @@ export interface ThemeInfo {
   colors?: string[];
 }
 
+/** One theme for now (the author's call, 2026-10-09): OLED Mauve. The others stay here, unlisted, for later. */
 export const THEMES: ThemeInfo[] = [
-  { id: "slate", label: "Slate", title: "Slate (default): neutral dark gray, orange accent" },
-  { id: "oled", label: "OLED orange", title: "OLED orange: true black with an orange accent" },
   { id: "oled-mauve", label: "OLED mauve", title: "OLED mauve: true black with a mauve accent" },
+  { id: "slate", label: "Slate", title: "Slate: neutral dark gray, orange accent" },
+  { id: "oled", label: "OLED orange", title: "OLED orange: true black with an orange accent" },
   { id: "oled-green", label: "OLED green", title: "OLED green: true black with a Game Boy green accent" },
   { id: "shuffle", label: "Shuffle", title: "Shuffle: OLED black with an orange, mauve or green accent, a new pick every launch" },
   { id: "dmg", label: "DMG", title: "DMG: the original Game Boy's four greens", colors: ["#9BBC0F", "#8BAC0F", "#306230", "#0F380F"] },
@@ -62,8 +63,9 @@ export function themeColors(choice: ThemeChoice): string[] | null {
 }
 
 export function loadTheme(): ThemeChoice {
-  const value = read(THEME_KEY);
-  return THEMES.some((theme) => theme.id === value) ? value as ThemeChoice : "slate";
+  // One theme for now: whatever was saved, the app wears OLED Mauve.
+  void read(THEME_KEY);
+  return "oled-mauve";
 }
 
 const SHUFFLE: ThemeChoice[] = ["oled", "oled-mauve", "oled-green"];

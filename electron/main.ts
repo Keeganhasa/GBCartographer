@@ -64,7 +64,7 @@ async function createWindow() {
     minHeight: 640,
     title: APP_NAME,
     ...(existsSync(ICON) ? { icon: ICON } : {}),
-    backgroundColor: "#16181c",
+    backgroundColor: "#000000",
     webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, preload: join(__dirname, "preload.cjs") },
   });
   window.webContents.setWindowOpenHandler(({ url }) => {

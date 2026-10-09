@@ -8,7 +8,7 @@ import { BoxSelect, Circle, Download, DropletOff, Eraser, FlipHorizontal2, Folde
 import { useEffect, useLayoutEffect, useReducer, useRef, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { LogoMark } from "./ui/LogoMark";
-import { FONTS, THEMES, applyFont, applyTheme, loadFont, loadTheme, type FontChoice, type ThemeChoice } from "./ui/theme";
+import { FONTS, applyFont, loadFont, type FontChoice } from "./ui/theme";
 import PaletteManager from "./PaletteManager";
 import { attachMiddlePan, attachWheelZoom, nextStep } from "./ui/wheelZoom";
 import { CELL, CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, cellsWide, clipRect, colorize, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, lift, linePoints, mirrorPoints, quantize, rectFrom, shadeLut, snapRect, spray, toRgba, type Floating, type Mirror, type Palette, type Rect } from "./paint";
@@ -182,7 +182,6 @@ export default function PaintApp() {
   /** Whether the page is served by something that can open a project (the dev server or the desktop app). */
   const [served, setServed] = useState(false);
   const [showPalettes, setShowPalettes] = useState(false);
-  const [theme, setTheme] = useState<ThemeChoice>(() => loadTheme());
   const [font, setFont] = useState<FontChoice>(() => loadFont());
   const [showProject, setShowProject] = useState<boolean>(() => readStored(PROJECT_PANEL_KEY, true));
   const [projectKind, setProjectKind] = useState<AssetKind>(() => readStored(PROJECT_KIND_KEY, "backgrounds"));
@@ -944,11 +943,6 @@ export default function PaintApp() {
           </select>
         </label>
         {tint === "Custom" && customTint.map((color, index) => <input key={index} type="color" className="gbp-tint-color" aria-label={`Tint shade ${index + 1}`} value={color} onChange={(event) => setCustomTint(customTint.map((old, at) => at === index ? event.target.value.toUpperCase() : old))} />)}
-        <label className="gbp-tint" title="App theme">Theme
-          <select value={theme} onChange={(event) => { const next = event.target.value as ThemeChoice; setTheme(next); applyTheme(next); }}>
-            {THEMES.map((item) => <option key={item.id} value={item.id} title={item.title}>{item.label}</option>)}
-          </select>
-        </label>
         <label className="gbp-tint" title="App font">Font
           <select value={font} onChange={(event) => { const next = event.target.value as FontChoice; setFont(next); applyFont(next); }}>
             {FONTS.map((item) => <option key={item.id} value={item.id} title={item.title}>{item.label}</option>)}
