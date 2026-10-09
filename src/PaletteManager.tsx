@@ -4,7 +4,7 @@
  * right with a live preview of the open picture; a palette can be added to the project (a new
  * project/palettes/<name>.gbsres) or, for a project palette, saved back into its file.
  */
-import { Plus, Trash2, X } from "lucide-react";
+import { FolderTree, Gamepad2, Layers, Plus, Star, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import library from "./palettes/library.json";
 import { colorize, shadeLut, spriteShades, type Palette } from "./paint";
@@ -32,6 +32,10 @@ function writeMine(palettes: Palette[]) {
   }
 }
 
+/** GB Studio's palette file name for a palette name (lowercase, spaces as "_"), as server/assets.ts spells it. */
+const fileNameFor = (name: string) => (name.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_-]/g, "") || "palette") + ".gbsres";
+const COLLECTION_ICONS: Record<string, typeof Star> = { project: FolderTree, mine: Star, "Game Boy": Gamepad2, Chorbi: Layers };
+
 const normalize = (color: string) => {
   const hex = color.trim().replace(/^#/, "");
   return /^[0-9a-f]{6}$/i.test(hex) ? `#${hex.toUpperCase()}` : null;
@@ -41,6 +45,8 @@ export interface PaletteManagerProps {
   projectName: string | null;
   /** The project's palettes, with their GB Studio ids. */
   projectPalettes: Palette[];
+  /** The open picture's eight palette slot ids, in slot order (empty when it has none). */
+  sceneSlots: string[];
   /** The open picture, flattened, for the preview. */
   picture: Picture | null;
   onClose: () => void;
@@ -50,7 +56,7 @@ export interface PaletteManagerProps {
   onPick: (paletteId: string) => void;
 }
 
-export default function PaletteManager({ projectName, projectPalettes, picture, onClose, onWriteProject, onPick }: PaletteManagerProps) {
+export default function PaletteManager({ projectName, projectPalettes, sceneSlots, picture, onClose, onWriteProject, onPick }: PaletteManagerProps) {
   const [collection, setCollection] = useState<Collection>(projectPalettes.length ? "project" : LIBRARY[0]?.name ?? "mine");
   const [filter, setFilter] = useState("");
   const [mine, setMine] = useState<Palette[]>(() => readMine());
@@ -68,6 +74,11 @@ export default function PaletteManager({ projectName, projectPalettes, picture, 
   const current = collections.find((group) => group.id === collection) ?? collections[0];
   const matches = (name: string) => !filter.trim() || name.toLowerCase().includes(filter.trim().toLowerCase());
   const shown = current.palettes.map((palette, index) => ({ palette, index })).filter(({ palette }) => matches(palette.name));
+  // The project list leads with the open picture's slots, in slot order, then everything else.
+  const slotOf = (palette: Palette) => palette.id ? sceneSlots.indexOf(palette.id) : -1;
+  const groups = collection === "project" && sceneSlots.length
+    ? [{ label: "Scene slots", rows: shown.filter(({ palette }) => slotOf(palette) >= 0).sort((a, b) => slotOf(a.palette) - slotOf(b.palette)) }, { label: "Others in the project", rows: shown.filter(({ palette }) => slotOf(palette) < 0) }]
+    : [{ label: "", rows: shown }];
   const picked = current.palettes[selected];
   const colors = draft?.colors ?? picked?.colors ?? [];
   const name = draft?.name ?? picked?.name ?? "";
@@ -129,9 +140,9 @@ export default function PaletteManager({ projectName, projectPalettes, picture, 
     choose("mine", list.length - 1);
   }
 
-  function copyToMine() {
+  function copyToMine(asCopy = false) {
     if (!picked || !valid) return;
-    const list = [...mine, { name: collection === "mine" ? `${name} copy` : name, colors: colors.map((color) => normalize(color)!) }];
+    const list = [...mine, { name: asCopy || collection === "mine" ? `${name} copy` : name, colors: colors.map((color) => normalize(color)!) }];
     saveMine(list);
     choose("mine", list.length - 1);
     setNote("Copied to Mine.");
@@ -183,66 +194,63 @@ export default function PaletteManager({ projectName, projectPalettes, picture, 
 
   return (
     <div className="gbp-modal-backdrop" onClick={onClose}>
-      <div className="gbp-modal" role="dialog" aria-label="Palette manager" onClick={(event) => event.stopPropagation()}>
-        <header className="gbp-modal-head">
-          <h2>Palettes</h2>
+      <div className="gbp-modal gbp-pm" role="dialog" aria-label="Palette manager" onClick={(event) => event.stopPropagation()}>
+        <nav className="gbp-pm-rail" aria-label="Collections">
+          {collections.map((group) => { const Icon = COLLECTION_ICONS[group.id] ?? Layers; return <button key={group.id} className={`icon-button ${collection === group.id ? "active-tool" : ""}`} aria-pressed={collection === group.id} aria-label={`${group.label} (${group.palettes.length})`} title={`${group.label} · ${group.palettes.length}`} onClick={() => choose(group.id, 0)}><Icon size={16} /><b>{group.palettes.length}</b></button>; })}
           <span className="gbp-spacer" />
-          <button className="icon-button small" aria-label="Close" title="Close · Esc" onClick={onClose}><X size={14} /></button>
-        </header>
-        <div className="gbp-modal-body">
-          <div className="gbp-pm-list">
-            <div className="gbp-pm-collections" role="tablist" aria-label="Collections">
-              {collections.map((group) => <button key={group.id} role="tab" aria-selected={collection === group.id} className={collection === group.id ? "selected" : ""} onClick={() => choose(group.id, 0)}>{group.label}<small>{group.palettes.length}</small></button>)}
-            </div>
-            <div className="gbp-pm-tools">
-              <input type="search" className="gbp-filter" placeholder="Filter by name" aria-label="Filter palettes by name" value={filter} onChange={(event) => setFilter(event.target.value)} />
-              <button className="quiet-button" title="A new palette in Mine, in the GB greens" onClick={newPalette}><Plus size={14} />New</button>
-            </div>
-            <div className="gbp-palettes gbp-pm-rows" role="listbox" aria-label={`${current.label} palettes`}>
-              {shown.map(({ palette, index }) => (
-                <button key={`${palette.id ?? ""}-${index}`} role="option" aria-selected={selected === index} className={selected === index ? "selected" : ""} onClick={() => choose(current.id, index)}>
-                  <span className="gbp-chips">{palette.colors.map((color, at) => <i key={at} style={{ background: color }} />)}</span>
-                  <span>{palette.name}</span>
-                </button>
-              ))}
-              {shown.length === 0 && <p className="gbp-note">{current.palettes.length ? "No palette matches." : current.id === "project" ? "Open a GB Studio project to see its palettes." : "Nothing here yet. New makes one; Copy to Mine keeps any palette."}</p>}
-            </div>
+          <button className="icon-button" aria-label="New palette" title="A new palette in Mine, in the GB greens" onClick={newPalette}><Plus size={16} /></button>
+          <button className="icon-button" aria-label="Close" title="Close · Esc" onClick={onClose}><X size={16} /></button>
+        </nav>
+        <div className="gbp-pm-list">
+          <div className="gbp-pm-head"><span className="eyebrow">{current.label}</span><input type="search" className="gbp-filter" placeholder="Filter" aria-label="Filter palettes by name" value={filter} onChange={(event) => setFilter(event.target.value)} /></div>
+          <div className="gbp-palettes gbp-pm-rows" role="listbox" aria-label={`${current.label} palettes`}>
+            {groups.map((group) => group.rows.length > 0 && (
+              <div key={group.label} className="gbp-pm-group">
+                {group.label && <span className="eyebrow">{group.label}</span>}
+                {group.rows.map(({ palette, index }) => (
+                  <button key={`${palette.id ?? ""}-${index}`} role="option" aria-selected={selected === index} className={selected === index ? "selected" : ""} onClick={() => choose(current.id, index)}>
+                    <span className="gbp-chips">{palette.colors.map((color, at) => <i key={at} style={{ background: color }} />)}</span>
+                    <span>{palette.name}</span>
+                    {slotOf(palette) >= 0 && collection === "project" && <small className="gbp-slot">{slotOf(palette) + 1}</small>}
+                  </button>
+                ))}
+              </div>
+            ))}
+            {shown.length === 0 && <p className="gbp-note">{current.palettes.length ? "No palette matches." : current.id === "project" ? "Open a GB Studio project to see its palettes." : "Nothing here yet. + makes one; Copy to Mine keeps any palette."}</p>}
           </div>
-          <div className="gbp-pm-edit">
-            {picked ? (
-              <>
-                <label className="gbp-pm-field">Name
-                  <input type="text" value={name} onChange={(event) => edit({ name: event.target.value })} readOnly={!current.editable && collection !== "project"} />
-                </label>
-                <div className="gbp-pm-colors">
-                  {colors.map((color, at) => (
-                    <div key={at} className="gbp-pm-color">
-                      <input type="color" aria-label={`Color ${at + 1}`} value={normalize(color) ?? "#000000"} onChange={(event) => setColor(at, event.target.value.toUpperCase())} />
-                      <input type="text" aria-label={`Color ${at + 1} hex`} value={color} spellCheck={false} onChange={(event) => setColor(at, event.target.value)} className={normalize(color) ? "" : "invalid"} />
-                      <small>{at === 0 ? (picture?.sprite ? "see-through" : "lightest") : at === 3 ? "darkest" : ""}</small>
-                    </div>
-                  ))}
-                </div>
-                <div className="gbp-pm-preview">
-                  {picture && lut ? <canvas ref={canvasRef} style={{ aspectRatio: `${picture.width} / ${picture.height}` }} /> : <p className="gbp-note">{picture ? "Four valid colors make a preview." : "Open a picture to preview it in this palette."}</p>}
-                  {picture?.sprite && <p className="gbp-note">Sprite sheet: color 0 is see-through in GB Studio; colors 1–3 dress the shades.</p>}
-                </div>
-                <div className="gbp-pm-actions">
-                  {collection === "project" && <button className="quiet-button" disabled={!dirty || !valid || busy} title="Rewrite this palette's file in the project (the old file goes to the backups folder)" onClick={() => void writeProject(false)}>Save into project</button>}
-                  {collection === "project" && picked.id && <button className="quiet-button" title="Paint with this palette" onClick={() => { onPick(picked.id!); onClose(); }}>Use for the palette brush</button>}
-                  {collection !== "project" && <button className="quiet-button" disabled={!projectName || !valid || busy} title={projectName ? `Add a new palette file to ${projectName}` : "Open a project first"} onClick={() => void writeProject(true)}>Add to project</button>}
-                  {collection === "mine" ? (
-                    <>
-                      <button className="quiet-button" disabled={!dirty || !valid} onClick={saveToMine}>Save</button>
-                      <button className="quiet-button danger" title="Remove from Mine" onClick={deleteMine}><Trash2 size={14} />Delete</button>
-                    </>
-                  ) : <button className="quiet-button" disabled={!valid} title="Keep a copy in Mine to edit freely" onClick={copyToMine}>Copy to Mine</button>}
-                  {dirty && <button className="quiet-button" onClick={() => setDraft(null)}>Revert</button>}
-                </div>
-                {note && <p className="gbp-note gbp-pm-note">{note}</p>}
-              </>
-            ) : <p className="gbp-note">Pick a palette on the left.</p>}
-          </div>
+        </div>
+        <div className="gbp-pm-edit">
+          {picked ? (
+            <>
+              <div className="gbp-pm-title">
+                <input type="text" aria-label="Palette name" value={name} onChange={(event) => edit({ name: event.target.value })} />
+                <button className="quiet-button" title="A copy in Mine, to edit freely" onClick={() => copyToMine(true)}>Duplicate</button>
+                {collection !== "mine" && <button className="quiet-button" disabled={!valid} title="Keep this palette in Mine" onClick={() => copyToMine(false)}>Copy to Mine</button>}
+              </div>
+              <div className="gbp-pm-colors">
+                {colors.map((color, at) => (
+                  <div key={at} className="gbp-pm-color">
+                    <input type="color" aria-label={`Color ${at + 1}`} value={normalize(color) ?? "#000000"} onChange={(event) => setColor(at, event.target.value.toUpperCase())} />
+                    <input type="text" aria-label={`Color ${at + 1} hex`} value={color} spellCheck={false} onChange={(event) => setColor(at, event.target.value)} className={normalize(color) ? "" : "invalid"} />
+                    <small>{at === 0 ? (picture?.sprite ? "see-through" : "lightest") : at === 3 ? "darkest" : ""}</small>
+                  </div>
+                ))}
+              </div>
+              <div className="gbp-pm-preview">
+                {picture && lut ? <canvas ref={canvasRef} style={{ aspectRatio: `${picture.width} / ${picture.height}` }} /> : <p className="gbp-note">{picture ? "Four valid colors make a preview." : "Open a picture to preview it in this palette."}</p>}
+              </div>
+              <div className="gbp-pm-actions">
+                {collection === "project" && <button className="quiet-button primary" disabled={!dirty || !valid || busy} onClick={() => void writeProject(false)}>Save into project</button>}
+                {collection !== "project" && <button className="quiet-button primary" disabled={!projectName || !valid || busy} title={projectName ? `Add a new palette file to ${projectName}` : "Open a project first"} onClick={() => void writeProject(true)}>Add to project</button>}
+                {collection === "project" && picked.id && <button className="quiet-button" title="Paint with this palette" onClick={() => { onPick(picked.id!); onClose(); }}>Use for brush</button>}
+                {collection === "mine" && <button className="quiet-button" disabled={!dirty || !valid} onClick={saveToMine}>Save</button>}
+                {collection === "mine" && <button className="quiet-button danger" title="Remove from Mine" onClick={deleteMine}><Trash2 size={14} />Delete</button>}
+                {dirty && <button className="quiet-button" onClick={() => setDraft(null)}>Revert</button>}
+                <span className="gbp-pm-note">{note || (collection === "project" ? "Rewrites this palette's file in the project · the old file goes to the backups folder" : projectName ? `Adds project/palettes/${fileNameFor(name.trim() || picked.name)}` : "")}</span>
+              </div>
+              {picture?.sprite && <p className="gbp-note">Sprite sheet: color 0 is see-through in GB Studio; colors 1–3 dress the shades.</p>}
+            </>
+          ) : <p className="gbp-note">Pick a palette on the left.</p>}
         </div>
       </div>
     </div>

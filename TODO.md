@@ -25,8 +25,11 @@ into PROGRESS.md when they deserve a note.
       scene's eight palette slots as a strip at the top of Palettes (borrowed from mockup B), short tool hints in
       the status bar, the long text and all keys behind a ? help panel. Tint, tile budget and Font moved to Picture.
 - [x] Rooms: decided against for now (three jobs, not nine; the modal and the panel cover them).
-- [ ] Next mockups (round 2, `review/mockups-2026-10-09/round2-*`): the start screen, the palette manager in the
-      new language, a sprite sheet open with a frames strip.
+- [x] Round 2 (mockups in `review/mockups-2026-10-09/round2-*`, all built): a start screen with three cards and a
+      Recent list (the last six project folders, kept in the settings file); the palette manager restyled with a
+      collection rail, a list grouped into the scene's slots and the rest, bigger wells and one action row; a
+      frames strip above a sprite sheet (every animation's frames, thumbnails, play at 8 fps, the current frame's
+      slices outlined on the sheet).
 - [x] Palette brush: [ ] set it to 1, 2 × 2 or 3 × 3 tiles; Shift-click draws a straight line of tiles; I picks a tile's palette.
 - [ ] Bake the author's Cabin Interior tile colors into the demo once saved (the generator has the hook).
 - [x] Hint line: gone; one clause per tool in the status bar, the full text behind ?.

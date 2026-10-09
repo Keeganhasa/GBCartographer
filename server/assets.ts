@@ -19,7 +19,27 @@ export interface ProjectPalette { id: string; name: string; colors: string[] }
  * the two cells it covers, -1 on cells no slice uses). `slots`: the eight palette ids those slots mean (the
  * scene's background palettes, or the project's sprite palettes). `metaMtime`: the sidecar's time, or null.
  */
-export interface AssetInfo { mtime: number; width: number; height: number; tileColors: number[]; slots: string[]; metaMtime: number | null }
+export interface AssetInfo { mtime: number; width: number; height: number; tileColors: number[]; slots: string[]; metaMtime: number | null; /** A sprite sheet's animations (every state's), each a list of frames made of 8 × 16 slices. */ animations: SpriteAnimation[] }
+export interface SpriteFrame { tiles: { x: number; y: number; sliceX: number; sliceY: number; flipX: boolean; flipY: boolean }[] }
+export interface SpriteAnimation { name: string; frames: SpriteFrame[] }
+
+/** A sprite sheet's animations, flattened across states: "<state> · <n>" (GB Studio keeps up to eight per state). */
+function spriteAnimations(meta: Record<string, unknown>): SpriteAnimation[] {
+  const out: SpriteAnimation[] = [];
+  const states = Array.isArray(meta.states) ? meta.states as Record<string, unknown>[] : [];
+  states.forEach((state, stateIndex) => {
+    const animations = Array.isArray(state.animations) ? state.animations as Record<string, unknown>[] : [];
+    animations.forEach((animation, index) => {
+      const frames = (Array.isArray(animation.frames) ? animation.frames as Record<string, unknown>[] : []).map((frame) => ({
+        tiles: (Array.isArray(frame.tiles) ? frame.tiles as SpriteTile[] : []).map((tile) => ({ x: Number(tile.x) || 0, y: Number(tile.y) || 0, sliceX: Number(tile.sliceX) || 0, sliceY: Number(tile.sliceY) || 0, flipX: Boolean(tile.flipX), flipY: Boolean(tile.flipY) })),
+      })).filter((frame) => frame.tiles.length);
+      if (!frames.length) return;
+      const stateName = typeof state.name === "string" && state.name ? state.name : states.length > 1 ? `State ${stateIndex + 1}` : "";
+      out.push({ name: [stateName, animations.length > 1 ? `Animation ${index + 1}` : ""].filter(Boolean).join(" · ") || "Animation", frames });
+    });
+  });
+  return out;
+}
 
 type SpriteTile = { sliceX?: number; sliceY?: number; paletteIndex?: number } & Record<string, unknown>;
 
@@ -194,7 +214,7 @@ export function assetInfo(project: string, kind: AssetKind, path: string): Asset
     if (sidecar) tileColors = spriteCellColors(sidecar, Math.ceil(size.width / 8), Math.ceil(size.height / 8));
     slots = spriteSlots(project, id);
   }
-  return { mtime: statSync(path).mtimeMs, width: size.width, height: size.height, tileColors, slots, metaMtime: hasSidecar ? statSync(`${path}.gbsres`).mtimeMs : null };
+  return { mtime: statSync(path).mtimeMs, width: size.width, height: size.height, tileColors, slots, metaMtime: hasSidecar ? statSync(`${path}.gbsres`).mtimeMs : null, animations: kind === "sprites" && sidecar ? spriteAnimations(sidecar) : [] };
 }
 
 /** Reads a sidecar for writing: it must exist and be unchanged since `expectedMtime` (unless forced). */

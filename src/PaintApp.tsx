@@ -4,7 +4,7 @@
  * A tint only changes how the plain tiles look while painting. Saving writes one flat PNG, and for a project
  * picture also its tile palettes (see server/endpoints.ts).
  */
-import { ArrowLeftRight, BoxSelect, Circle, CircleHelp, Download, DropletOff, Eraser, FlipHorizontal2, FolderOpen, FolderTree, Ghost, Grid3x3, Hand, Image, LayoutGrid, Magnet, Minus, Move, PaintBucket, Palette as PaletteIcon, Pencil, Pipette, Plus, RectangleHorizontal, Redo2, Save, Slash, SprayCan, Square, Type, Undo2, X } from "lucide-react";
+import { ArrowLeftRight, BoxSelect, Circle, CircleHelp, Download, DropletOff, Eraser, FlipHorizontal2, FolderOpen, FolderTree, Ghost, Grid3x3, Hand, Image, LayoutGrid, Magnet, Minus, Move, PaintBucket, Palette as PaletteIcon, Pause, Pencil, Pipette, Play, Plus, RectangleHorizontal, Redo2, Save, Slash, SprayCan, Square, Star, Type, Undo2, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useReducer, useRef, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { LogoMark } from "./ui/LogoMark";
@@ -74,8 +74,11 @@ const PNG_TYPES = [{ description: "PNG image", accept: { "image/png": [".png"] }
 /** One PNG under the GB Studio project's assets folder. */
 interface Asset { kind: AssetKind; file: string; name: string; width: number; height: number; mtime: number }
 interface Project { name: string; path: string; assets: Asset[]; palettes: Palette[] }
-/** What the server knows about an asset besides its pixels (see assetInfo in scripts/gbstudioAssets.ts). */
-interface AssetInfo { mtime: number; tileColors: number[]; slots: string[]; metaMtime: number | null }
+/** A sprite sheet's frames: 8 × 16 slices placed at frame-local x, y (see server/assets.ts). */
+interface SpriteFrame { tiles: { x: number; y: number; sliceX: number; sliceY: number; flipX: boolean; flipY: boolean }[] }
+interface SpriteAnimation { name: string; frames: SpriteFrame[] }
+/** What the server knows about an asset besides its pixels (see assetInfo in server/assets.ts). */
+interface AssetInfo { mtime: number; tileColors: number[]; slots: string[]; metaMtime: number | null; animations?: SpriteAnimation[] }
 /** A picture to open: a file (with a handle to save back to), or a project asset with its info. */
 interface Opening { file: File; handle?: FileHandle; asset?: Asset; info?: AssetInfo }
 
@@ -97,7 +100,7 @@ interface Doc extends Snapshot {
    * A background or sprite sheet also carries its eight palette slot ids and its sidecar's time: Save writes each
    * tile's palette into the sidecar (a background's tileColors, a sprite's slices' paletteIndex) as a slot.
    */
-  asset?: { kind: AssetKind; file: string; name: string; mtime: number; slots?: string[]; metaMtime?: number | null; /** Each cell's slot when the picture was opened (-1 unknown): only cells moved off it are written back. */ opened?: number[] };
+  asset?: { kind: AssetKind; file: string; name: string; mtime: number; slots?: string[]; metaMtime?: number | null; /** Each cell's slot when the picture was opened (-1 unknown): only cells moved off it are written back. */ opened?: number[]; /** A sprite sheet's animations, for the frames strip. */ animations?: SpriteAnimation[] };
   /** A sprite sheet: see-through pixels are GB Studio's key green in the file. */
   keyGreen?: boolean;
   zoom: number;
@@ -185,6 +188,11 @@ export default function PaintApp() {
   const [served, setServed] = useState(false);
   const [showPalettes, setShowPalettes] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [recent, setRecent] = useState<{ name: string; path: string }[]>([]);
+  /** The frames strip: which animation and frame of the open sprite sheet is current, and whether it plays. */
+  const [frame, setFrame] = useState({ animation: 0, index: 0 });
+  const [playing, setPlaying] = useState(false);
+  const frameCanvases = useRef<(HTMLCanvasElement | null)[]>([]);
   const [sideTab, setSideTab] = useState<"palettes" | "picture">("palettes");
   const [font, setFont] = useState<FontChoice>(() => loadFont());
   const [showProject, setShowProject] = useState<boolean>(() => readStored(PROJECT_PANEL_KEY, true));
@@ -356,7 +364,7 @@ export default function PaintApp() {
         // A background's tile colors (GB Studio's per-tile palettes) dress the cells when the scene's palettes are known.
         const dressed = info?.tileColors.length ? assignSlots(picture.cells, info.tileColors, info.slots, picture.palettes) : 0;
         last = nextDocId++;
-        docs.current.push({ id: last, name: asset?.name ?? file.name, width: bitmap.width, height: bitmap.height, pixels: picture.pixels, cells: picture.cells, hasAlpha: picture.hasAlpha || keyGreen, palettes: picture.palettes, undo: [], redo: [], dirty: false, handle, asset: asset && info ? { kind: asset.kind, file: asset.file, name: asset.name, mtime: info.mtime, ...(hasSlots(asset.kind) ? { slots: info.slots, metaMtime: info.metaMtime, opened: info.tileColors.map((value) => value < 0 ? -1 : value & 7) } : {}) } : undefined, keyGreen: keyGreen || undefined, zoom: fitZoom(bitmap.width, bitmap.height), sel: null, float: null });
+        docs.current.push({ id: last, name: asset?.name ?? file.name, width: bitmap.width, height: bitmap.height, pixels: picture.pixels, cells: picture.cells, hasAlpha: picture.hasAlpha || keyGreen, palettes: picture.palettes, undo: [], redo: [], dirty: false, handle, asset: asset && info ? { kind: asset.kind, file: asset.file, name: asset.name, mtime: info.mtime, ...(hasSlots(asset.kind) ? { slots: info.slots, metaMtime: info.metaMtime, opened: info.tileColors.map((value) => value < 0 ? -1 : value & 7) } : {}), ...(asset.kind === "sprites" && info.animations?.length ? { animations: info.animations } : {}) } : undefined, keyGreen: keyGreen || undefined, zoom: fitZoom(bitmap.width, bitmap.height), sel: null, float: null });
         const made = picture.palettes.length - palettesRef.current.length;
         if (picture.snapped) say(`${file.name}: ${picture.snapped} color${picture.snapped === 1 ? "" : "s"} in tiles of more than four colors became the nearest shade.`);
         else if (made) say(`${file.name}: tiles in colors outside the library keep them as ${made} palette${made === 1 ? "" : "s"} of the file.${asset ? " Save writes them as GB greens in order of brightness, which may differ from how GB Studio reads the colors." : ""}`);
@@ -395,8 +403,9 @@ export default function PaintApp() {
   /** Reads the open GB Studio project (its pictures and palettes), or notes that none is open. */
   async function loadProject(): Promise<void> {
     const asJson = <T,>(response: Response) => response.ok && response.headers.get("content-type")?.includes("json") ? response.json() as Promise<T> : null;
-    const ping = await fetch("./__cartographer/ping", { cache: "no-cache" }).then((response) => asJson<{ ok?: boolean; project?: { path: string } | null }>(response)).catch(() => null);
+    const ping = await fetch("./__cartographer/ping", { cache: "no-cache" }).then((response) => asJson<{ ok?: boolean; project?: { path: string } | null; recent?: { name: string; path: string }[] }>(response)).catch(() => null);
     setServed(Boolean(ping?.ok));
+    setRecent(ping?.recent ?? []);
     const opened = ping?.ok && ping.project ? await fetch(PROJECT_URL, { cache: "no-cache" }).then((response) => asJson<{ ok?: boolean } & Project>(response)).catch(() => null) : null;
     if (opened?.ok) {
       palettesRef.current = opened.palettes.filter((palette) => palette.colors?.length === 4);
@@ -406,6 +415,16 @@ export default function PaintApp() {
       setProject(null);
     }
     setPalettes(palettesRef.current);
+  }
+
+  /** Opens a project folder by path (a Recent entry). */
+  async function openProjectPath(path: string) {
+    const response = await fetch("./__cartographer/project", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path }) });
+    const result = await response.json() as { ok?: boolean; error?: string };
+    if (!response.ok || !result.ok) return say(result.error ?? response.statusText);
+    palettesReady.current = loadProject();
+    await palettesReady.current;
+    setShowProject(true);
   }
 
   /** Asks for a GB Studio project folder: the desktop app's folder dialog, or a typed path on the dev server. `demo` opens a copy of the shipped demo instead. */
@@ -870,6 +889,37 @@ export default function PaintApp() {
     return () => window.clearTimeout(timer);
   });
 
+  const animations = doc?.asset?.animations ?? [];
+  const animation = animations[Math.min(frame.animation, Math.max(0, animations.length - 1))];
+  const frames = animation?.frames ?? [];
+  const current = frames[Math.min(frame.index, Math.max(0, frames.length - 1))];
+  useEffect(() => { setFrame({ animation: 0, index: 0 }); setPlaying(false); }, [activeId]);
+  useEffect(() => {
+    if (!playing || frames.length < 2) return;
+    const timer = window.setInterval(() => setFrame((at) => ({ ...at, index: (at.index + 1) % frames.length })), 125);
+    return () => window.clearInterval(timer);
+  }, [playing, frames.length]);
+  // Frame thumbnails: each frame's slices copied from the drawn sheet, after the sheet itself is drawn.
+  useLayoutEffect(() => {
+    const sheet = canvasRef.current;
+    if (!sheet || !frames.length) return;
+    frames.forEach((item, index) => {
+      const canvas = frameCanvases.current[index];
+      if (!canvas) return;
+      const width = Math.max(16, ...item.tiles.map((tile) => tile.x + 8)), height = Math.max(16, ...item.tiles.map((tile) => tile.y + 16));
+      if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
+      const context = canvas.getContext("2d")!;
+      context.clearRect(0, 0, width, height);
+      for (const tile of item.tiles) {
+        context.save();
+        context.translate(tile.x + (tile.flipX ? 8 : 0), tile.y + (tile.flipY ? 16 : 0));
+        context.scale(tile.flipX ? -1 : 1, tile.flipY ? -1 : 1);
+        context.drawImage(sheet, tile.sliceX, tile.sliceY, 8, 16, 0, 0, 8, 16);
+        context.restore();
+      }
+    });
+  });
+
   // The picture is redrawn after every render: the pixels change in place, and `bump` is what announces it.
   useLayoutEffect(() => {
     const canvas = canvasRef.current;
@@ -1000,21 +1050,57 @@ export default function PaintApp() {
           )}
         </aside>
         <div className="gbp-scroller" ref={scrollerRef}>
+          {doc && frames.length > 0 && (
+            <div className="gbp-frames" role="group" aria-label="Frames">
+              {animations.length > 1 && (
+                <select aria-label="Animation" value={frame.animation} onChange={(event) => setFrame({ animation: Number(event.target.value), index: 0 })}>
+                  {animations.map((item, index) => <option key={index} value={index}>{item.name} · {item.frames.length}</option>)}
+                </select>
+              )}
+              <button className="icon-button small" aria-label={playing ? "Pause" : "Play"} title={playing ? "Pause" : "Play the animation (8 frames a second)"} disabled={frames.length < 2} onClick={() => setPlaying(!playing)}>{playing ? <Pause size={12} /> : <Play size={12} />}</button>
+              <div className="gbp-frames-list">
+                {frames.map((_, index) => (
+                  <button key={index} className={`gbp-frame ${index === frame.index ? "selected" : ""}`} title={`Frame ${index + 1}`} onClick={() => { setFrame({ ...frame, index }); setPlaying(false); }}>
+                    <canvas ref={(element) => { frameCanvases.current[index] = element; }} />
+                    <small>{index + 1}</small>
+                  </button>
+                ))}
+              </div>
+              <span className="gbp-frames-label">{animations.length > 1 ? animation.name : "frame"} {frame.index + 1} of {frames.length}</span>
+            </div>
+          )}
           {doc ? (
             <div className={`gbp-stage ${tool === "hand" ? "pan" : ""}`} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={pointerUp} onContextMenu={(event) => event.preventDefault()}>
               <div className="gbp-wrap" ref={wrapRef} style={{ width: doc.width * doc.zoom, height: doc.height * doc.zoom }}>
                 <canvas ref={canvasRef} />
                 {gridLines && <div className="gbp-grid" style={{ backgroundSize: `${gridLines} ${gridLines}` }} />}
+                {current && current.tiles.map((tile, index) => <div key={index} className="gbp-frame-slice" style={{ left: tile.sliceX * doc.zoom, top: tile.sliceY * doc.zoom, width: 8 * doc.zoom, height: 16 * doc.zoom }} />)}
                 {doc.sel && <div className={`gbp-selection ${doc.float ? "floating" : ""}`} style={{ left: doc.sel.x * doc.zoom, top: doc.sel.y * doc.zoom, width: doc.sel.w * doc.zoom, height: doc.sel.h * doc.zoom }} />}
                 <div className="gbp-brush-outline" ref={brushRef} />
               </div>
             </div>
+          ) : served && !project ? (
+            <div className="gbp-start">
+              <img className="gbp-start-icon" src={`${import.meta.env.BASE_URL}app-icon.png`} alt="" width={96} height={96} />
+              <h1>GB Cartographer</h1>
+              <p className="gbp-start-sub">A pixel painter for GB Studio projects</p>
+              <div className="gbp-start-cards">
+                <button className="gbp-start-card primary" onClick={() => void chooseProject()}><span className="gbp-start-ic"><FolderTree size={18} /></span><b>Open a GB Studio project</b><span>The folder with the .gbsproj file. Backgrounds, sprites, tilesets and fonts open here and save back.</span></button>
+                <button className="gbp-start-card" onClick={() => void chooseProject(true)}><span className="gbp-start-ic"><Star size={18} /></span><b>Try the demo</b><span>A small project with CC0 and MIT art, credited inside. Opens a copy you can paint in.</span></button>
+                <button className="gbp-start-card" onClick={() => void pickFiles()}><span className="gbp-start-ic"><FolderOpen size={18} /></span><b>Open PNG files</b><span>Any Game Boy picture on its own. Drop files anywhere, or paste from the clipboard.</span><kbd>Ctrl+O</kbd></button>
+              </div>
+              {recent.length > 0 && (
+                <div className="gbp-start-recent">
+                  <span className="eyebrow">Recent</span>
+                  {recent.map((item) => <button key={item.path} className="gbp-start-row" title={item.path} onClick={() => void openProjectPath(item.path)}><b>{item.name}</b><small>{item.path}</small></button>)}
+                </div>
+              )}
+              <p className="gbp-start-foot">Save writes only the PNG, a background's tile palettes, a sprite's slice palettes and palette files into your project. The old file is kept in the backups folder.</p>
+            </div>
           ) : (
             <div className="gbp-empty">
               <LogoMark size={56} />
-              <p>{project ? `Pick a picture of ${project.name} on the left, drop PNG files here, or` : served ? "Open a GB Studio project, drop PNG files here, or" : "Drop PNG files here, or"}</p>
-              {served && !project && <button className="quiet-button" onClick={() => void chooseProject()}><FolderTree size={14} />Open a GB Studio project</button>}
-              {served && !project && <button className="quiet-button" title="A sample project with CC0 and MIT art (credits inside it): opens a copy you can paint in" onClick={() => void chooseProject(true)}><FolderTree size={14} />Try the demo project</button>}
+              <p>{project ? `Pick a picture of ${project.name} on the left, drop PNG files here, or` : "Drop PNG files here, or"}</p>
               <button className="quiet-button" onClick={() => void pickFiles()}><FolderOpen size={14} />Open PNG files</button>
             </div>
           )}
@@ -1136,6 +1222,7 @@ export default function PaintApp() {
         <PaletteManager
           projectName={project?.name ?? null}
           projectPalettes={project?.palettes ?? []}
+          sceneSlots={sceneSlots}
           picture={doc ? { pixels: (() => { const flat = doc.pixels.slice(); if (doc.float) drop(flat, doc.width, doc.height, doc.float); return flat; })(), width: doc.width, height: doc.height, sprite: Boolean(doc.keyGreen) } : null}
           onClose={() => setShowPalettes(false)}
           onWriteProject={writeProjectPalette}

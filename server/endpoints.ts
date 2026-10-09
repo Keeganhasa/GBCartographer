@@ -14,7 +14,7 @@
 import { readFileSync, statSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { AssetWriteError, assetInfo, assetPath, listAssets, listPalettes, projectName, writeAsset, writePalette, writeSpritePalettes, writeTileColors, type AssetKind } from "./assets";
-import { demoProjectCopy, isProjectFolder, projectFolder, saveProjectFolder, setProjectFolder } from "./project";
+import { demoProjectCopy, isProjectFolder, projectFolder, recentProjects, saveProjectFolder, setProjectFolder } from "./project";
 
 export interface ServerOptions {
   /** The repo or app folder. */
@@ -61,7 +61,7 @@ export async function handleCartographerRequest(req: IncomingMessage, res: Serve
   try {
     const project = projectFolder();
     if (url.pathname === "/__cartographer/ping") {
-      reply(res, 200, { ok: true, project: project ? { name: projectName(project), path: project } : null });
+      reply(res, 200, { ok: true, project: project ? { name: projectName(project), path: project } : null, recent: recentProjects(options.settingsFile).map((path) => ({ name: projectName(path), path })) });
       return true;
     }
     if (url.pathname === "/__cartographer/project" && req.method === "POST") {

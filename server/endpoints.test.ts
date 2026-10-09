@@ -57,14 +57,16 @@ const json = <T>(response: Response) => response.json() as Promise<T>;
 
 describe("project folder", () => {
   it("starts with no project, refuses folders that are not projects, and remembers the chosen one", async () => {
-    expect(await json<{ project: null }>(await fetch(`${base}/ping`))).toEqual({ ok: true, project: null });
+    expect(await json<{ project: null }>(await fetch(`${base}/ping`))).toEqual({ ok: true, project: null, recent: [] });
     expect((await fetch(`${base}/gbstudio-assets`)).status).toBe(404);
     const post = (path: string) => fetch(`${base}/project`, { method: "POST", body: JSON.stringify({ path }) });
     expect((await post(root)).status).toBe(400);
     const opened = await json<{ ok: boolean; project: { name: string; path: string } }>(await post(project));
     expect(opened.project).toEqual({ name: "My Game", path: project });
-    expect(JSON.parse(readFileSync(join(root, "settings.json"), "utf8"))).toEqual({ project });
-    expect((await json<{ project: { name: string } }>(await fetch(`${base}/ping`))).project.name).toBe("My Game");
+    expect(JSON.parse(readFileSync(join(root, "settings.json"), "utf8"))).toEqual({ project, recent: [project] });
+    const ping = await json<{ project: { name: string }; recent: { name: string; path: string }[] }>(await fetch(`${base}/ping`));
+    expect(ping.project.name).toBe("My Game");
+    expect(ping.recent).toEqual([{ name: "My Game", path: project }]);
   });
 
   it("opens a copy of the shipped demo project, made once, and goes back to the real project afterwards", async () => {
@@ -100,8 +102,10 @@ describe("assets", () => {
     expect([info.width, info.height, info.tileColors.length, info.tileColors[0]]).toEqual([160, 144, 360, 0x81]);
     expect(info.slots).toEqual(["pal-default", "pal-town", "pal-default", "pal-default", "pal-default", "pal-default", "pal-default", "pal-ui"]);
     expect(info.metaMtime).toBeGreaterThan(0);
-    const sprite = await json<{ tileColors: number[]; slots: string[] }>(await fetch(`${base}/gbstudio-asset-info?kind=sprites&file=hero.png`));
+    const sprite = await json<{ tileColors: number[]; slots: string[]; animations: { name: string; frames: { tiles: { sliceX: number }[] }[] }[] }>(await fetch(`${base}/gbstudio-asset-info?kind=sprites&file=hero.png`));
     expect(sprite.tileColors).toEqual([2, 0, 2, 0]);
+    expect(sprite.animations).toHaveLength(1);
+    expect(sprite.animations[0].frames.map((frame) => frame.tiles.map((tile) => tile.sliceX))).toEqual([[0, 8], [8]]);
     expect(sprite.slots).toEqual(["spr-a", "spr-b", "spr-c", "spr-d", "spr-e", "spr-f", "spr-g", "spr-h"]);
     const tileset = await json<{ tileColors: number[]; slots: string[]; metaMtime: number | null }>(await fetch(`${base}/gbstudio-asset-info?kind=tilesets&file=props.png`));
     expect([tileset.tileColors, tileset.slots, tileset.metaMtime]).toEqual([[], [], null]);

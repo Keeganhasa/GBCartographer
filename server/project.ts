@@ -54,15 +54,28 @@ export function demoProjectCopy(root: string, settingsFile: string): string | nu
   return copy;
 }
 
-export function saveProjectFolder(settingsFile: string, path: string | null) {
-  let settings: Record<string, unknown> = {};
+function readSettings(settingsFile: string): Record<string, unknown> {
   try {
-    settings = JSON.parse(readFileSync(settingsFile, "utf8")) as Record<string, unknown>;
+    return JSON.parse(readFileSync(settingsFile, "utf8")) as Record<string, unknown>;
   } catch {
-    // A new settings file.
+    return {};
   }
-  if (path) settings.project = path;
-  else delete settings.project;
+}
+
+/** Remembers the open project and keeps the last six project folders as "recent" (newest first). */
+export function saveProjectFolder(settingsFile: string, path: string | null) {
+  const settings = readSettings(settingsFile);
+  if (path) {
+    settings.project = path;
+    const recent = (Array.isArray(settings.recent) ? settings.recent as unknown[] : []).filter((entry): entry is string => typeof entry === "string" && entry !== path);
+    settings.recent = [path, ...recent].slice(0, 6);
+  } else delete settings.project;
   mkdirSync(dirname(settingsFile), { recursive: true });
   writeFileSync(settingsFile, JSON.stringify(settings, null, 2));
+}
+
+/** The recent project folders that still exist, newest first. */
+export function recentProjects(settingsFile: string): string[] {
+  const recent = readSettings(settingsFile).recent;
+  return (Array.isArray(recent) ? recent as unknown[] : []).filter((entry): entry is string => typeof entry === "string" && isProjectFolder(entry));
 }

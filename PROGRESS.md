@@ -50,7 +50,22 @@ server layer (`server/`) and the Electron shell (`electron/`). Nothing from any 
   Save into project (rewrite by id, other fields kept, backup first), Copy to Mine, Mine's Save / Delete, Use for
   the palette brush. Open pictures whose copy of an edited palette was unchanged take the new colors.
 
+### Layout A, start screen, frames (2026-10-09, evening)
+- One theme, OLED Mauve, with a dusty mauve accent (`#b58ba6`) on every active state. Layout A from the mockups:
+  one toolbar row, a kind rail with counts, the thumbnail list, the inspector as a shades row plus Palettes /
+  Picture tabs with the scene's eight slots as a strip, short tool hints in the status bar, the long text and
+  all keys behind a ? help panel. Tint, tile budget and Font live in the Picture tab.
+- Start screen (served, no project): the author's icon, three cards (project, demo, PNGs) and Recent (the last
+  six project folders, kept in the settings file, served by ping).
+- Palette manager restyled: a collection rail with counts, the list grouped into "Scene slots" and "Others in
+  the project", bigger color wells, Duplicate / Copy to Mine in the title row, one action row with the write
+  note (which file is added or rewritten).
+- Frames strip: a sprite sheet's animations (every state's, from the sidecar) with frame thumbnails drawn from
+  the sheet (flips honored), play at 8 frames a second, the current frame's 8 × 16 slices outlined on the sheet.
+- Mockups and review captures live in `review/` (gitignored); `review/shoot.cjs` renders a page offscreen at 2×.
+
 ### Known issues
+- GB Studio's animation speed is not read yet: the frames strip plays at a fixed 8 fps.
 - A PNG drawn in colours that are not the GB greens (some teams draw sprites in real colours) is kept as palettes
   of the file and saved as greens in brightness order, which may not match GB Studio's own colour conversion.
   The open message warns for project pictures. Matching GB Studio's rule exactly is the next correctness step.
