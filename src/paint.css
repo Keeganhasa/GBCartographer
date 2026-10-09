@@ -61,10 +61,10 @@
 .gbp-tiles select { font: var(--fs-xs) var(--mono); }
 .gbp-grid { background-image: linear-gradient(to right, rgba(255, 255, 255, .4) 1px, transparent 1px), linear-gradient(to bottom, rgba(255, 255, 255, .4) 1px, transparent 1px); }
 /* The GB Studio project's pictures (left of the tools; shown when the dev server or desktop app serves a project). */
-.gbp-project { width: 232px; flex: none; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--line); }
+.gbp-project { width: 300px; flex: none; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--line); }
 .gbp-project h2 { margin: 0; padding: 8px 10px 4px; font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.gbp-project-kinds { display: flex; flex-wrap: wrap; gap: 2px; padding: 0 8px 6px; }
-.gbp-project-kinds button { flex: 1 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-height: 24px; padding: 0 4px; color: var(--muted); background: transparent; border: 1px solid transparent; border-radius: var(--radius); font-size: var(--fs-xs); cursor: pointer; }
+.gbp-project-kinds { display: flex; flex-wrap: nowrap; gap: 2px; padding: 0 8px 6px; }
+.gbp-project-kinds button { flex: 0 1 auto; min-width: 0; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-height: 24px; padding: 0 7px; color: var(--muted); background: transparent; border: 1px solid transparent; border-radius: var(--radius); font-size: var(--fs-xs); cursor: pointer; }
 .gbp-project-kinds button:hover { border-color: var(--line); }
 .gbp-project-kinds button.selected { color: var(--ink); border-color: var(--line); background: var(--paper-deep); }
 .gbp-project-kinds small { font: 9px var(--mono); color: var(--muted); }
@@ -81,6 +81,7 @@
 .gbp-palettes button > span:nth-child(2) { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gbp-slot { flex: none; min-width: 14px; padding: 0 3px; text-align: center; font: 9px var(--mono); color: var(--paper); background: var(--muted); border-radius: 2px; }
 .gbp-project h2 { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.gbp-project-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gbp-project-change { flex: none; padding: 1px 6px; color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: var(--radius); font: var(--fs-xs) var(--ui); text-transform: none; letter-spacing: 0; cursor: pointer; }
 .gbp-project-change:hover { color: var(--ink); border-color: var(--bar-hover-line); }
 .gbp-project-buttons { display: inline-flex; gap: 4px; }

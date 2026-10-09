@@ -940,9 +940,9 @@ export default function PaintApp() {
       <div className="gbp-body">
         {project && showProject && (
           <aside className="gbp-project" aria-label="GB Studio project">
-            <h2 title={project.path}>{project.name}<span className="gbp-project-buttons"><button className="gbp-project-change" title="Open a copy of the sample project that ships with the app" onClick={() => void chooseProject(true)}>Demo</button><button className="gbp-project-change" title="Open another GB Studio project" onClick={() => void chooseProject()}>Change…</button></span></h2>
+            <h2 title={project.path}><span className="gbp-project-name">{project.name}</span><span className="gbp-project-buttons"><button className="gbp-project-change" title="Open a copy of the sample project that ships with the app" onClick={() => void chooseProject(true)}>Demo</button><button className="gbp-project-change" title="Open another GB Studio project" onClick={() => void chooseProject()}>Change…</button></span></h2>
             <div className="gbp-project-kinds" role="tablist" aria-label="Asset folders">
-              {ASSET_KINDS.map(([kind, label]) => <button key={kind} role="tab" aria-selected={projectKind === kind} className={projectKind === kind ? "selected" : ""} onClick={() => setProjectKind(kind)}>{label}<small>{project.assets.filter((asset) => asset.kind === kind).length}</small></button>)}
+              {ASSET_KINDS.map(([kind, label]) => { const count = project.assets.filter((asset) => asset.kind === kind).length; return <button key={kind} role="tab" aria-selected={projectKind === kind} className={projectKind === kind ? "selected" : ""} title={`${count} ${label.toLowerCase()}`} onClick={() => setProjectKind(kind)}>{label}{projectKind === kind && <small>{count}</small>}</button>; })}
             </div>
             <input type="search" className="gbp-filter" placeholder="Filter by name" aria-label="Filter assets by name" value={projectFilter} onChange={(event) => setProjectFilter(event.target.value)} />
             <div className="gbp-assets" role="list">
