@@ -188,6 +188,9 @@ export default function PaintApp() {
   const [served, setServed] = useState(false);
   const [showPalettes, setShowPalettes] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  /** Whether the user was warned this session that GB Studio is open (it may overwrite project JSON when it saves). */
+  const gbStudioWarned = useRef(false);
+  const shadeInputs = useRef<(HTMLInputElement | null)[]>([]);
   const [recent, setRecent] = useState<{ name: string; path: string }[]>([]);
   /** The frames strip: which animation and frame of the open sprite sheet is current, and whether it plays. */
   const [frame, setFrame] = useState({ animation: 0, index: 0 });
@@ -456,6 +459,32 @@ export default function PaintApp() {
   }
 
   /**
+   * Before project JSON is written: if GB Studio seems to be running, ask once per session. GB Studio keeps the
+   * project in memory and writes it back when it saves, which would undo changes made here.
+   */
+  async function okToWriteProjectJson(): Promise<boolean> {
+    if (gbStudioWarned.current) return true;
+    const status = await fetch("./__cartographer/gbstudio-running", { cache: "no-cache" }).then((response) => response.ok ? response.json() as Promise<{ running?: boolean }> : null).catch(() => null);
+    if (!status?.running) return true;
+    gbStudioWarned.current = true;
+    return window.confirm("GB Studio looks open. It keeps the project in memory and may overwrite palettes and tile colors written here when it saves. Close it, or reload the project there afterwards.\n\nWrite anyway?");
+  }
+
+  /** Doc palettes (by GB Studio id) whose colors or name differ from the project's: the active picture's copy wins. */
+  function editedProjectPalettes(): { id: string; name: string; colors: string[] }[] {
+    const byId = new Map(palettesRef.current.filter((item) => item.id).map((item) => [item.id!, item]));
+    const edited = new Map<string, { id: string; name: string; colors: string[] }>();
+    for (const item of [...docs.current].sort((a, b) => (a === doc ? -1 : b === doc ? 1 : 0))) {
+      for (const own of item.palettes) {
+        const base = own.id ? byId.get(own.id) : undefined;
+        if (!own.id || !base || edited.has(own.id)) continue;
+        if (base.colors.join() !== own.colors.join() || base.name !== own.name) edited.set(own.id, { id: own.id, name: own.name, colors: [...own.colors] });
+      }
+    }
+    return [...edited.values()];
+  }
+
+  /**
    * Writes a palette into the project (new without `id`, else rewritten in place), then rereads the project and
    * passes new colors on to open pictures whose copy of that palette was unchanged. Resolves to the palette's id.
    */
@@ -540,6 +569,7 @@ export default function PaintApp() {
       if (slot === undefined) outside += 1;
       return slot === undefined || slot === asset.opened?.[cell] ? null : slot;
     });
+    if (!await okToWriteProjectJson()) return ["Tile palettes not written"];
     const post = (force: boolean) => fetch(`./__cartographer/gbstudio-tile-colors?${new URLSearchParams({ kind: asset.kind, file: asset.file })}${asset.metaMtime != null ? `&metaMtime=${asset.metaMtime}` : ""}${force ? "&force=1" : ""}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slots }) });
     let response = await post(false);
     if (response.status === 409) {
@@ -613,8 +643,14 @@ export default function PaintApp() {
         const name = await saveDoc(item, false, item === doc);
         if (name) saved.push(name);
       }
-      if (saved.length > 1) say(`Saved ${saved.length} pictures: ${saved.join(", ")}`);
-      else if (saved.length === 1 && !doc.asset) say(`Saved ${saved[0]}`);
+      // Palettes recolored in the sidebar go into the project too (the manager's "Save into project" does the same).
+      const edited = project ? editedProjectPalettes() : [];
+      let written = 0;
+      if (edited.length && await okToWriteProjectJson()) for (const palette of edited) if (await writeProjectPalette(palette)) written += 1;
+      const note = written ? ` · ${written} palette${written === 1 ? "" : "s"} written to the project` : "";
+      if (saved.length > 1) say(`Saved ${saved.length} pictures: ${saved.join(", ")}${note}`);
+      else if (saved.length === 1 && !doc.asset) say(`Saved ${saved[0]}${note}`);
+      else if (written) say(`${written} palette${written === 1 ? "" : "s"} written to the project`);
     }
     scheduleSession();
     bump();
@@ -636,7 +672,16 @@ export default function PaintApp() {
     touch(doc);
   }
 
-  const libraryColors = picked ? palettes.find((palette) => palette.name === picked.name)?.colors : undefined;
+  const libraryColors = picked ? palettes.find((palette) => (picked.id ? palette.id === picked.id : palette.name === picked.name))?.colors : undefined;
+  const normalizeHex = (color: string) => /^#[0-9a-f]{6}$/i.test(color) ? color : "#000000";
+
+  /** A shade square's color: the picked palette's color at that position, or the tint's (which becomes Custom). */
+  function changeShadeColor(index: number, color: string) {
+    if (picked) return recolorPalette(picked.colors.map((old, at) => at === index ? color : old));
+    const next = tintColors.map((old, at) => at === index ? color : old);
+    setCustomTint(next);
+    setTint("Custom");
+  }
 
   // ---- painting ----------------------------------------------------------------------------------------------------
 
@@ -1157,7 +1202,12 @@ export default function PaintApp() {
         <aside className="gbp-side">
           <div className="gbp-side-shades">
             <div className="pixel-swatches">
-              {swatchColors.slice(0, 4).map((color, index) => <button key={index} className={shade === index ? "selected" : ""} style={{ background: color }} aria-label={`Shade ${index + 1}`} title={`Shade ${index + 1} · ${index + 1}`} onClick={() => { setShade(index); if (tool === "eyedropper") setToolState(paintTool.current); }}><kbd>{index + 1}</kbd></button>)}
+              {swatchColors.slice(0, 4).map((color, index) => (
+                <button key={index} className={shade === index ? "selected" : ""} style={{ background: color }} aria-label={`Shade ${index + 1}`} title={`Shade ${index + 1} · ${index + 1} · click again to change this color${picked ? ` of ${picked.name}` : " of the tint"}`} onClick={() => { if (shade === index) shadeInputs.current[index]?.click(); else { setShade(index); if (tool === "eyedropper") setToolState(paintTool.current); } }}>
+                  <kbd>{index + 1}</kbd>
+                  <input type="color" tabIndex={-1} aria-label={`Change color ${index + 1}`} ref={(element) => { shadeInputs.current[index] = element; }} value={normalizeHex(color)} onClick={(event) => event.stopPropagation()} onChange={(event) => changeShadeColor(index, event.target.value.toUpperCase())} />
+                </button>
+              ))}
             </div>
             {doc?.hasAlpha && <button className={`transparent-swatch ${shade === CLEAR ? "selected" : ""}`} title="See-through · 0" onClick={() => setShade(CLEAR)}><kbd>0</kbd>Transparent</button>}
           </div>
@@ -1201,9 +1251,10 @@ export default function PaintApp() {
                     {picked.colors.map((color, index) => <input key={index} type="color" aria-label={`${picked.name} color ${index + 1}`} title={`Color ${index + 1}: ${color}`} value={color} onChange={(event) => recolorPalette(picked.colors.map((old, at) => at === index ? event.target.value : old))} />)}
                   </div>
                   <div className="gbp-palette-actions">
+                    {picked.id && project && <button className="quiet-button primary" disabled={!libraryColors || libraryColors.join() === picked.colors.join()} title={`Rewrite ${picked.name} in the GB Studio project with these colors (Save does this too)`} onClick={() => void (async () => { if (await okToWriteProjectJson() && await writeProjectPalette({ id: picked.id, name: picked.name, colors: [...picked.colors] })) say(`${picked.name} written to the project`); })()}>Save to project</button>}
+                    <button className="quiet-button" disabled={!libraryColors || libraryColors.join() === picked.colors.join()} title="Back to the colors the project has" onClick={() => libraryColors && recolorPalette(libraryColors)}>Revert</button>
                     <button className="quiet-button" title="Copy these four colors, to paste onto a palette here or in another tab" onClick={() => { setCopiedColors([...picked.colors]); say(`Copied the colors of ${picked.name}`); }}>Copy values</button>
                     <button className="quiet-button" disabled={!copiedColors} title="Replace these four colors with the copied ones" onClick={() => copiedColors && recolorPalette(copiedColors)}>Paste values</button>
-                    <button className="quiet-button" disabled={!libraryColors || libraryColors.join() === picked.colors.join()} title="Back to this palette's default colors" onClick={() => libraryColors && recolorPalette(libraryColors)}>Back to default</button>
                   </div>
                 </div>
               )}

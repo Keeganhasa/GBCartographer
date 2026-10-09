@@ -72,6 +72,12 @@ server layer (`server/`) and the Electron shell (`electron/`). Nothing from any 
   none. Export copy stays per picture. The accent is `#c489ab`, a notch more saturated.
 - The demo's three backgrounds carry the author's tile colors (saved in the app, baked into `demo/`).
 
+- Shade squares edit colors: clicking the selected square again opens a color picker for that position of the
+  picked palette (or of the tint, which becomes Custom). Project palettes recolored this way are written back on
+  Save (`editedProjectPalettes` → the palette endpoint) or with the sidebar's Save to project; Revert returns to the
+  project's colors. Before any project JSON write, `gbstudio-running` (a process list check) can trigger a
+  once-per-session warning: GB Studio keeps the project in memory and writes it back when it saves.
+
 ### Known issues
 - GB Studio's animation speed is not read yet: the frames strip plays at a fixed 8 fps.
 - A PNG drawn in colours that are not the GB greens (some teams draw sprites in real colours) is kept as palettes

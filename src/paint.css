@@ -257,3 +257,16 @@
 .gbp-sample { flex-direction: column; align-items: stretch; gap: 6px; }
 .gbp-sample input { min-height: 26px; padding: 0 8px; color: var(--ink); background: var(--paper-deep); border: 1px solid var(--line); border-radius: var(--radius); font: var(--fs-sm) var(--mono); }
 .gbp-sample-canvas { width: 100%; max-width: 640px; image-rendering: pixelated; background: #e0f8cf; border: 1px solid #000; }
+
+/* Shade squares: a hidden color input each, opened by clicking the selected square again. */
+.pixel-swatches button { position: relative; }
+.pixel-swatches input[type="color"] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; pointer-events: none; }
+/* The inspector never scrolls sideways: rows shrink and names ellipsize. */
+.gbp-side-pane { overflow-x: hidden; }
+.gbp-side .gbp-palettes button { width: 100%; min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; }
+.gbp-side .gbp-palettes button > span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gbp-palette-actions .quiet-button.primary { color: var(--on-red); background: var(--red); border-color: var(--red); font-weight: 700; }
+.gbp-palette-actions .quiet-button.primary:disabled { opacity: .4; }
+.gbp-side-pane > * { max-width: 100%; box-sizing: border-box; }
+.gbp-side-pane input, .gbp-side-pane select, .gbp-side-pane .gbp-filter { box-sizing: border-box; max-width: 100%; }
+.gbp-side-pane .gbp-palette-colors input { min-width: 0; }

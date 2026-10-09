@@ -35,6 +35,10 @@ into PROGRESS.md when they deserve a note.
 - [x] Thumbnails show each picture in its palettes (a server-rendered preview PNG, cached by file time).
 - [x] Fonts: a live sample sentence set in the sheet's glyphs above the picture, editable.
 - [x] Save writes every changed picture, not only the active one (Export copy stays per picture).
+- [x] Shade squares: click the selected one again to change that color (the picked palette's, or the tint's).
+- [x] Palette colors edited in the sidebar go into the GB Studio project on Save (and a Save to project button);
+      a once-per-session warning when GB Studio looks open, since it writes the project back when it saves.
+- [x] The inspector no longer clips sideways: rows shrink, names ellipsize.
 - [x] Hint line: gone; one clause per tool in the status bar, the full text behind ?.
 
 ## Before anyone else runs it

@@ -14,6 +14,9 @@ back into the project. It also opens any Game Boy PNG on its own.
   `tileColors`, a sprite's `paletteIndex`.
 - **The usual tools.** Pencil, eraser, spray, line, rectangle, ellipse, fill, eyedropper, select and move,
   mirror painting, brush sizes, undo, tabs, drag-and-drop, paste from the clipboard.
+- **Palettes edited in place.** Click the selected shade square again to change that color; Save writes the
+  recolored palette back into the project. If GB Studio is open, reload the project there afterwards, or close it
+  first: it writes the project back when it saves.
 - **A palette manager.** The project's palettes, a bundled library (Game Boy classics and the author's own
   Chorbi set) and your own, with a live preview of the open picture; add palettes to the project or edit the
   project's in place.

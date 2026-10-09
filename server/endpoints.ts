@@ -10,8 +10,10 @@
  *   POST /__cartographer/gbstudio-asset       overwrite that PNG (same size; ?mtime= guards against a file that changed; &force=1)
  *   POST /__cartographer/gbstudio-tile-colors { slots } per-cell palette slots into the sidecar (?kind=&file=&metaMtime=&force=1)
  *   POST /__cartographer/gbstudio-palette     { name, colors } adds a palette file to the project; { id, name, colors } rewrites one
+ *   GET  /__cartographer/gbstudio-running     whether a GB Studio process is running (it may overwrite project JSON when it saves)
  * GB Cartographer writes asset PNGs, a background's tileColors, a sprite's paletteIndex and palette files; nothing else.
  */
+import { execFileSync } from "node:child_process";
 import { readFileSync, statSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { AssetWriteError, assetInfo, assetPath, listAssets, listPalettes, projectName, renderPreview, writeAsset, writePalette, writeSpritePalettes, writeTileColors, type AssetKind } from "./assets";
@@ -44,6 +46,16 @@ function readBody(req: IncomingMessage): Promise<Buffer> {
   });
 }
 
+/** Best effort: is a process called GB Studio running? (It keeps the project in memory and writes it back when it saves.) */
+function gbStudioRunning(): boolean {
+  try {
+    const list = process.platform === "win32" ? execFileSync("tasklist", { encoding: "utf8", timeout: 3000 }) : execFileSync("ps", ["-ax", "-o", "comm="], { encoding: "utf8", timeout: 3000 });
+    return /gb studio|gb-studio/i.test(list);
+  } catch {
+    return false;
+  }
+}
+
 function reply(res: ServerResponse, status: number, body: object) {
   res.statusCode = status;
   res.setHeader("Content-Type", "application/json");
@@ -61,6 +73,10 @@ export async function handleCartographerRequest(req: IncomingMessage, res: Serve
   }
   try {
     const project = projectFolder();
+    if (url.pathname === "/__cartographer/gbstudio-running") {
+      reply(res, 200, { ok: true, running: gbStudioRunning() });
+      return true;
+    }
     if (url.pathname === "/__cartographer/ping") {
       reply(res, 200, { ok: true, project: project ? { name: projectName(project), path: project } : null, recent: recentProjects(options.settingsFile).map((path) => ({ name: projectName(path), path })) });
       return true;
