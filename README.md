@@ -4,6 +4,8 @@ A small pixel painter for [GB Studio](https://www.gbstudio.dev) projects. Open y
 backgrounds, sprite sheets and tilesets in the four Game Boy shades, give tiles their palettes, and save straight
 back into the project. It also opens any Game Boy PNG on its own.
 
+![GB Cartographer with a village background open: the project's pictures on the left, the paint tools, and the scene's palettes on the right](docs/screenshot.png)
+
 - **One flat picture per file.** No layers, no tileset management: what you see is the PNG.
 - **GB Studio's own rules.** Pictures stay in the four greens; sprite sheets keep their key green (`#65FF00`)
   for see-through pixels; a tile counter shows unique 8 × 8 tiles against the 192 / 384 budget.
