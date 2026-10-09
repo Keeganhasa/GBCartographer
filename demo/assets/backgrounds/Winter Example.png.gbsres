@@ -1,9 +1,9 @@
 {
   "_resourceType": "background",
-  "id": "0fa545c9-6b51-4b7c-a016-b0595dd1f112",
+  "id": "8e3faa1b-6f6a-4cd4-bdde-1e487e436422",
   "name": "Winter Example",
   "symbol": "bg_winter_example",
-  "tileColors": "",
+  "tileColors": "00e+022+002+022+00e+032+002+032+002c+02!03!022+03!02!006+022+006+02!03!022+03!02!006+032+002c+022+0012+032+0044+02!03!022+033+02!00c+02!03!022+033+02!00e+032+0012+032+0012+032+0012+032+004+",
   "filename": "Winter Example.png",
   "width": 20,
   "height": 18,

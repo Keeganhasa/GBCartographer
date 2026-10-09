@@ -37,5 +37,6 @@ Ashlynn), MIT license; the repository asks that each asset's maker be credited.
 
 ## Palettes
 
-The palettes in `project/palettes/` are GB Cartographer's author's own, made for the game Chorbi, plus GB
-Studio's defaults. CC0.
+The `DWC-` palettes in `project/palettes/` are GB Cartographer's author's own, made for the game Chorbi (the
+Dustwatch Center set, with day / sunset / night variants). The `WIN-` palettes were made for the winter scene
+here, and `WIN-SP1-Folk` for its sprites. All CC0.

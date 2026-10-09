@@ -39,7 +39,8 @@ server layer (`server/`) and the Electron shell (`electron/`). Nothing from any 
 ### Demo project, fonts, palette manager (2026-10-09)
 - `demo/`: a GB Studio 4 project built from the Wintery Pixel Art Pack (CC0, Spencer "Raptorspank" Gerowe) and
   pictures from the GB Studio Community Assets repo (MIT; GumpyFunction, yoanqwp, krümel, Paige Ashlynn, Anima,
-  Santiago Crespo, KizulEmeraldfire), credited in `demo/CREDITS.md`, with the author's Chorbi palettes as the
+  Santiago Crespo, KizulEmeraldfire), credited in `demo/CREDITS.md`, with the author's DWC palettes (30) and a WIN set (8 + a sprite palette)
+  made for the winter scene, whose tiles are dressed in it (snow / pine / wood by each tile's shades) as the
   project palettes. Four sprites had pure black / one brown normalized to the GB dark green. The app opens a
   copy of it (`demoProjectCopy`: `<data folder>/demo-project`, made once) from the start screen or the project
   panel. Fonts (`assets/fonts`) are a fourth asset kind.
