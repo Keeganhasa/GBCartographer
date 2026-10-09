@@ -25,7 +25,7 @@ server layer (`server/`) and the Electron shell (`electron/`). Nothing from any 
   painted slice; sidecars rewritten as GB Studio writes them, two-space JSON, no trailing newline).
 - **Project panel**: Backgrounds · Sprites · Tilesets with counts, a name filter, lazy thumbnails; the open
   picture's row outlined; the picked project's eight palettes lead the palette list with slot tags.
-- **Themes and fonts** (`src/ui/theme.ts`): Slate (default), OLED orange / mauve / green, Shuffle, and palette
+- **Themes and fonts** (`src/ui/theme.ts`): OLED maroon (the only one offered for now; Slate, OLED orange / green and Shuffle stay in the code), and and palette
   themes DMG, Pocket, Berry computed from four colours; fonts JetBrains Mono, Public Pixel (8 px steps), OpenDyslexic.
 
 ### Decisions
@@ -51,7 +51,7 @@ server layer (`server/`) and the Electron shell (`electron/`). Nothing from any 
   the palette brush. Open pictures whose copy of an edited palette was unchanged take the new colors.
 
 ### Layout A, start screen, frames (2026-10-09, evening)
-- One theme, OLED Mauve, with a dusty mauve accent (`#b58ba6`) on every active state. Layout A from the mockups:
+- One theme, OLED Maroon, with a maroon accent (`#a8344f`, text on it `#fff1ef`, accent text `#e57b93`) on every active state. It began as mauve (`#b58ba6`, then `#c489ab`); the author asked for maroon on 2026-10-09. Layout A from the mockups:
   one toolbar row, a kind rail with counts, the thumbnail list, the inspector as a shades row plus Palettes /
   Picture tabs with the scene's eight slots as a strip, short tool hints in the status bar, the long text and
   all keys behind a ? help panel. Tint, tile budget and Font live in the Picture tab.

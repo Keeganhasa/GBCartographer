@@ -9,7 +9,7 @@
  */
 import { LIGHT_TOKENS } from "./themeTokens";
 
-export type ThemeChoice = "shuffle" | "oled" | "oled-mauve" | "oled-green" | "slate" | "dmg" | "pocket" | "berry";
+export type ThemeChoice = "shuffle" | "oled" | "oled-maroon" | "oled-green" | "slate" | "dmg" | "pocket" | "berry";
 export type FontChoice = "mono" | "dyslexic" | "pixel";
 
 export interface ThemeInfo {
@@ -20,13 +20,13 @@ export interface ThemeInfo {
   colors?: string[];
 }
 
-/** One theme for now (the author's call, 2026-10-09): OLED Mauve. The others stay here, unlisted, for later. */
+/** One theme for now (the author's call, 2026-10-09): OLED Maroon (it began as mauve). The others stay here, unlisted, for later. */
 export const THEMES: ThemeInfo[] = [
-  { id: "oled-mauve", label: "OLED mauve", title: "OLED mauve: true black with a mauve accent" },
+  { id: "oled-maroon", label: "OLED maroon", title: "OLED maroon: true black with a maroon accent" },
   { id: "slate", label: "Slate", title: "Slate: neutral dark gray, orange accent" },
   { id: "oled", label: "OLED orange", title: "OLED orange: true black with an orange accent" },
   { id: "oled-green", label: "OLED green", title: "OLED green: true black with a Game Boy green accent" },
-  { id: "shuffle", label: "Shuffle", title: "Shuffle: OLED black with an orange, mauve or green accent, a new pick every launch" },
+  { id: "shuffle", label: "Shuffle", title: "Shuffle: OLED black with an orange, maroon or green accent, a new pick every launch" },
   { id: "dmg", label: "DMG", title: "DMG: the original Game Boy's four greens", colors: ["#9BBC0F", "#8BAC0F", "#306230", "#0F380F"] },
   { id: "pocket", label: "Pocket", title: "Pocket: the Game Boy Pocket's four grays", colors: ["#C4CFA1", "#8B956D", "#4D533C", "#1F1F1F"] },
   { id: "berry", label: "Berry", title: "Berry: Game Boy Color grape", colors: ["#F0E0F8", "#B48CDC", "#5A3A8C", "#1C0F2E"] },
@@ -63,12 +63,12 @@ export function themeColors(choice: ThemeChoice): string[] | null {
 }
 
 export function loadTheme(): ThemeChoice {
-  // One theme for now: whatever was saved, the app wears OLED Mauve.
+  // One theme for now: whatever was saved, the app wears OLED Maroon.
   void read(THEME_KEY);
-  return "oled-mauve";
+  return "oled-maroon";
 }
 
-const SHUFFLE: ThemeChoice[] = ["oled", "oled-mauve", "oled-green"];
+const SHUFFLE: ThemeChoice[] = ["oled", "oled-maroon", "oled-green"];
 /** This launch's Shuffle pick: one per page load, so it changes on every reload. */
 const SHUFFLE_PICK: ThemeChoice = SHUFFLE[Math.floor(Math.random() * SHUFFLE.length)];
 
@@ -149,7 +149,7 @@ export function applyTheme(choice: ThemeChoice, remember = true) {
   appliedTokens.forEach((name) => root.style.removeProperty(name));
   appliedTokens = [];
   const colors = themeColors(shown);
-  const accent = shown === "oled-mauve" ? "mauve" : shown === "oled-green" ? "green" : null;
+  const accent = shown === "oled-maroon" ? "maroon" : shown === "oled-green" ? "green" : null;
   if (accent) root.dataset.accent = accent;
   else delete root.dataset.accent;
   if (colors) {

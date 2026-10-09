@@ -10,7 +10,7 @@ GB Cartographer is a small app: a painter for **Game Boy PNGs** (exported backgr
 
 - Desktop: `npm run desktop` builds the page and opens it in an Electron window titled "GB Cartographer", served from a local server on the fixed port **62932** (so browser storage persists between launches; a random port when it is busy).
 - Browser: the page on the development server (`npm run dev`).
-- Theme and font are chosen in its header (Slate, OLED orange / mauve / green, Shuffle, DMG, Pocket, Berry; JetBrains Mono, Public Pixel, OpenDyslexic) and remembered per browser. Its browser tab title is "GB Cartographer", or "• name · GB Cartographer" with a bullet while the picture has unsaved changes.
+- Theme and font are chosen in its header (OLED maroon is the one theme offered; the code keeps Slate, OLED orange / green, Shuffle, DMG, Pocket and Berry; JetBrains Mono, Public Pixel, OpenDyslexic) and remembered per browser. Its browser tab title is "GB Cartographer", or "• name · GB Cartographer" with a bullet while the picture has unsaved changes.
 - It has no system-menu integration of its own.
 
 ## 3 The picture model

@@ -19,7 +19,7 @@ into PROGRESS.md when they deserve a note.
 
 ## UI pass (asked 2026-10-09)
 
-- [x] One theme for now: OLED Mauve, with a true mauve accent (not purple). Other themes stay unlisted in theme.ts.
+- [x] One theme for now: OLED Maroon (it began as mauve; the author wanted maroon). Other themes stay unlisted in theme.ts.
 - [x] Layout A (chosen from three mockups in `review/mockups-2026-10-09`): one toolbar row with grouped buttons,
       a kind rail with counts, the thumbnail list, the inspector as a shades row + Palettes / Picture tabs, the
       scene's eight palette slots as a strip at the top of Palettes (borrowed from mockup B), short tool hints in

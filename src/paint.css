@@ -144,7 +144,7 @@
 .gbp-hint { display: none; }
 .gbp-rail { width: 46px; flex: none; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 0; border-right: 1px solid var(--line); }
 .gbp-rail .icon-button { position: relative; width: 32px; height: 32px; }
-.gbp-rail .icon-button b { position: absolute; right: -5px; top: -5px; min-width: 14px; padding: 0 3px; font: 700 9px var(--mono); color: var(--on-red); background: var(--red-text); border-radius: 7px; text-align: center; }
+.gbp-rail .icon-button b { position: absolute; right: -5px; top: -5px; min-width: 14px; padding: 0 3px; font: 700 9px var(--mono); color: #1a0a0f; background: var(--red-text); border-radius: 7px; text-align: center; }
 .gbp-rail .gbp-spacer { flex: 1; }
 .gbp-project { width: 248px; }
 .gbp-project h2 { display: flex; gap: 6px; padding: 8px 10px 6px; }
@@ -233,7 +233,7 @@
 .gbp-pm { width: min(980px, calc(100vw - 32px)); height: min(640px, calc(100vh - 32px)); flex-direction: row; }
 .gbp-pm-rail { width: 52px; flex: none; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 10px 0; border-right: 1px solid var(--line); }
 .gbp-pm-rail .icon-button { position: relative; width: 34px; height: 34px; }
-.gbp-pm-rail .icon-button b { position: absolute; right: -6px; top: -5px; min-width: 14px; padding: 0 3px; font: 700 9px var(--mono); color: var(--on-red); background: var(--red-text); border-radius: 7px; text-align: center; }
+.gbp-pm-rail .icon-button b { position: absolute; right: -6px; top: -5px; min-width: 14px; padding: 0 3px; font: 700 9px var(--mono); color: #1a0a0f; background: var(--red-text); border-radius: 7px; text-align: center; }
 .gbp-pm-rail .gbp-spacer { flex: 1; }
 .gbp-pm .gbp-pm-list { width: 300px; flex: none; }
 .gbp-pm-head { display: flex; align-items: center; gap: 8px; padding: 10px 10px 6px; }
