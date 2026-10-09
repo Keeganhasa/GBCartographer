@@ -17,3 +17,6 @@ Thumbs.db
 
 # The dev server's painted copy of the demo project (the shipped one is demo/)
 demo-project/
+
+# Design mockups and review screenshots (local only)
+review/
