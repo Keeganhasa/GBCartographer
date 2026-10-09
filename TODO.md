@@ -21,6 +21,8 @@ into PROGRESS.md when they deserve a note.
 
 - [x] One theme for now: OLED Game Boy green (mauve, then maroon, then the two Game Boy greens: pink felt too GB Studio).
       Other themes stay unlisted in theme.ts.
+- [x] Hover is the Game Boy's dark green (`#306850`, light-green text) on buttons, tools, icon buttons, segmented
+      groups and tabs; toggled-on buttons brighten on hover instead of going dark.
 - [x] The picture selector is a grid of thumbnail cards; sprite cards show their first frame, not the whole strip.
 - [x] Right-click a card: Open, Show in Finder / Explorer, Copy file path, Show project folder.
 - [x] Open project accepts the .gbsproj file or its folder (macOS greyed out Open inside a folder in folder-only mode).

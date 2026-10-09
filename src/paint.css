@@ -406,3 +406,22 @@
 .gbp-menu button { padding: 6px 10px; color: var(--ink); background: transparent; border: 0; border-radius: 6px; font: var(--fs-sm) var(--ui); text-align: left; cursor: pointer; }
 .gbp-menu button:hover { color: var(--on-acc); background: var(--acc); }
 .gbp-menu hr { width: 100%; margin: 4px 0; border: 0; border-top: 1px solid rgba(255, 255, 255, .1); }
+
+/* Hover is the Game Boy's dark green (the author's call, 2026-10-09): buttons, tool and icon buttons, segmented
+   groups and tabs light up in --acc-deep with light-green text. Toggled-on (green) buttons brighten instead. */
+:root { --hover-fill: #306850; --hover-ink: #e0f8cf; --hover-edge: rgba(134, 192, 108, .5); }
+:root .quiet-button:not(.primary):not(.active-tool):not(.danger):is(:hover, .is-hover):not(:disabled),
+:root .gbp-seg .quiet-button:not(.active-tool):is(:hover, .is-hover):not(:disabled),
+:root .icon-button:not(.active-tool):is(:hover, .is-hover):not(:disabled),
+:root .gbp-seg .icon-button:not(.active-tool):is(:hover, .is-hover):not(:disabled),
+:root .tool-button:not(.active):is(:hover, .is-hover):not(:disabled),
+:root .gbp-brush .tool-button:is(:hover, .is-hover):not(:disabled),
+:root .map-tab:not(.active):is(:hover, .is-hover),
+:root .gbp-side-tabs button:not(.selected):hover,
+:root .gbp-start-card:not(.primary):hover .gbp-start-ic,
+:root .gbp-help-button:hover { background: var(--hover-fill); border-color: var(--hover-edge); color: var(--hover-ink); }
+:root .quiet-button.active-tool:is(:hover, .is-hover):not(:disabled),
+:root .gbp-seg .quiet-button.active-tool:is(:hover, .is-hover):not(:disabled),
+:root .icon-button.active-tool:is(:hover, .is-hover):not(:disabled),
+:root .tool-button.active:is(:hover, .is-hover):not(:disabled) { background: linear-gradient(#b0e094, var(--acc)); border-color: #b0e094; color: var(--on-acc); }
+:root .map-tab:not(.active):is(:hover, .is-hover) button { color: var(--hover-ink); }
