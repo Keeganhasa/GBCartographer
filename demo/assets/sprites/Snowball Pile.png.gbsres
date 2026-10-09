@@ -1,23 +1,23 @@
 {
   "_resourceType": "sprite",
-  "id": "0faf2db0-1c99-4454-bdb8-75d625c99d1f",
+  "id": "9a7727f0-3197-441a-abd2-ec048e28c828",
   "name": "Snowball Pile",
   "symbol": "sprite_snowball_pile",
   "states": [
     {
-      "id": "947cddc7-3440-4762-aae9-57256de92323",
+      "id": "2d27ec31-880a-4748-ac43-9513e8355668",
       "name": "",
       "animationType": "fixed",
       "flipLeft": false,
       "animations": [
         {
-          "id": "fb69d878-a887-4831-8378-97179e1802d6",
+          "id": "66005e92-ab51-4e97-b95c-4afedd935cf0",
           "frames": [
             {
-              "id": "0d54c84a-d829-4ffc-af8d-0f6949ca4dde",
+              "id": "988cf276-7d1e-4267-af3e-43bc3ff939a7",
               "tiles": [
                 {
-                  "id": "e0668ffc-5504-463b-8158-6a7339ea08f9",
+                  "id": "f186af84-8b48-4fe2-9971-2f5704630600",
                   "x": 0,
                   "y": 0,
                   "sliceX": 0,
@@ -30,7 +30,7 @@
                   "priority": false
                 },
                 {
-                  "id": "ebebe0aa-9649-477f-a0d0-01a2197c0fca",
+                  "id": "eb39a61c-680c-4858-b9ee-36cf4667a3f4",
                   "x": 8,
                   "y": 0,
                   "sliceX": 8,

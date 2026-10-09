@@ -1,21 +1,21 @@
 {
   "_resourceType": "scene",
-  "id": "0666202a-a995-47ac-901d-d2b8865ff980",
+  "id": "c69d9ab4-51a3-4eed-9fbc-a2f7964b060c",
   "name": "Winter Example",
-  "backgroundId": "8e3faa1b-6f6a-4cd4-bdde-1e487e436422",
+  "backgroundId": "00c93608-b83b-4c47-a47a-48639af44724",
   "tilesetId": "",
   "width": 20,
   "height": 18,
   "type": "TOPDOWN",
   "paletteIds": [
-    "2f581503-0b99-4203-9e33-eabd3124ef71",
-    "5eba5604-74e1-4fe5-b234-483bd4b8b358",
-    "b14180f7-65dc-4581-aa01-14aefa87e34d",
-    "d353fece-fd53-482d-a305-bd80e436e8bb",
-    "7c10fcef-d2ef-40a4-9e0e-a5fe8f255ac2",
-    "18bd5534-2438-4cb5-b162-acfb30ef8f7d",
-    "53d4c659-84e5-410f-b7fd-9e96920befdc",
-    "62812d14-b849-4080-8707-084699fb537c"
+    "613f2112-3fbd-41f9-97f7-546208531399",
+    "77f8e856-f5a6-488d-8959-be29434fcc14",
+    "80604e2c-751a-4b0d-b3b7-3f5a09f42b27",
+    "5ff84742-1820-41e1-8f5e-fdac88af0b9c",
+    "044bed12-bbef-49c3-adca-31095c42eed6",
+    "f29a86d7-6461-4645-a7bf-b6921fcc0215",
+    "131a613f-0888-4431-908a-35c5f276d297",
+    "409f6358-bfe3-43a3-acb8-0add4f1c5b21"
   ],
   "spritePaletteIds": [],
   "symbol": "scene_winter_example"

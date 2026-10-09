@@ -21,7 +21,7 @@ back into the project. It also opens any Game Boy PNG on its own.
 
 ## Try it with the demo project
 
-The app ships with a small GB Studio 4 project in `demo/`: a winter scene, a cabin and a forest, a furniture
+The app ships with a small GB Studio 4 project in `demo/`: a winter scene, a cabin interior and a forest, a furniture
 tileset, animal and snow-folk sprite sheets, six fonts, and a set of palettes. **Try the demo project** on the
 start screen opens a copy of it (in the app's data folder, so the shipped copy stays clean). The art is by
 Spencer "Raptorspank" Gerowe (CC0) and by GumpyFunction, yoanqwp, krümel, Paige Ashlynn, Anima, Santiago Crespo

@@ -5,7 +5,7 @@
  * picture also its tile palettes (see server/endpoints.ts).
  */
 import { BoxSelect, Circle, Download, DropletOff, Eraser, FlipHorizontal2, FolderOpen, FolderTree, Grid3x3, Hand, Magnet, Minus, Move, PaintBucket, Palette as PaletteIcon, Pencil, Pipette, Plus, RectangleHorizontal, Redo2, Save, Slash, SprayCan, Square, Undo2, X } from "lucide-react";
-import { useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useReducer, useRef, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { LogoMark } from "./ui/LogoMark";
 import { FONTS, THEMES, applyFont, applyTheme, loadFont, loadTheme, type FontChoice, type ThemeChoice } from "./ui/theme";
@@ -146,6 +146,17 @@ function sessionStore<T>(mode: IDBTransactionMode, run: (objects: IDBObjectStore
 }
 
 let nextDocId = 1;
+
+/** A small "?" that shows its explanation when clicked (the text stays out of the way otherwise). */
+function HelpTip({ label, children }: { label: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" className={`gbp-help-button ${open ? "open" : ""}`} aria-label={label} aria-expanded={open} title={label} onClick={() => setOpen(!open)}>?</button>
+      {open && <p className="gbp-note gbp-help-text">{children}</p>}
+    </>
+  );
+}
 
 export default function PaintApp() {
   const docs = useRef<Doc[]>([]);
@@ -940,9 +951,10 @@ export default function PaintApp() {
       <div className="gbp-body">
         {project && showProject && (
           <aside className="gbp-project" aria-label="GB Studio project">
-            <h2 title={project.path}><span className="gbp-project-name">{project.name}</span><span className="gbp-project-buttons"><button className="gbp-project-change" title="Open a copy of the sample project that ships with the app" onClick={() => void chooseProject(true)}>Demo</button><button className="gbp-project-change" title="Open another GB Studio project" onClick={() => void chooseProject()}>Change…</button></span></h2>
+            <h2 title={project.path}><span className="gbp-project-name">{project.name}</span></h2>
+            <div className="gbp-project-buttons"><button className="gbp-project-change" title="Open a copy of the sample project that ships with the app" onClick={() => void chooseProject(true)}>Demo</button><button className="gbp-project-change" title="Open another GB Studio project" onClick={() => void chooseProject()}>Change…</button></div>
             <div className="gbp-project-kinds" role="tablist" aria-label="Asset folders">
-              {ASSET_KINDS.map(([kind, label]) => { const count = project.assets.filter((asset) => asset.kind === kind).length; return <button key={kind} role="tab" aria-selected={projectKind === kind} className={projectKind === kind ? "selected" : ""} title={`${count} ${label.toLowerCase()}`} onClick={() => setProjectKind(kind)}>{label}{projectKind === kind && <small>{count}</small>}</button>; })}
+              {ASSET_KINDS.map(([kind, label]) => { const count = project.assets.filter((asset) => asset.kind === kind).length; return <button key={kind} role="tab" aria-selected={projectKind === kind} className={projectKind === kind ? "selected" : ""} onClick={() => setProjectKind(kind)}>{label}<small>{count}</small></button>; })}
             </div>
             <input type="search" className="gbp-filter" placeholder="Filter by name" aria-label="Filter assets by name" value={projectFilter} onChange={(event) => setProjectFilter(event.target.value)} />
             <div className="gbp-assets" role="list">
@@ -995,8 +1007,7 @@ export default function PaintApp() {
             {swatchColors.slice(0, 4).map((color, index) => <button key={index} className={shade === index ? "selected" : ""} style={{ background: color }} aria-label={`Shade ${index + 1}`} title={`Shade ${index + 1} · ${index + 1}`} onClick={() => { setShade(index); if (tool === "eyedropper") setToolState(paintTool.current); }}><kbd>{index + 1}</kbd></button>)}
           </div>
           {doc?.hasAlpha && <button className={`transparent-swatch ${shade === CLEAR ? "selected" : ""}`} title="See-through · 0" onClick={() => setShade(CLEAR)}><kbd>0</kbd>Transparent</button>}
-          <h2>Palettes</h2>
-          <p className="gbp-note">{doc?.asset?.kind === "sprites" && sceneSlots.length ? "For the palette brush (P): each 8 × 16 sprite tile wears one palette (its color 1-3 on the shades; color 0 is see-through). Save writes the sheet in the GB greens and each tile's palette into GB Studio as its sprite palette slot (the eight numbered here). None leaves a tile's slot as it is." : doc?.asset?.kind === "backgrounds" && sceneSlots.length ? "For the palette brush (P): each 8 × 8 tile wears one palette. Save writes the picture in the GB greens and each tile's palette into GB Studio as its slot (the scene's eight, numbered here). None leaves a tile's slot as it is." : "For the palette brush (P): each 8 × 8 tile wears one palette, or none. Only for looking: saving always writes the GB greens."}</p>
+          <h2>Palettes <HelpTip label="About the palette brush">{doc?.asset?.kind === "sprites" && sceneSlots.length ? "Palette brush (P): each 8 × 16 sprite tile wears one palette; its colors 1–3 dress the shades and color 0 is see-through. Save writes the sheet in the GB greens and each tile's palette into GB Studio as its sprite palette slot (the eight numbered here). None leaves a tile's slot as it is." : doc?.asset?.kind === "backgrounds" && sceneSlots.length ? "Palette brush (P): each 8 × 8 tile wears one palette. Save writes the picture in the GB greens and each tile's palette into GB Studio as its slot (the scene's eight, numbered here). None leaves a tile's slot as it is." : "Palette brush (P): each 8 × 8 tile wears one palette, or none. Palettes are only for looking here: saving always writes the GB greens."}</HelpTip></h2>
           {docPalettes.length > 12 && <input type="search" className="gbp-filter" placeholder="Filter palettes" aria-label="Filter palettes by name" value={paletteFilter} onChange={(event) => setPaletteFilter(event.target.value)} />}
           <div className="gbp-palettes" role="listbox" aria-label="Palettes">
             {shownPalettes.map(({ palette, index, slot }) => (

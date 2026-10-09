@@ -1,23 +1,23 @@
 {
   "_resourceType": "settings",
   "defaultBackgroundPaletteIds": [
-    "8a8ed18c-8efb-428a-b1b5-0075eb09eeb5",
-    "89bb7dcd-38fb-4495-b9ee-75d19230bebe",
-    "495449db-e1f9-4c5f-9f7a-3ea710a936d9",
-    "501ed38e-90dc-453b-901f-538febbc553a",
-    "9464083c-827e-4e3f-8817-16fab08f63bd",
-    "9bcacdeb-228a-43e2-a653-48e41ff4154c",
-    "07e77df0-484c-4aee-b644-21db0ce443b9",
-    "5f2b3843-38d1-4630-b6ed-c50f6ec9bd41"
+    "0cecbbd9-72bd-4acc-85be-a68d511468e1",
+    "6bc39de6-f01e-4f7e-a02b-1d183c40be0d",
+    "019b8c1d-e1b1-40fb-b02d-4cabe4c947c5",
+    "42607d40-1bbd-4377-9cd3-99657fd73ba2",
+    "048b25d8-0562-43ce-a280-e6e19afdce10",
+    "79c0ee08-8ffb-4fa7-be56-659c5eae76f7",
+    "0e8e5731-4f73-460a-a390-bd8a4eb976aa",
+    "ba94a0db-a2af-4bb1-9549-e0fcafbb3b42"
   ],
   "defaultSpritePaletteIds": [
-    "cd8c6160-05cd-45f1-ab23-57c805f4c9a3",
-    "cd8c6160-05cd-45f1-ab23-57c805f4c9a3",
-    "cd8c6160-05cd-45f1-ab23-57c805f4c9a3",
-    "cd8c6160-05cd-45f1-ab23-57c805f4c9a3",
-    "cd8c6160-05cd-45f1-ab23-57c805f4c9a3",
-    "cd8c6160-05cd-45f1-ab23-57c805f4c9a3",
-    "cd8c6160-05cd-45f1-ab23-57c805f4c9a3",
-    "cd8c6160-05cd-45f1-ab23-57c805f4c9a3"
+    "922bbbe5-a730-4e76-9589-0bdd02457148",
+    "922bbbe5-a730-4e76-9589-0bdd02457148",
+    "922bbbe5-a730-4e76-9589-0bdd02457148",
+    "922bbbe5-a730-4e76-9589-0bdd02457148",
+    "922bbbe5-a730-4e76-9589-0bdd02457148",
+    "922bbbe5-a730-4e76-9589-0bdd02457148",
+    "922bbbe5-a730-4e76-9589-0bdd02457148",
+    "922bbbe5-a730-4e76-9589-0bdd02457148"
   ]
 }

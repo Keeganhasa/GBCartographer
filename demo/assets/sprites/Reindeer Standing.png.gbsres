@@ -1,23 +1,23 @@
 {
   "_resourceType": "sprite",
-  "id": "5e3f9b7e-17d6-417b-9a1d-0ad1cf90846d",
+  "id": "9fe2bcee-06d3-4c3a-86ba-88b1b467a8e3",
   "name": "Reindeer Standing",
   "symbol": "sprite_reindeer_standing",
   "states": [
     {
-      "id": "4f6f68d3-299d-442f-9a3b-626e7124d291",
+      "id": "46a77bf6-3eb3-42ee-894c-3a8bbeb61985",
       "name": "",
       "animationType": "fixed",
       "flipLeft": false,
       "animations": [
         {
-          "id": "a8e8290c-d3d9-4baf-88f7-8ab67696b834",
+          "id": "3d540e2d-832f-4059-9a94-e88e4b54012e",
           "frames": [
             {
-              "id": "e88d9d3e-2260-4619-a19a-6db6e40718fe",
+              "id": "656d4969-b5f4-47a3-a41f-37d11ef722ba",
               "tiles": [
                 {
-                  "id": "69c70ec7-29ba-4a11-aa16-43f63755021b",
+                  "id": "b8f330a5-08c7-4cc7-b90e-51fdd50da260",
                   "x": 0,
                   "y": 0,
                   "sliceX": 0,
@@ -30,7 +30,7 @@
                   "priority": false
                 },
                 {
-                  "id": "cfeff491-d259-42d2-86cf-2ee1470c5198",
+                  "id": "cfb229e9-eee8-4a7e-b135-096d0e49aa1c",
                   "x": 8,
                   "y": 0,
                   "sliceX": 8,
@@ -45,10 +45,10 @@
               ]
             },
             {
-              "id": "9100f8f2-8990-4265-b3e7-b1aff99bab8c",
+              "id": "3a017d72-1dac-41f4-a7d8-20f00e91af3e",
               "tiles": [
                 {
-                  "id": "9f76feb3-793e-4cdc-aebe-7e3c98ba5d36",
+                  "id": "8a63911b-713c-4f2b-9164-85b57181eb1d",
                   "x": 0,
                   "y": 0,
                   "sliceX": 16,
@@ -61,7 +61,7 @@
                   "priority": false
                 },
                 {
-                  "id": "5a52ee92-98fa-4320-af5c-ca58ed9ab56e",
+                  "id": "545c3974-e608-471b-8fb5-24bf05abbd3a",
                   "x": 8,
                   "y": 0,
                   "sliceX": 24,
@@ -76,10 +76,10 @@
               ]
             },
             {
-              "id": "c0835935-29a8-4170-b486-97f62707184a",
+              "id": "30ad519b-6e70-4ced-8d89-d118ab5dcb52",
               "tiles": [
                 {
-                  "id": "8804e4ea-4408-4a3f-843f-1e0d2d7153be",
+                  "id": "6a375fed-f602-44b9-8dd9-0635d8c728e6",
                   "x": 0,
                   "y": 0,
                   "sliceX": 32,
@@ -92,7 +92,7 @@
                   "priority": false
                 },
                 {
-                  "id": "01036453-60a1-4c08-b724-ccaff9dfaae8",
+                  "id": "2a4d35b8-40ae-45d1-9d53-492d858015ab",
                   "x": 8,
                   "y": 0,
                   "sliceX": 40,

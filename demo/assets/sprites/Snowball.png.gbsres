@@ -1,23 +1,23 @@
 {
   "_resourceType": "sprite",
-  "id": "f3eb28ef-2a27-453b-bb31-00edd36a7f62",
+  "id": "a4a5afc9-cd56-4a34-915d-19ee526dc1fe",
   "name": "Snowball",
   "symbol": "sprite_snowball",
   "states": [
     {
-      "id": "031977e1-74f1-4e37-a3b2-c88d8e5fc792",
+      "id": "237f706d-d167-4bfc-93fa-d1435c7c9a0b",
       "name": "",
       "animationType": "fixed",
       "flipLeft": false,
       "animations": [
         {
-          "id": "b81dc60c-f67f-42af-aa50-2bc996674778",
+          "id": "d79150c4-026c-4499-ae05-b934fe13fb18",
           "frames": [
             {
-              "id": "cfce2e56-836e-4d8a-b2c9-a43a24987f58",
+              "id": "6e4cedcd-820c-4503-b66b-a9b52bcc56dd",
               "tiles": [
                 {
-                  "id": "272221dd-ed0c-410e-bbbb-8fb20463a8e4",
+                  "id": "eba0d18b-6df5-4432-9a3a-f8efef9fd2a6",
                   "x": 0,
                   "y": 0,
                   "sliceX": 0,
@@ -30,7 +30,7 @@
                   "priority": false
                 },
                 {
-                  "id": "54247cb2-87e3-4860-9adb-97ae3bd9893e",
+                  "id": "77a5bfd7-0164-48c7-ba49-54df21515f6f",
                   "x": 8,
                   "y": 0,
                   "sliceX": 8,
@@ -45,10 +45,10 @@
               ]
             },
             {
-              "id": "c437e811-091d-4bea-9c67-b67cb44512b0",
+              "id": "01f34760-d8b3-41f9-86b5-de2dfa60fcf2",
               "tiles": [
                 {
-                  "id": "4ad813a8-95ff-4df0-b5ba-3b34a6bc4d47",
+                  "id": "dba8b08e-dfc9-4ac0-a36a-0147129d560e",
                   "x": 0,
                   "y": 0,
                   "sliceX": 16,
@@ -61,7 +61,7 @@
                   "priority": false
                 },
                 {
-                  "id": "0e4ba39c-aca3-402e-a556-0215b90eac19",
+                  "id": "0b2192a9-a5ab-445a-afb9-a5a7dddffa0f",
                   "x": 8,
                   "y": 0,
                   "sliceX": 24,
@@ -76,10 +76,10 @@
               ]
             },
             {
-              "id": "6be17e06-2f07-430b-a1f1-d3862e170de3",
+              "id": "6c421ed6-3629-4e51-8ec7-40c194641596",
               "tiles": [
                 {
-                  "id": "45d640d1-55d7-448b-8b20-6d47d58adc3f",
+                  "id": "5c4d37cc-9f2e-4ddb-8505-b96237182fbb",
                   "x": 0,
                   "y": 0,
                   "sliceX": 32,
@@ -92,7 +92,7 @@
                   "priority": false
                 },
                 {
-                  "id": "c7194911-e53d-4839-b068-36d7c1b0b4ba",
+                  "id": "6b0f31f8-be26-41c2-b5a8-a28db733594f",
                   "x": 8,
                   "y": 0,
                   "sliceX": 40,
@@ -107,10 +107,10 @@
               ]
             },
             {
-              "id": "7483a801-b8d8-426c-b8e6-adfd1102e574",
+              "id": "a8563f20-2f48-4036-92f1-8e37033b9b94",
               "tiles": [
                 {
-                  "id": "851ad456-eb98-4673-95f2-d1d954e9b7f6",
+                  "id": "a692552d-78f3-412a-b208-0df340d20bc8",
                   "x": 0,
                   "y": 0,
                   "sliceX": 48,
@@ -123,7 +123,7 @@
                   "priority": false
                 },
                 {
-                  "id": "d5ac13d7-ce2a-487f-90ab-2b03872abf35",
+                  "id": "e244fed4-04e9-43b2-b44b-b4b34ebd6b6c",
                   "x": 8,
                   "y": 0,
                   "sliceX": 56,

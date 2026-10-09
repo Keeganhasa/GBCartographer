@@ -22,7 +22,7 @@ By Spencer "Raptorspank" Gerowe. CC0 1.0. https://opengameart.org/content/winter
 From https://github.com/DeerTears/GB-Studio-Community-Assets (maintained by Ember Bland / DeerTears and Paige
 Ashlynn), MIT license; the repository asks that each asset's maker be credited.
 
-- `assets/backgrounds/Cabin Exterior.png`, `Cabin Interior.png`, `Forest Day.png`: by **GumpyFunction**.
+- `assets/backgrounds/Cabin Interior.png`, `Forest Day.png`: by **GumpyFunction**.
 - `assets/tilesets/Free Furniture.png`: by **yoanqwp**.
 - `assets/sprites/Cat.png`, `Fox.png`, `Kangaroo.png`, `Trout.png`: by **krümel** (GB Studio Discord), from
   the Animated Sprites package.

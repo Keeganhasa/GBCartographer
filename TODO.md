@@ -17,6 +17,13 @@ into PROGRESS.md when they deserve a note.
       import/export a palette set as JSON, keyboard navigation in the list.
 - [x] README: credits for the demo assets and a line about the demo.
 
+## UI pass (asked 2026-10-09)
+
+- [x] Less text: the palette-brush explainer sits behind a ? next to the Palettes heading.
+- [x] Project panel: name, then Demo / Change…, then the four kinds as a 2 × 2 grid with counts.
+- [ ] Decide on rooms (Paint · Palettes · Project) versus the single page with a modal and a side panel.
+- [ ] Hint line under the tabs: shorten each tool's hint to one clause; the rest behind the same ? pattern.
+
 ## Before anyone else runs it
 
 - [ ] **Colour conversion like GB Studio.** A PNG drawn in colours that are not the four greens is saved as

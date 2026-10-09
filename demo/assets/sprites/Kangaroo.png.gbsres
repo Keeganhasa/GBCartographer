@@ -1,23 +1,23 @@
 {
   "_resourceType": "sprite",
-  "id": "2d4f3a4b-a445-41b0-9871-1846544322ae",
+  "id": "c66b2dd2-3888-41e7-b8a6-01e33ec16e25",
   "name": "Kangaroo",
   "symbol": "sprite_kangaroo",
   "states": [
     {
-      "id": "a6c88302-0b3e-40bf-a85b-104b5725725d",
+      "id": "d9c6f686-63c2-44d8-8069-5b4d1f96b0d4",
       "name": "",
       "animationType": "fixed",
       "flipLeft": false,
       "animations": [
         {
-          "id": "58279a41-e97c-43f8-96ff-bf55949f3e78",
+          "id": "3d4f6cdc-4c81-4205-92b6-8caa22ca6ce1",
           "frames": [
             {
-              "id": "0c1c9986-49ad-498f-8b8a-9e66411709a3",
+              "id": "b4ba053e-5477-46e5-91a5-64c865c30064",
               "tiles": [
                 {
-                  "id": "1358c067-2134-4ade-9e65-4d7922de541c",
+                  "id": "f29b1112-24e5-4008-a332-a13311c0cec0",
                   "x": 0,
                   "y": 0,
                   "sliceX": 0,
@@ -30,7 +30,7 @@
                   "priority": false
                 },
                 {
-                  "id": "fea81492-9015-4840-b361-206ae4f65230",
+                  "id": "91d4fc83-69b1-4423-ba71-da08cab1a925",
                   "x": 8,
                   "y": 0,
                   "sliceX": 8,
@@ -45,10 +45,10 @@
               ]
             },
             {
-              "id": "db02a748-c8ed-4957-bd51-c82000171099",
+              "id": "c88200f7-be2d-4b5c-af63-3b88e12734ac",
               "tiles": [
                 {
-                  "id": "ea028156-a157-40a3-bcfc-109b32ab5d9c",
+                  "id": "71f20454-0e8d-4fa0-8097-d8ce0d58ddcc",
                   "x": 0,
                   "y": 0,
                   "sliceX": 16,
@@ -61,7 +61,7 @@
                   "priority": false
                 },
                 {
-                  "id": "889cbbcc-e222-416f-9f55-3e752aec1d8c",
+                  "id": "339f761c-0069-4e74-8b07-ebbf98509c63",
                   "x": 8,
                   "y": 0,
                   "sliceX": 24,
@@ -76,10 +76,10 @@
               ]
             },
             {
-              "id": "44c84906-b685-4a33-9c70-b5004135253e",
+              "id": "7d515dc7-a14d-4b09-b4e9-77de23ee4912",
               "tiles": [
                 {
-                  "id": "177356a1-01dc-48b7-ae21-d378f7f941b3",
+                  "id": "0a462ef3-e1b7-4cb5-9b49-022373fdfc12",
                   "x": 0,
                   "y": 0,
                   "sliceX": 32,
@@ -92,7 +92,7 @@
                   "priority": false
                 },
                 {
-                  "id": "5261bc83-46b9-4649-b139-ce16aeeec922",
+                  "id": "0493e34b-1ef5-4733-851a-2a4cd4135389",
                   "x": 8,
                   "y": 0,
                   "sliceX": 40,
@@ -107,10 +107,10 @@
               ]
             },
             {
-              "id": "e3e860c4-c3b5-47d4-8fa5-bb635bf6fc5a",
+              "id": "7a6f6953-0bc9-45cb-bf55-f0ccbf7731b1",
               "tiles": [
                 {
-                  "id": "48a6324f-1982-4475-89e7-a0da1ef8ae07",
+                  "id": "ee1c007c-b3a5-4738-8155-0371b5800e33",
                   "x": 0,
                   "y": 0,
                   "sliceX": 48,
@@ -123,7 +123,7 @@
                   "priority": false
                 },
                 {
-                  "id": "775b5a52-02af-4692-abbe-751af0cfe8db",
+                  "id": "1df895d4-b24e-4793-b823-101ee40feb03",
                   "x": 8,
                   "y": 0,
                   "sliceX": 56,
@@ -138,10 +138,10 @@
               ]
             },
             {
-              "id": "81ee1cc7-1d69-42ba-b6e6-a35f7f1e6fc0",
+              "id": "eb06575e-b18d-4333-aa35-99eb11536be3",
               "tiles": [
                 {
-                  "id": "cf3f1fe3-03cd-4809-b1b7-d0e656572210",
+                  "id": "994da9d5-fad3-4870-a634-133bc793495a",
                   "x": 0,
                   "y": 0,
                   "sliceX": 64,
@@ -154,7 +154,7 @@
                   "priority": false
                 },
                 {
-                  "id": "4619d448-3000-45f8-9a71-33ca8c794cef",
+                  "id": "fb525d09-54ca-44a1-89b3-f06cdc03a165",
                   "x": 8,
                   "y": 0,
                   "sliceX": 72,
@@ -169,10 +169,10 @@
               ]
             },
             {
-              "id": "91042f7b-42ad-4864-91cc-4ea073b9b507",
+              "id": "4568ecc5-60d3-4166-b73f-a8ca2d16f9c6",
               "tiles": [
                 {
-                  "id": "1c7b858d-7c23-41f1-ab0a-a3515d1edd6b",
+                  "id": "f48239c7-3469-4325-9d68-edcdb0a1baee",
                   "x": 0,
                   "y": 0,
                   "sliceX": 80,
@@ -185,7 +185,7 @@
                   "priority": false
                 },
                 {
-                  "id": "0e9e4566-8187-4703-9305-183a0a4b2f39",
+                  "id": "89a0fd05-c9e9-4da5-980b-daae7b8336ff",
                   "x": 8,
                   "y": 0,
                   "sliceX": 88,

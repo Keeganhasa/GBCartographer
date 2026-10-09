@@ -119,3 +119,15 @@
 .gbp-pm-actions .quiet-button { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; font-size: var(--fs-xs); }
 .gbp-pm-actions .quiet-button:disabled { opacity: .4; cursor: default; }
 .gbp-pm-note { margin: 0; }
+
+/* Project panel header: name on its own line, the two small buttons under it, the kinds as a 2 x 2 grid. */
+.gbp-project h2 { padding-bottom: 2px; }
+.gbp-project-buttons { display: flex; gap: 4px; padding: 0 10px 6px; }
+.gbp-project-kinds { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; padding: 0 8px 6px; }
+.gbp-project-kinds button { flex: none; width: 100%; justify-content: space-between; padding: 0 8px; border-color: var(--line); white-space: nowrap; }
+.gbp-project-kinds button.selected { border-color: var(--bar-hover-line); }
+/* The "?" that hides an explanation until clicked. */
+.gbp-side h2 { display: flex; align-items: center; gap: 6px; }
+.gbp-help-button { width: 16px; height: 16px; padding: 0; display: inline-grid; place-items: center; color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: 50%; font: 700 10px var(--mono); letter-spacing: 0; cursor: pointer; }
+.gbp-help-button:hover, .gbp-help-button.open { color: var(--ink); border-color: var(--red); }
+.gbp-help-text { margin: 6px 0 8px; text-transform: none; letter-spacing: 0; }

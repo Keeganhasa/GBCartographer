@@ -1,23 +1,23 @@
 {
   "_resourceType": "sprite",
-  "id": "4f621ade-17bc-4950-ab5a-1773657f4473",
+  "id": "39b33ba9-ae4b-4fba-9583-d900590dbba2",
   "name": "Person In Coat B Standing",
   "symbol": "sprite_person_in_coat_b_standing",
   "states": [
     {
-      "id": "eef9f066-779e-4c7c-81b9-28535ab89049",
+      "id": "dea7076e-0675-4354-853c-779d78a368fa",
       "name": "",
       "animationType": "fixed",
       "flipLeft": false,
       "animations": [
         {
-          "id": "dec9335b-1b5e-4502-99e0-4ef5dc2f2ee3",
+          "id": "01f0d6ff-0503-41bf-a0c0-00c8d7e178c8",
           "frames": [
             {
-              "id": "458ce56f-9dee-448e-9d74-b28f03dc7c37",
+              "id": "9b7c6ee1-4742-459c-a460-7d8f41283e55",
               "tiles": [
                 {
-                  "id": "899a6635-c191-47c7-bbb6-fcb27a962af3",
+                  "id": "ae1ce070-b503-4647-aa72-bbbf8f62a854",
                   "x": 0,
                   "y": 0,
                   "sliceX": 0,
@@ -30,7 +30,7 @@
                   "priority": false
                 },
                 {
-                  "id": "e79588e4-be71-4dfb-b1fa-f8a1964becc8",
+                  "id": "0cb964aa-0284-4abb-a26d-6916d0c50d42",
                   "x": 8,
                   "y": 0,
                   "sliceX": 8,
@@ -45,10 +45,10 @@
               ]
             },
             {
-              "id": "3f3c0848-1132-4f6e-9bcb-91deb7a80c89",
+              "id": "3ebdc314-61ca-42b3-b430-ef7e0bef1197",
               "tiles": [
                 {
-                  "id": "ffbc25c3-8a79-4cca-bf7d-d37c62081218",
+                  "id": "0a78126a-5904-43ea-918b-195eb006068d",
                   "x": 0,
                   "y": 0,
                   "sliceX": 16,
@@ -61,7 +61,7 @@
                   "priority": false
                 },
                 {
-                  "id": "7bb08170-4739-4fef-a0d4-0b893122ef47",
+                  "id": "3f628878-67d1-42de-a88f-498c0b60ac59",
                   "x": 8,
                   "y": 0,
                   "sliceX": 24,
@@ -76,10 +76,10 @@
               ]
             },
             {
-              "id": "bbd7d07b-9676-4192-bf29-1eae162d1ce4",
+              "id": "7e890692-a12b-44d4-923b-624e8dd4aaf4",
               "tiles": [
                 {
-                  "id": "29baf330-8799-48b5-a097-5d76ab31edc9",
+                  "id": "7a8121a0-19ba-4a89-a4ff-b707e8c88353",
                   "x": 0,
                   "y": 0,
                   "sliceX": 32,
@@ -92,7 +92,7 @@
                   "priority": false
                 },
                 {
-                  "id": "f25fff7b-d74c-449d-bdb1-b74dcfe6a977",
+                  "id": "bccada35-3ef1-4170-a353-411aa078537b",
                   "x": 8,
                   "y": 0,
                   "sliceX": 40,
