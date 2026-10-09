@@ -8,11 +8,12 @@
  *   GET  /__cartographer/gbstudio-asset-info  its size, times, per-cell palette slots and the slot palette ids
  *   POST /__cartographer/gbstudio-asset       overwrite that PNG (same size; ?mtime= guards against a file that changed; &force=1)
  *   POST /__cartographer/gbstudio-tile-colors { slots } per-cell palette slots into the sidecar (?kind=&file=&metaMtime=&force=1)
- * GB Cartographer writes asset PNGs, a background's tileColors and a sprite's paletteIndex; nothing else in a project.
+ *   POST /__cartographer/gbstudio-palette     { name, colors } adds a palette file to the project; { id, name, colors } rewrites one
+ * GB Cartographer writes asset PNGs, a background's tileColors, a sprite's paletteIndex and palette files; nothing else.
  */
 import { readFileSync, statSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { AssetWriteError, assetInfo, assetPath, listAssets, listPalettes, projectName, writeAsset, writeSpritePalettes, writeTileColors, type AssetKind } from "./assets";
+import { AssetWriteError, assetInfo, assetPath, listAssets, listPalettes, projectName, writeAsset, writePalette, writeSpritePalettes, writeTileColors, type AssetKind } from "./assets";
 import { demoProjectCopy, isProjectFolder, projectFolder, saveProjectFolder, setProjectFolder } from "./project";
 
 export interface ServerOptions {
@@ -143,6 +144,17 @@ export async function handleCartographerRequest(req: IncomingMessage, res: Serve
         reply(res, 200, { ok: true, ...write(path, body.slots as (number | null)[], options.backupDir, expected === null ? null : Number(expected), url.searchParams.get("force") === "1") });
       } catch (error) {
         if (error instanceof AssetWriteError) reply(res, error.status, { error: error.message, mtime: error.mtime });
+        else throw error;
+      }
+      return true;
+    }
+    if (url.pathname === "/__cartographer/gbstudio-palette" && req.method === "POST") {
+      const body = JSON.parse((await readBody(req)).toString("utf8")) as { id?: unknown; name?: unknown; colors?: unknown };
+      try {
+        const written = writePalette(project, { id: typeof body.id === "string" ? body.id : undefined, name: String(body.name ?? ""), colors: Array.isArray(body.colors) ? body.colors.map(String) : [] }, options.backupDir);
+        reply(res, 200, { ok: true, ...written });
+      } catch (error) {
+        if (error instanceof AssetWriteError) reply(res, error.status, { error: error.message });
         else throw error;
       }
       return true;

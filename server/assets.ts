@@ -4,6 +4,7 @@
  * same size, after copying the old file to the backup folder. Project JSON (.gbsres, .gbsproj) is only ever read.
  */
 import { closeSync, copyFileSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
 import { basename, join, resolve } from "node:path";
 import { decodeTileColors, encodeTileColors, resolveScenePaletteIds } from "../src/gb/gbstudio";
 
@@ -243,6 +244,43 @@ export function writeSpritePalettes(path: string, slots: readonly (number | null
   }
   if (!cells) return { mtime, changed: false, cells: 0 };
   return { mtime: writeSidecar(sidecar, "sprites", meta, backupDir), changed: true, cells };
+}
+
+/** A GB Studio palette file name: lowercase, spaces as "_", other odd characters dropped (like GB Studio's own). */
+export function paletteFileName(name: string): string {
+  const base = name.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_-]/g, "");
+  return base || "palette";
+}
+
+/**
+ * Adds a palette to the project as project/palettes/<name>.gbsres with a fresh id (a numbered file name when the
+ * name is taken), or, with `id`, rewrites that palette's name and colors in place (other fields kept, the old
+ * file copied to the backup folder first). Colors are four "#RRGGBB" strings, lightest first.
+ */
+export function writePalette(project: string, palette: { id?: string; name: string; colors: string[] }, backupDir: string): { id: string; file: string } {
+  const folder = join(project, "project", "palettes");
+  const colors = palette.colors.map((color) => color.replace(/^#/, "").toLowerCase());
+  if (colors.length !== 4 || colors.some((color) => !/^[0-9a-f]{6}$/.test(color))) throw new AssetWriteError("A palette needs four #RRGGBB colors.", 400);
+  const name = palette.name.trim();
+  if (!name) throw new AssetWriteError("A palette needs a name.", 400);
+  mkdirSync(folder, { recursive: true });
+  if (palette.id) {
+    for (const file of readdirSync(folder).filter((entry) => entry.endsWith(".gbsres"))) {
+      const meta = readJson(join(folder, file));
+      if (meta?.id !== palette.id) continue;
+      mkdirSync(join(backupDir, "gbstudio", "palettes"), { recursive: true });
+      copyFileSync(join(folder, file), join(backupDir, "gbstudio", "palettes", file));
+      writeFileSync(join(folder, file), JSON.stringify({ ...meta, name, colors }, null, 2));
+      return { id: palette.id, file };
+    }
+    throw new AssetWriteError("No palette with that id in the project.", 404);
+  }
+  const base = paletteFileName(name);
+  let file = `${base}.gbsres`;
+  for (let n = 2; existsSync(join(folder, file)); n += 1) file = `${base}_${n}.gbsres`;
+  const id = randomUUID();
+  writeFileSync(join(folder, file), JSON.stringify({ _resourceType: "palette", id, name, colors }, null, 2));
+  return { id, file };
 }
 
 export class AssetWriteError extends Error {

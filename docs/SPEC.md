@@ -138,7 +138,7 @@ Zoom steps: 50, 100, 200, 300, 400, 600, 800, 1200, 1600, 2400, 3200, 4800 %. A 
 
 ## 9 GB Studio project
 
-The development server and the desktop app both answer the `/__cartographer/*` endpoints. The project folder is chosen in the app: the desktop app shows a native folder dialog and remembers the choice in its settings file; the dev server asks for a typed path, or reads `GBC_PROJECT` / `cartographer.local.json`. A folder is a project when it has `assets/` and `project/` folders (GB Studio 4). Without a project the header shows **Open project…** and GB Cartographer is the file painter described above; on a plain static host (no endpoints) that button does not appear.
+The development server and the desktop app both answer the `/__cartographer/*` endpoints. The project folder is chosen in the app: the desktop app shows a native folder dialog and remembers the choice in its settings file; the dev server asks for a typed path, or reads `GBC_PROJECT` / `cartographer.local.json`. A folder is a project when it has `assets/` and `project/` folders (GB Studio 4). Without a project the header shows **Open project…**, and the start screen also offers **Try the demo project**: a copy of the `demo/` project that ships with the app (made once, next to the settings file, in `demo-project/`), so painting in it never touches the shipped copy. Assets come in four kinds: backgrounds, sprites, tilesets and fonts (`assets/fonts`, plain pictures like tilesets). and GB Cartographer is the file painter described above; on a plain static host (no endpoints) that button does not appear.
 
 - **Endpoints** (read-only except the writes named):
   - *list*: the project's display name (from its `.gbsproj`, else the folder name), its path, every PNG under `assets/backgrounds`, `assets/sprites` and `assets/tilesets` (kind, file name, the sidecar's name, the PNG's size, modification time), and the palettes of `project/palettes` (id, name, four `#RRGGBB` colours, sorted by name).
@@ -155,3 +155,24 @@ The development server and the desktop app both answer the `/__cartographer/*` e
 - **Palettes**: with a project served, the palette list is the project's palettes and gets a filter box when there are more than twelve (the picked palette always stays listed). The Tint dropdown lists them too.
 
 ---
+
+## 10 Palette manager
+
+**Palettes** in the header opens a modal (Esc or the × closes it) with two columns.
+
+- Left: collection tabs with counts: **Project · name** (the open project's palettes, with their ids), **Mine** (the
+  user's own, kept per browser under `gb-cartographer.my-palettes`), and the bundled library's collections from
+  `src/palettes/library.json`: **Game Boy** (GB greens, DMG, Pocket, Light, Berry, a sprite palette) and
+  **Chorbi** (the author's 227 palettes, CC0). Under them a name filter, a **New** button (a palette in Mine, in the
+  GB greens) and the list (four chips and the name).
+- Right: the picked palette's name, four colors (a color well and a hex field each; an invalid hex is outlined),
+  a preview of the open picture with every tile in this palette (sprite sheets through colors 1–3 with see-through
+  on a checkerboard), and the actions:
+  - Project palettes: **Save into project** (enabled once edited) rewrites the palette's file by id, keeping other
+    fields; **Use for the palette brush** picks it and closes.
+  - Library and Mine: **Add to project** writes a new `project/palettes/<name>.gbsres` (GB Studio's file naming:
+    lowercase, spaces as `_`, a number suffix when taken) with a fresh id; the project list is reread and lands on it.
+  - Mine: **Save** and **Delete**; any collection: **Copy to Mine**; **Revert** while edited.
+- Endpoint: `POST /__cartographer/gbstudio-palette` with `{ name, colors }` (new) or `{ id, name, colors }`
+  (rewrite). Colors are four `#RRGGBB`; 400 otherwise; 404 for an unknown id. The old file goes to the backups
+  folder before a rewrite. Open pictures whose copy of an edited palette still had the old colors take the new ones.

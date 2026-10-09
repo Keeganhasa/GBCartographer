@@ -9,6 +9,7 @@ import { useEffect, useLayoutEffect, useReducer, useRef, useState } from "react"
 import { flushSync } from "react-dom";
 import { LogoMark } from "./ui/LogoMark";
 import { FONTS, THEMES, applyFont, applyTheme, loadFont, loadTheme, type FontChoice, type ThemeChoice } from "./ui/theme";
+import PaletteManager from "./PaletteManager";
 import { attachMiddlePan, attachWheelZoom, nextStep } from "./ui/wheelZoom";
 import { CELL, CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, cellsWide, clipRect, colorize, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, lift, linePoints, mirrorPoints, quantize, rectFrom, shadeLut, snapRect, spray, toRgba, type Floating, type Mirror, type Palette, type Rect } from "./paint";
 
@@ -167,6 +168,7 @@ export default function PaintApp() {
   const [project, setProject] = useState<Project | null>(null);
   /** Whether the page is served by something that can open a project (the dev server or the desktop app). */
   const [served, setServed] = useState(false);
+  const [showPalettes, setShowPalettes] = useState(false);
   const [theme, setTheme] = useState<ThemeChoice>(() => loadTheme());
   const [font, setFont] = useState<FontChoice>(() => loadFont());
   const [showProject, setShowProject] = useState<boolean>(() => readStored(PROJECT_PANEL_KEY, true));
@@ -412,6 +414,37 @@ export default function PaintApp() {
       setShowProject(true);
     } catch (error) {
       say(`Could not open the project: ${(error as Error).message}`);
+    }
+  }
+
+  /**
+   * Writes a palette into the project (new without `id`, else rewritten in place), then rereads the project and
+   * passes new colors on to open pictures whose copy of that palette was unchanged. Resolves to the palette's id.
+   */
+  async function writeProjectPalette(palette: { id?: string; name: string; colors: string[] }): Promise<string | null> {
+    try {
+      const response = await fetch("./__cartographer/gbstudio-palette", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(palette) });
+      const result = await response.json() as { ok?: boolean; error?: string; id?: string };
+      if (!response.ok || !result.ok || !result.id) {
+        say(`Could not write the palette: ${result.error ?? response.statusText}`);
+        return null;
+      }
+      const before = new Map(palettesRef.current.filter((item) => item.id).map((item) => [item.id!, item.colors.join()]));
+      await loadProject();
+      for (const item of docs.current) {
+        for (const own of item.palettes) {
+          if (own.id !== result.id || before.get(result.id) !== own.colors.join()) continue;
+          own.colors = [...palette.colors];
+          own.name = palette.name;
+        }
+        if (!palette.id) item.palettes.push({ id: result.id, name: palette.name, colors: [...palette.colors] });
+      }
+      scheduleSession();
+      bump();
+      return result.id;
+    } catch (error) {
+      say(`Could not write the palette: ${(error as Error).message}`);
+      return null;
     }
   }
 
@@ -852,6 +885,7 @@ export default function PaintApp() {
         <button className="quiet-button" title="Open PNG files · Ctrl+O (or drop them on the window)" onClick={() => void pickFiles()}><FolderOpen size={14} />Open</button>
         {project && <button className={`quiet-button ${showProject ? "active-tool" : ""}`} aria-pressed={showProject} title={`Show or hide the GB Studio project's pictures (${project.path})`} onClick={() => setShowProject(!showProject)}><FolderTree size={14} />Project</button>}
         {served && !project && <button className="quiet-button" title="Open a GB Studio project folder: its backgrounds, sprites, tilesets and fonts open here and save back into it" onClick={() => void chooseProject()}><FolderTree size={14} />Open project…</button>}
+        <button className="quiet-button" title="Palette manager: the project's palettes, a library, and your own; edit colors, add palettes to the project" onClick={() => setShowPalettes(true)}><PaletteIcon size={14} />Palettes</button>
         <button className="quiet-button" disabled={!doc} title={doc?.asset ? `Flatten and save over ${doc.asset.file} in the GB Studio project (the old file goes to the backups folder) · Ctrl+S` : doc?.handle ? `Flatten and save over ${doc.name}, in the GB greens · Ctrl+S` : "Flatten and save as a PNG, in the GB greens · Ctrl+S"} onClick={() => void save(false)}><Save size={14} />Save</button>
         <button className="quiet-button" disabled={!doc} title="Flatten and export a copy, in the GB greens · Ctrl+E" onClick={() => void save(true)}><Download size={14} />Export copy</button>
         <button className="icon-button" aria-label="Undo" title="Undo · Ctrl+Z" disabled={!doc?.undo.length} onClick={() => stepHistory("undo")}><Undo2 size={15} /></button>
@@ -996,6 +1030,16 @@ export default function PaintApp() {
         {doc && <span>{doc.width} × {doc.height} px · {doc.width / CELL} × {doc.height / CELL} tiles</span>}
       </footer>
       {toast && <div className="gbp-toast" role="status">{toast}</div>}
+      {showPalettes && (
+        <PaletteManager
+          projectName={project?.name ?? null}
+          projectPalettes={project?.palettes ?? []}
+          picture={doc ? { pixels: (() => { const flat = doc.pixels.slice(); if (doc.float) drop(flat, doc.width, doc.height, doc.float); return flat; })(), width: doc.width, height: doc.height, sprite: Boolean(doc.keyGreen) } : null}
+          onClose={() => setShowPalettes(false)}
+          onWriteProject={writeProjectPalette}
+          onPick={(id) => { const index = docPalettes.findIndex((item) => item.id === id); if (index >= 0) { setActivePalette(index + 1); setTool("palette"); } }}
+        />
+      )}
     </div>
   );
 }

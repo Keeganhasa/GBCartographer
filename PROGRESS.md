@@ -36,6 +36,19 @@ server layer (`server/`) and the Electron shell (`electron/`). Nothing from any 
 - Only `paletteIndex` is written for sprites; the older `palette` field is not what GB Studio reads and is left alone.
 - GB Studio 4 layout only (a folder with `assets/` and `project/`; sidecar `.png.gbsres` files).
 
+### Demo project, fonts, palette manager (2026-10-09)
+- `demo/`: a GB Studio 4 project built from the Wintery Pixel Art Pack (CC0, Spencer "Raptorspank" Gerowe) and
+  pictures from the GB Studio Community Assets repo (MIT; GumpyFunction, yoanqwp, krümel, Paige Ashlynn, Anima,
+  Santiago Crespo, KizulEmeraldfire), credited in `demo/CREDITS.md`, with the author's Chorbi palettes as the
+  project palettes. Four sprites had pure black / one brown normalized to the GB dark green. The app opens a
+  copy of it (`demoProjectCopy`: `<data folder>/demo-project`, made once) from the start screen or the project
+  panel. Fonts (`assets/fonts`) are a fourth asset kind.
+- Palette manager (`src/PaletteManager.tsx`, header button Palettes): collections Project · Mine · Game Boy ·
+  Chorbi (`src/palettes/library.json`, 233 palettes), filter, name and four colors with hex fields, a preview of
+  the open picture in the palette, Add to project (new `project/palettes/<name>.gbsres`, numbered when taken),
+  Save into project (rewrite by id, other fields kept, backup first), Copy to Mine, Mine's Save / Delete, Use for
+  the palette brush. Open pictures whose copy of an edited palette was unchanged take the new colors.
+
 ### Known issues
 - A PNG drawn in colours that are not the GB greens (some teams draw sprites in real colours) is kept as palettes
   of the file and saved as greens in brightness order, which may not match GB Studio's own colour conversion.

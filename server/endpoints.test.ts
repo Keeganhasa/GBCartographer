@@ -130,6 +130,29 @@ describe("assets", () => {
   });
 });
 
+describe("palette files", () => {
+  it("adds a palette to the project with a GB Studio file name, numbers a taken name, and rewrites one by id", async () => {
+    const post = (body: object) => fetch(`${base}/gbstudio-palette`, { method: "POST", body: JSON.stringify(body) });
+    expect((await post({ name: "Bad", colors: ["#123"] })).status).toBe(400);
+    expect((await post({ name: "  ", colors: ["#000000", "#111111", "#222222", "#333333"] })).status).toBe(400);
+    const made = await json<{ ok: boolean; id: string; file: string }>(await post({ name: "Cave Night", colors: ["#E0F8CF", "#86C06C", "#306850", "#071821"] }));
+    expect(made.file).toBe("cave_night.gbsres");
+    const file = join(project, "project/palettes/cave_night.gbsres");
+    expect(JSON.parse(readFileSync(file, "utf8"))).toEqual({ _resourceType: "palette", id: made.id, name: "Cave Night", colors: ["e0f8cf", "86c06c", "306850", "071821"] });
+    const again = await json<{ file: string }>(await post({ name: "Cave Night", colors: ["#000000", "#111111", "#222222", "#333333"] }));
+    expect(again.file).toBe("cave_night_2.gbsres");
+    // Rewriting by id keeps the file and its other fields.
+    writeFileSync(file, JSON.stringify({ _resourceType: "palette", id: made.id, name: "Cave Night", colors: ["e0f8cf", "86c06c", "306850", "071821"], extra: 1 }));
+    const edited = await json<{ ok: boolean; id: string; file: string }>(await post({ id: made.id, name: "Cave Dusk", colors: ["#FFFFFF", "#AAAAAA", "#555555", "#000000"] }));
+    expect(edited).toEqual({ ok: true, id: made.id, file: "cave_night.gbsres" });
+    expect(JSON.parse(readFileSync(file, "utf8"))).toEqual({ _resourceType: "palette", id: made.id, name: "Cave Dusk", colors: ["ffffff", "aaaaaa", "555555", "000000"], extra: 1 });
+    expect(readFileSync(join(root, "backups/gbstudio/palettes/cave_night.gbsres"), "utf8")).toContain("Cave Night");
+    expect((await post({ id: "nope", name: "x", colors: ["#000000", "#111111", "#222222", "#333333"] })).status).toBe(404);
+    const listed = await json<{ palettes: { name: string }[] }>(await fetch(`${base}/gbstudio-assets`));
+    expect(listed.palettes.map((palette) => palette.name)).toEqual(["Cave Dusk", "Cave Night", "Town day"]);
+  });
+});
+
 describe("tile palettes", () => {
   it("writes a background's slots into tileColors, keeping other bits and fields, as GB Studio spells it", async () => {
     const sidecar = join(project, "assets/backgrounds/town.png.gbsres");

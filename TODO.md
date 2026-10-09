@@ -10,9 +10,11 @@ into PROGRESS.md when they deserve a note.
 - [x] **Open the demo** from the app: a button when no project is open; it opens a copy in the app's data folder
       so edits never touch the repo's copy.
 - [x] **Fonts** as a fourth asset kind (`assets/fonts`, PNG + `.png.gbsres`), open and save like tilesets.
-- [ ] **Palette manager**: a window listing the project's palettes and a bundled library (Chorbi, Game Boy
+- [x] **Palette manager**: a window listing the project's palettes and a bundled library (Chorbi, Game Boy
       classics); edit colors and names; new palettes; add a palette to the project (writes
       `project/palettes/<name>.gbsres`); update a project palette's colors.
+- [ ] Palette manager, round 2: delete a project palette (with a check that no scene uses it), reorder,
+      import/export a palette set as JSON, keyboard navigation in the list.
 - [x] README: credits for the demo assets and a line about the demo.
 
 ## Before anyone else runs it

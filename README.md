@@ -14,6 +14,9 @@ back into the project. It also opens any Game Boy PNG on its own.
   `tileColors`, a sprite's `paletteIndex`.
 - **The usual tools.** Pencil, eraser, spray, line, rectangle, ellipse, fill, eyedropper, select and move,
   mirror painting, brush sizes, undo, tabs, drag-and-drop, paste from the clipboard.
+- **A palette manager.** The project's palettes, a bundled library (Game Boy classics and the author's own
+  Chorbi set) and your own, with a live preview of the open picture; add palettes to the project or edit the
+  project's in place.
 - **Dark themes**, including ones built from Game Boy palettes, and a choice of fonts.
 
 ## Try it with the demo project
@@ -31,7 +34,9 @@ GB Cartographer is careful with your game files. It only ever writes:
 
 - the PNG you saved, under `assets/backgrounds`, `assets/sprites`, `assets/tilesets` or `assets/fonts`, with the same size as before;
 - the `tileColors` field of a background's `.png.gbsres` sidecar;
-- the `paletteIndex` of the slices in a sprite sheet's `.png.gbsres` sidecar.
+- the `paletteIndex` of the slices in a sprite sheet's `.png.gbsres` sidecar;
+- palette files in `project/palettes/`: a new one when you add a palette from the manager, or the name and
+  colors of one you edit there.
 
 Every other field of those files, and every other file in the project, is left untouched. Before each write the
 old file is copied to GB Cartographer's backups folder (one previous version per file), and a file that changed on disk
