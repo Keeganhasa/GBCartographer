@@ -51,5 +51,5 @@ APP_LOGO.forEach((row, y) => [...row].forEach((shade, x) => {
   for (let dy = 0; dy < scale; dy += 1) for (let dx = 0; dx < scale; dx += 1) pixels.set([...color, 255], ((oy + y * scale + dy) * SIZE + ox + x * scale + dx) * 4);
 }));
 mkdirSync("build", { recursive: true });
-writeFileSync("build/icon.png", encodePng(pixels, SIZE, SIZE, deflateSync));
-console.log(`Icons: public/favicon.svg, build/icon.png (${SIZE} × ${SIZE}, logo at ${scale}×)`);
+// build/icon.png is the author's hand-made icon since 2026-10-09 and is not written here any more.
+console.log(`Icon: public/favicon.svg (build/icon.png is hand-made, ${SIZE} px, logo at ${scale}×)`);
