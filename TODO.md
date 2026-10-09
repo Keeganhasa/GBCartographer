@@ -31,7 +31,10 @@ into PROGRESS.md when they deserve a note.
       frames strip above a sprite sheet (every animation's frames, thumbnails, play at 8 fps, the current frame's
       slices outlined on the sheet).
 - [x] Palette brush: [ ] set it to 1, 2 × 2 or 3 × 3 tiles; Shift-click draws a straight line of tiles; I picks a tile's palette.
-- [ ] Bake the author's Cabin Interior tile colors into the demo once saved (the generator has the hook).
+- [x] Bake the author's tile colors into the demo (cabin, forest, winter), from the saved copy.
+- [x] Thumbnails show each picture in its palettes (a server-rendered preview PNG, cached by file time).
+- [x] Fonts: a live sample sentence set in the sheet's glyphs above the picture, editable.
+- [x] Save writes every changed picture, not only the active one (Export copy stays per picture).
 - [x] Hint line: gone; one clause per tool in the status bar, the full text behind ?.
 
 ## Before anyone else runs it

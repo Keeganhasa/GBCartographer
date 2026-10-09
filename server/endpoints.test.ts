@@ -114,6 +114,19 @@ describe("assets", () => {
     }
   });
 
+  it("renders a colored preview: a background's tiles in their slot palettes, a sprite's key green see-through", async () => {
+    const { decodePng } = await import("../src/gb/png");
+    const { inflateSync } = await import("node:zlib");
+    const preview = decodePng(new Uint8Array(await (await fetch(`${base}/gbstudio-asset-preview?kind=backgrounds&file=town.png`)).arrayBuffer()), (bytes) => inflateSync(bytes));
+    expect([preview.width, preview.height]).toEqual([160, 144]);
+    // Cell 0 is slot 1 = pal-town, whose lightest color is #E6FFCE; the rest are slot 0 = pal-default, unknown, so GB green.
+    expect([...preview.pixels.slice(0, 3)]).toEqual([0xe6, 0xff, 0xce]);
+    expect([...preview.pixels.slice(8 * 4, 8 * 4 + 3)]).toEqual([0xe0, 0xf8, 0xcf]);
+    const sprite = decodePng(new Uint8Array(await (await fetch(`${base}/gbstudio-asset-preview?kind=sprites&file=hero.png`)).arrayBuffer()), (bytes) => inflateSync(bytes));
+    expect(sprite.pixels[3]).toBe(0);
+    expect((await fetch(`${base}/gbstudio-asset-preview?kind=backgrounds&file=missing.png`)).status).toBe(404);
+  });
+
   it("overwrites a PNG of the same size, keeps a backup, and refuses stale or resized writes", async () => {
     const file = join(project, "assets/sprites/hero.png");
     const before = readFileSync(file);

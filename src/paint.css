@@ -252,3 +252,8 @@
 .gbp-pm-note { margin-left: auto; color: var(--muted); font-size: var(--fs-xs); text-align: right; }
 .gbp-pm-head { flex-direction: column; align-items: stretch; gap: 6px; }
 .gbp-pm-head .eyebrow { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Font sample strip: a sentence set in the sheet's glyphs, live. */
+.gbp-sample { flex-direction: column; align-items: stretch; gap: 6px; }
+.gbp-sample input { min-height: 26px; padding: 0 8px; color: var(--ink); background: var(--paper-deep); border: 1px solid var(--line); border-radius: var(--radius); font: var(--fs-sm) var(--mono); }
+.gbp-sample-canvas { width: 100%; max-width: 640px; image-rendering: pixelated; background: #e0f8cf; border: 1px solid #000; }

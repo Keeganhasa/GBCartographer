@@ -6,7 +6,10 @@
 import { closeSync, copyFileSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { basename, join, resolve } from "node:path";
+import { deflateSync, inflateSync } from "node:zlib";
 import { decodeTileColors, encodeTileColors, resolveScenePaletteIds } from "../src/gb/gbstudio";
+import { decodePng, encodePng } from "../src/gb/png";
+import { KEY_GREEN, assignSlots, quantize, spriteShades, toRgba } from "../src/paint";
 
 export const ASSET_KINDS = ["backgrounds", "sprites", "tilesets", "fonts"] as const;
 export type AssetKind = typeof ASSET_KINDS[number];
@@ -301,6 +304,22 @@ export function writePalette(project: string, palette: { id?: string; name: stri
   const id = randomUUID();
   writeFileSync(join(folder, file), JSON.stringify({ _resourceType: "palette", id, name, colors }, null, 2));
   return { id, file };
+}
+
+/**
+ * The asset as GB Studio would show it: each tile in the palette its slot gives it (backgrounds and sprite
+ * sheets; sprites through colors 1–3 with key green see-through), plain greens otherwise. A small PNG for the
+ * project panel's thumbnails.
+ */
+export function renderPreview(project: string, kind: AssetKind, path: string): Uint8Array {
+  const image = decodePng(readFileSync(path), (bytes) => inflateSync(bytes));
+  const info = assetInfo(project, kind, path);
+  const palettes = listPalettes(project).map(({ id, name, colors }) => ({ id, name, colors }));
+  const sprite = kind === "sprites";
+  const picture = quantize(image.pixels, image.width, image.height, palettes, sprite);
+  if (info.tileColors.length) assignSlots(picture.cells, info.tileColors, info.slots, picture.palettes);
+  const shown = picture.palettes.map((palette) => ({ ...palette, colors: sprite ? spriteShades(palette.colors) : palette.colors }));
+  return encodePng(toRgba(picture.pixels, picture.cells, image.width, shown, sprite && !picture.hasAlpha ? KEY_GREEN : undefined), image.width, image.height, (bytes) => deflateSync(bytes));
 }
 
 export class AssetWriteError extends Error {

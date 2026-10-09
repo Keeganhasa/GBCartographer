@@ -6,6 +6,7 @@
  *   GET  /__cartographer/gbstudio-assets      the project's asset PNGs and palettes
  *   GET  /__cartographer/gbstudio-asset       one PNG            ?kind=backgrounds|sprites|tilesets&file=name.png
  *   GET  /__cartographer/gbstudio-asset-info  its size, times, per-cell palette slots and the slot palette ids
+ *   GET  /__cartographer/gbstudio-asset-preview the PNG colored the way GB Studio shows it (thumbnails)
  *   POST /__cartographer/gbstudio-asset       overwrite that PNG (same size; ?mtime= guards against a file that changed; &force=1)
  *   POST /__cartographer/gbstudio-tile-colors { slots } per-cell palette slots into the sidecar (?kind=&file=&metaMtime=&force=1)
  *   POST /__cartographer/gbstudio-palette     { name, colors } adds a palette file to the project; { id, name, colors } rewrites one
@@ -13,7 +14,7 @@
  */
 import { readFileSync, statSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { AssetWriteError, assetInfo, assetPath, listAssets, listPalettes, projectName, writeAsset, writePalette, writeSpritePalettes, writeTileColors, type AssetKind } from "./assets";
+import { AssetWriteError, assetInfo, assetPath, listAssets, listPalettes, projectName, renderPreview, writeAsset, writePalette, writeSpritePalettes, writeTileColors, type AssetKind } from "./assets";
 import { demoProjectCopy, isProjectFolder, projectFolder, recentProjects, saveProjectFolder, setProjectFolder } from "./project";
 
 export interface ServerOptions {
@@ -94,7 +95,7 @@ export async function handleCartographerRequest(req: IncomingMessage, res: Serve
       reply(res, 200, { ok: true, name: projectName(project), path: project, assets: listAssets(project), palettes: listPalettes(project) });
       return true;
     }
-    if (url.pathname === "/__cartographer/gbstudio-asset" || url.pathname === "/__cartographer/gbstudio-asset-info") {
+    if (url.pathname === "/__cartographer/gbstudio-asset" || url.pathname === "/__cartographer/gbstudio-asset-info" || url.pathname === "/__cartographer/gbstudio-asset-preview") {
       const kind = url.searchParams.get("kind") ?? "";
       const path = assetPath(project, kind, url.searchParams.get("file") ?? "");
       if (!path) {
@@ -103,6 +104,14 @@ export async function handleCartographerRequest(req: IncomingMessage, res: Serve
       }
       if (url.pathname === "/__cartographer/gbstudio-asset-info") {
         reply(res, 200, { ok: true, ...assetInfo(project, kind as AssetKind, path) });
+        return true;
+      }
+      if (url.pathname === "/__cartographer/gbstudio-asset-preview") {
+        const png = renderPreview(project, kind as AssetKind, path);
+        res.setHeader("Content-Type", "image/png");
+        res.setHeader("Content-Length", String(png.length));
+        res.setHeader("Cache-Control", "private, max-age=31536000");
+        res.end(req.method === "HEAD" ? undefined : Buffer.from(png));
         return true;
       }
       if (req.method === "GET" || req.method === "HEAD") {

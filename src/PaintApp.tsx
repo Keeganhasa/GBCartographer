@@ -192,6 +192,9 @@ export default function PaintApp() {
   /** The frames strip: which animation and frame of the open sprite sheet is current, and whether it plays. */
   const [frame, setFrame] = useState({ animation: 0, index: 0 });
   const [playing, setPlaying] = useState(false);
+  /** The font sample: a sentence drawn with the open font sheet's glyphs (ASCII from 32, 16 glyphs a row). */
+  const [sampleText, setSampleText] = useState("The quick brown fox jumps over the lazy dog. 0123456789");
+  const sampleCanvas = useRef<HTMLCanvasElement>(null);
   const frameCanvases = useRef<(HTMLCanvasElement | null)[]>([]);
   const [sideTab, setSideTab] = useState<"palettes" | "picture">("palettes");
   const [font, setFont] = useState<FontChoice>(() => loadFont());
@@ -560,41 +563,61 @@ export default function PaintApp() {
     return new Promise((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("No PNG")), "image/png"));
   }
 
-  /** Writes one flat PNG in the GB greens (palettes and tint are only for looking): over the opened file, or (`copy`, or no file to write to) to a place the user picks. */
-  async function save(copy: boolean) {
-    if (!doc) return;
-    dropFloat(doc);
-    bump();
+  /**
+   * Writes one picture as a flat PNG in the GB greens (palettes and tint are only for looking): into its GB Studio
+   * project, over its file, or (`copy`, or no file to write to) to a place the user picks. Returns what happened.
+   */
+  async function saveDoc(target: Doc, copy: boolean, askWhere: boolean): Promise<string | null> {
+    dropFloat(target);
     try {
-      const blob = await pngBlob(doc);
-      if (!copy && doc.asset) {
-        if (await saveAsset(doc, blob)) scheduleSession();
-        bump();
-        return;
-      }
+      const blob = await pngBlob(target);
+      if (!copy && target.asset) return await saveAsset(target, blob) ? target.asset.name : null;
       const picker = (window as PickerWindow).showSaveFilePicker;
-      let handle = copy ? undefined : doc.handle;
-      if (!handle && picker) handle = await picker.call(window, { suggestedName: doc.name, types: PNG_TYPES });
+      let handle = copy ? undefined : target.handle;
+      if (!handle && !askWhere) return null;
+      if (!handle && picker) handle = await picker.call(window, { suggestedName: target.name, types: PNG_TYPES });
       if (handle) {
         const writable = await handle.createWritable();
         await writable.write(blob);
         await writable.close();
-        if (!copy || !doc.handle) Object.assign(doc, { handle, name: handle.name, dirty: false });
-        say(`Saved ${handle.name}`);
-      } else {
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.download = doc.name;
-        link.click();
-        window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-        doc.dirty = false;
-        say(`Downloaded ${doc.name}`);
+        if (!copy || !target.handle) Object.assign(target, { handle, name: handle.name, dirty: false });
+        return handle.name;
       }
-      scheduleSession();
-      bump();
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = target.name;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+      target.dirty = false;
+      return `${target.name} (downloaded)`;
     } catch (error) {
-      if ((error as Error).name !== "AbortError") say(`Could not save ${doc.name}: ${(error as Error).message}`);
+      if ((error as Error).name !== "AbortError") say(`Could not save ${target.name}: ${(error as Error).message}`);
+      return null;
     }
+  }
+
+  /**
+   * Save (Ctrl+S) saves every changed picture that has somewhere to go; the active one is asked where when it has
+   * none. Export copy (Ctrl+E) saves a copy of the active picture only.
+   */
+  async function save(copy: boolean) {
+    if (!doc) return;
+    bump();
+    if (copy) {
+      const name = await saveDoc(doc, true, true);
+      if (name) say(`Exported ${name}`);
+    } else {
+      const changed = docs.current.filter((item) => item.dirty || item === doc);
+      const saved: string[] = [];
+      for (const item of changed) {
+        const name = await saveDoc(item, false, item === doc);
+        if (name) saved.push(name);
+      }
+      if (saved.length > 1) say(`Saved ${saved.length} pictures: ${saved.join(", ")}`);
+      else if (saved.length === 1 && !doc.asset) say(`Saved ${saved[0]}`);
+    }
+    scheduleSession();
+    bump();
   }
 
   function closeDoc(target: Doc) {
@@ -920,6 +943,26 @@ export default function PaintApp() {
     });
   });
 
+  const isFont = doc?.asset?.kind === "fonts" || (doc?.width === 128 && doc?.height === 112 && !doc.asset);
+  // The font sample: each character's 8 × 8 glyph copied from the drawn sheet, wrapped at the strip's width.
+  useLayoutEffect(() => {
+    const sheet = canvasRef.current, canvas = sampleCanvas.current;
+    if (!sheet || !canvas || !doc || !isFont) return;
+    const columns = Math.max(1, Math.floor(doc.width / 8)), perLine = 40;
+    const lines = sampleText.match(new RegExp(`.{1,${perLine}}(\\s|$)|.{1,${perLine}}`, "g")) ?? [""];
+    canvas.width = perLine * 8;
+    canvas.height = Math.max(1, lines.length) * 8;
+    const context = canvas.getContext("2d")!;
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    lines.forEach((line, row) => {
+      [...line.trimEnd()].forEach((char, column) => {
+        const index = char.charCodeAt(0) - 32;
+        if (index < 0 || index >= columns * Math.floor(doc.height / 8)) return;
+        context.drawImage(sheet, (index % columns) * 8, Math.floor(index / columns) * 8, 8, 8, column * 8, row * 8, 8, 8);
+      });
+    });
+  });
+
   // The picture is redrawn after every render: the pixels change in place, and `bump` is what announces it.
   useLayoutEffect(() => {
     const canvas = canvasRef.current;
@@ -969,7 +1012,7 @@ export default function PaintApp() {
         <span className="gbp-brand"><LogoMark size={22} /><b>GB Cartographer</b></span>
         <span className="gbp-seg" role="group" aria-label="File">
           <button className="quiet-button" title="Open PNG files · Ctrl+O (or drop them on the window)" onClick={() => void pickFiles()}><FolderOpen size={14} />Open</button>
-          <button className="quiet-button" disabled={!doc} title={doc?.asset ? `Save over ${doc.asset.file} in the GB Studio project (the old file goes to the backups folder) · Ctrl+S` : doc?.handle ? `Save over ${doc.name}, in the GB greens · Ctrl+S` : "Save as a PNG, in the GB greens · Ctrl+S"} onClick={() => void save(false)}><Save size={14} />Save</button>
+          <button className="quiet-button" disabled={!doc} title={`Save every changed picture · Ctrl+S${doc?.asset ? ` (this one over ${doc.asset.file} in the project; old files go to the backups folder)` : doc?.handle ? ` (this one over ${doc.name})` : " (this one asks where)"}`} onClick={() => void save(false)}><Save size={14} />Save</button>
           <button className="quiet-button" disabled={!doc} title="Export a copy, in the GB greens · Ctrl+E" onClick={() => void save(true)}><Download size={14} />Export</button>
         </span>
         <span className="gbp-seg" role="group" aria-label="Project and palettes">
@@ -1021,7 +1064,7 @@ export default function PaintApp() {
                   const openDoc = docs.current.find((item) => item.asset?.kind === asset.kind && item.asset.file === asset.file);
                   return (
                     <button key={asset.file} role="listitem" className={`gbp-asset ${openDoc && openDoc.id === activeId ? "selected" : openDoc ? "open" : ""}`} title={`${asset.file} · ${asset.width} × ${asset.height} px${openDoc ? " · open" : ""}`} onClick={() => void openAsset(asset)}>
-                      <img loading="lazy" decoding="async" alt="" src={`${ASSET_URL}?${assetQuery(asset)}&v=${Math.round(asset.mtime)}`} />
+                      <img loading="lazy" decoding="async" alt="" src={`${ASSET_URL}-preview?${assetQuery(asset)}&v=${Math.round(asset.mtime)}`} />
                       <span className="gbp-asset-name">{openDoc?.dirty ? "• " : ""}{asset.name}</span>
                       <span className="gbp-asset-size">{asset.width}×{asset.height}</span>
                     </button>
@@ -1067,6 +1110,12 @@ export default function PaintApp() {
                 ))}
               </div>
               <span className="gbp-frames-label">{animations.length > 1 ? animation.name : "frame"} {frame.index + 1} of {frames.length}</span>
+            </div>
+          )}
+          {doc && isFont && (
+            <div className="gbp-frames gbp-sample" role="group" aria-label="Font sample">
+              <input type="text" aria-label="Sample text" value={sampleText} onChange={(event) => setSampleText(event.target.value)} spellCheck={false} />
+              <canvas ref={sampleCanvas} className="gbp-sample-canvas" />
             </div>
           )}
           {doc ? (

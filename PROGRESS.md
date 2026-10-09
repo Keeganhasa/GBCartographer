@@ -64,6 +64,14 @@ server layer (`server/`) and the Electron shell (`electron/`). Nothing from any 
   the sheet (flips honored), play at 8 frames a second, the current frame's 8 × 16 slices outlined on the sheet.
 - Mockups and review captures live in `review/` (gitignored); `review/shoot.cjs` renders a page offscreen at 2×.
 
+- Thumbnails come from `gbstudio-asset-preview`: the PNG decoded on the server, read like the app reads it
+  (`quantize`, `assignSlots`), and colored the way GB Studio shows it (sprites through colors 1–3, key green
+  see-through), encoded with the app's own PNG codec and cached by file time.
+- Fonts: a sample sentence (editable) drawn with the sheet's 8 × 8 glyphs (ASCII from 32, 16 a row), live.
+- Save (Ctrl+S) saves every changed picture that has somewhere to go; the active one is asked where if it has
+  none. Export copy stays per picture. The accent is `#c489ab`, a notch more saturated.
+- The demo's three backgrounds carry the author's tile colors (saved in the app, baked into `demo/`).
+
 ### Known issues
 - GB Studio's animation speed is not read yet: the frames strip plays at a fixed 8 fps.
 - A PNG drawn in colours that are not the GB greens (some teams draw sprites in real colours) is kept as palettes
