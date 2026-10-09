@@ -425,3 +425,10 @@
 :root .icon-button.active-tool:is(:hover, .is-hover):not(:disabled),
 :root .tool-button.active:is(:hover, .is-hover):not(:disabled) { background: linear-gradient(#b0e094, var(--acc)); border-color: #b0e094; color: var(--on-acc); }
 :root .map-tab:not(.active):is(:hover, .is-hover) button { color: var(--hover-ink); }
+
+/* The project name opens the project menu (another project, the demo, recent, close). */
+:root .gbp-project h2 { padding: 8px 8px 6px; }
+:root .gbp-project-title { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 3px 8px; color: var(--muted); background: transparent; border: 1px solid transparent; border-radius: 8px; font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer; }
+:root .gbp-project-title:hover { color: var(--hover-ink); background: var(--hover-fill); border-color: var(--hover-edge); }
+:root .gbp-project-title .gbp-project-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root .gbp-project-title svg { flex: none; }

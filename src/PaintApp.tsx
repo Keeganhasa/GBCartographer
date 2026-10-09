@@ -4,7 +4,7 @@
  * A tint only changes how the plain tiles look while painting. Saving writes one flat PNG, and for a project
  * picture also its tile palettes (see server/endpoints.ts).
  */
-import { ArrowLeftRight, BoxSelect, Circle, CircleHelp, Download, DropletOff, Eraser, FlipHorizontal2, FolderOpen, FolderTree, Ghost, Grid3x3, Hand, Image, LayoutGrid, Magnet, Minus, Move, PaintBucket, Palette as PaletteIcon, Pause, Pencil, Pipette, Play, Plus, RectangleHorizontal, Redo2, Save, Slash, SprayCan, Square, Star, Type, Undo2, X } from "lucide-react";
+import { ArrowLeftRight, BoxSelect, ChevronDown, Circle, CircleHelp, Download, DropletOff, Eraser, FlipHorizontal2, FolderOpen, FolderTree, Ghost, Grid3x3, Hand, Image, LayoutGrid, Magnet, Minus, Move, PaintBucket, Palette as PaletteIcon, Pause, Pencil, Pipette, Play, Plus, RectangleHorizontal, Redo2, Save, Slash, SprayCan, Square, Star, Type, Undo2, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useReducer, useRef, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { LogoMark } from "./ui/LogoMark";
@@ -104,7 +104,7 @@ interface Doc extends Snapshot {
    * A background or sprite sheet also carries its eight palette slot ids and its sidecar's time: Save writes each
    * tile's palette into the sidecar (a background's tileColors, a sprite's slices' paletteIndex) as a slot.
    */
-  asset?: { kind: AssetKind; file: string; name: string; mtime: number; slots?: string[]; metaMtime?: number | null; /** Each cell's slot when the picture was opened (-1 unknown): only cells moved off it are written back. */ opened?: number[]; /** A sprite sheet's animations, for the frames strip. */ animations?: SpriteAnimation[] };
+  asset?: { kind: AssetKind; file: string; name: string; mtime: number; slots?: string[]; metaMtime?: number | null; /** Each cell's slot when the picture was opened (-1 unknown): only cells moved off it are written back. */ opened?: number[]; /** A sprite sheet's animations, for the frames strip. */ animations?: SpriteAnimation[]; /** The project folder it came from: Save refuses to write it into another project. */ project?: string };
   /** A sprite sheet: see-through pixels are GB Studio's key green in the file. */
   keyGreen?: boolean;
   zoom: number;
@@ -198,6 +198,9 @@ export default function PaintApp() {
   const [recent, setRecent] = useState<{ name: string; path: string }[]>([]);
   /** The right-click menu on a picture card: where it opened and for which asset. */
   const [assetMenu, setAssetMenu] = useState<{ x: number; y: number; asset: Asset } | null>(null);
+  /** The project menu (open another, the demo, recent, close), anchored under the button that opened it. */
+  const [projectMenu, setProjectMenu] = useState<{ x: number; y: number } | null>(null);
+  const projectRef = useRef<Project | null>(null);
   /** The frames strip: which animation and frame of the open sprite sheet is current, and whether it plays. */
   const [frame, setFrame] = useState({ animation: 0, index: 0 });
   const [playing, setPlaying] = useState(false);
@@ -376,7 +379,7 @@ export default function PaintApp() {
         // A background's tile colors (GB Studio's per-tile palettes) dress the cells when the scene's palettes are known.
         const dressed = info?.tileColors.length ? assignSlots(picture.cells, info.tileColors, info.slots, picture.palettes) : 0;
         last = nextDocId++;
-        docs.current.push({ id: last, name: asset?.name ?? file.name, width: bitmap.width, height: bitmap.height, pixels: picture.pixels, cells: picture.cells, hasAlpha: picture.hasAlpha || keyGreen, palettes: picture.palettes, undo: [], redo: [], dirty: false, handle, asset: asset && info ? { kind: asset.kind, file: asset.file, name: asset.name, mtime: info.mtime, ...(hasSlots(asset.kind) ? { slots: info.slots, metaMtime: info.metaMtime, opened: info.tileColors.map((value) => value < 0 ? -1 : value & 7) } : {}), ...(asset.kind === "sprites" && info.animations?.length ? { animations: info.animations } : {}) } : undefined, keyGreen: keyGreen || undefined, zoom: fitZoom(bitmap.width, bitmap.height), sel: null, float: null });
+        docs.current.push({ id: last, name: asset?.name ?? file.name, width: bitmap.width, height: bitmap.height, pixels: picture.pixels, cells: picture.cells, hasAlpha: picture.hasAlpha || keyGreen, palettes: picture.palettes, undo: [], redo: [], dirty: false, handle, asset: asset && info ? { kind: asset.kind, file: asset.file, name: asset.name, mtime: info.mtime, ...(hasSlots(asset.kind) ? { slots: info.slots, metaMtime: info.metaMtime, opened: info.tileColors.map((value) => value < 0 ? -1 : value & 7) } : {}), ...(asset.kind === "sprites" && info.animations?.length ? { animations: info.animations } : {}), project: projectRef.current?.path } : undefined, keyGreen: keyGreen || undefined, zoom: fitZoom(bitmap.width, bitmap.height), sel: null, float: null });
         const made = picture.palettes.length - palettesRef.current.length;
         if (picture.snapped) say(`${file.name}: ${picture.snapped} color${picture.snapped === 1 ? "" : "s"} in tiles of more than four colors became the nearest shade.`);
         else if (made) say(`${file.name}: tiles in colors outside the library keep them as ${made} palette${made === 1 ? "" : "s"} of the file.${asset ? " Save writes them as GB greens in order of brightness, which may differ from how GB Studio reads the colors." : ""}`);
@@ -421,27 +424,75 @@ export default function PaintApp() {
     const opened = ping?.ok && ping.project ? await fetch(PROJECT_URL, { cache: "no-cache" }).then((response) => asJson<{ ok?: boolean } & Project>(response)).catch(() => null) : null;
     if (opened?.ok) {
       palettesRef.current = opened.palettes.filter((palette) => palette.colors?.length === 4);
-      setProject({ name: opened.name, path: opened.path, assets: opened.assets, palettes: opened.palettes });
+      projectRef.current = { name: opened.name, path: opened.path, assets: opened.assets, palettes: opened.palettes };
+      setProject(projectRef.current);
     } else {
       palettesRef.current = [];
+      projectRef.current = null;
       setProject(null);
     }
     setPalettes(palettesRef.current);
   }
 
   /** Opens a project folder by path (a Recent entry). */
+  /** Pictures opened from the current project (older sessions did not record the project: they count too). */
+  const projectDocs = () => docs.current.filter((item) => item.asset && (!item.asset.project || item.asset.project === projectRef.current?.path));
+
+  /**
+   * Before the project changes: unsaved pictures of the current project are saved (or, if the user says so,
+   * discarded). Returns false when the user backs out.
+   */
+  async function readyToLeaveProject(): Promise<boolean> {
+    const dirty = projectDocs().filter((item) => item.dirty);
+    if (!dirty.length) return true;
+    const names = dirty.map((item) => item.name).join(", ");
+    if (window.confirm(`Save your changes to ${names} before leaving ${projectRef.current?.name ?? "this project"}?`)) {
+      await save(false);
+      return !projectDocs().some((item) => item.dirty);
+    }
+    return window.confirm(`Leave ${projectRef.current?.name ?? "this project"} and discard the changes to ${names}?`);
+  }
+
+  /** After the project changed: the old project's pictures close (their files belong to that project). */
+  function closeDocsOf(oldPath: string | undefined) {
+    if (!oldPath || oldPath === projectRef.current?.path) return;
+    const keep = docs.current.filter((item) => !(item.asset && (!item.asset.project || item.asset.project === oldPath)));
+    if (keep.length === docs.current.length) return;
+    docs.current = keep;
+    if (!keep.some((item) => item.id === activeId)) setActiveId(keep[0]?.id ?? 0);
+    scheduleSession();
+    bump();
+  }
+
+  /** Opens a project folder by path (a Recent entry). */
   async function openProjectPath(path: string) {
+    if (path === projectRef.current?.path) return;
+    if (!await readyToLeaveProject()) return;
+    const oldPath = projectRef.current?.path;
     const response = await fetch("./__cartographer/project", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path }) });
     const result = await response.json() as { ok?: boolean; error?: string };
     if (!response.ok || !result.ok) return say(result.error ?? response.statusText);
     palettesReady.current = loadProject();
     await palettesReady.current;
+    closeDocsOf(oldPath);
     setShowProject(true);
+  }
+
+  /** Closes the project: back to the start screen; its pictures close too. */
+  async function closeProject() {
+    if (!projectRef.current || !await readyToLeaveProject()) return;
+    const oldPath = projectRef.current.path;
+    await fetch("./__cartographer/project", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: "" }) });
+    palettesReady.current = loadProject();
+    await palettesReady.current;
+    closeDocsOf(oldPath);
   }
 
   /** Asks for a GB Studio project folder: the desktop app's folder dialog, or a typed path on the dev server. `demo` opens a copy of the shipped demo instead. */
   async function chooseProject(demo = false) {
     const native = (window as PickerWindow).gbc;
+    if (!await readyToLeaveProject()) return;
+    const oldPath = projectRef.current?.path;
     try {
       if (demo) {
         const response = await fetch("./__cartographer/project", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ demo: true }) });
@@ -458,6 +509,7 @@ export default function PaintApp() {
       }
       palettesReady.current = loadProject();
       await palettesReady.current;
+      closeDocsOf(oldPath);
       setShowProject(true);
     } catch (error) {
       say(`Could not open the project: ${(error as Error).message}`);
@@ -539,6 +591,10 @@ export default function PaintApp() {
   /** Writes the picture over its GB Studio asset (the server keeps a backup and refuses a file that changed on disk). */
   async function saveAsset(target: Doc, blob: Blob): Promise<boolean> {
     const asset = target.asset!;
+    if (asset.project && asset.project !== projectRef.current?.path) {
+      say(`${asset.name} belongs to ${asset.project}. Open that project to save it, or use Export.`);
+      return false;
+    }
     const post = (force: boolean) => fetch(`${ASSET_URL}?${assetQuery(asset)}&mtime=${asset.mtime}${force ? "&force=1" : ""}`, { method: "POST", body: blob });
     let response = await post(false);
     if (response.status === 409) {
@@ -1105,10 +1161,10 @@ export default function PaintApp() {
             <nav className="gbp-rail" aria-label="Asset folders">
               {ASSET_KINDS.map(([kind, label]) => { const Icon = KIND_ICONS[kind]; const count = project.assets.filter((asset) => asset.kind === kind).length; return <button key={kind} className={`icon-button ${projectKind === kind ? "active-tool" : ""}`} aria-pressed={projectKind === kind} aria-label={`${label} (${count})`} title={`${label} · ${count}`} onClick={() => setProjectKind(kind)}><Icon size={16} /><b>{count}</b></button>; })}
               <span className="gbp-spacer" />
-              <button className="icon-button" aria-label="Open another project" title="Open another GB Studio project, or the demo" onClick={() => void chooseProject()}><ArrowLeftRight size={15} /></button>
+              <button className="icon-button" aria-label="Switch project" title="Open another project, the demo or a recent one, or close this project" onClick={(event) => { const r = event.currentTarget.getBoundingClientRect(); setProjectMenu({ x: r.right + 6, y: r.bottom - 150 }); }}><ArrowLeftRight size={15} /></button>
             </nav>
             <aside className="gbp-project" aria-label="GB Studio project">
-              <h2 title={project.path}><span className="gbp-project-name">{project.name}</span></h2>
+              <h2 title={project.path}><button className="gbp-project-title" aria-haspopup="menu" title={`${project.path} · open another project, or close this one`} onClick={(event) => { const r = event.currentTarget.getBoundingClientRect(); setProjectMenu({ x: r.left, y: r.bottom + 4 }); }}><span className="gbp-project-name">{project.name}</span><ChevronDown size={14} /></button></h2>
               <input type="search" className="gbp-filter" placeholder={`Filter ${kindLabel.toLowerCase()}`} aria-label={`Filter ${kindLabel.toLowerCase()} by name`} value={projectFilter} onChange={(event) => setProjectFilter(event.target.value)} />
               <div className="gbp-assets" role="list">
                 {shownAssets.map((asset) => {
@@ -1304,6 +1360,19 @@ export default function PaintApp() {
         {doc && <span title={doc.asset ? `assets/${doc.asset.kind}/${doc.asset.file}` : doc.name}>{doc.width} × {doc.height} · {doc.width / CELL} × {doc.height / CELL} tiles</span>}
       </footer>
       {toast && <div className="gbp-toast" role="status">{toast}</div>}
+      {projectMenu && (
+        <div className="gbp-menu-backdrop" onMouseDown={() => setProjectMenu(null)} onContextMenu={(event) => { event.preventDefault(); setProjectMenu(null); }}>
+          <div className="gbp-menu" role="menu" style={{ left: Math.min(projectMenu.x, window.innerWidth - 260), top: Math.max(8, Math.min(projectMenu.y, window.innerHeight - 260)) }} onMouseDown={(event) => event.stopPropagation()}>
+            <button role="menuitem" onClick={() => { setProjectMenu(null); void chooseProject(); }}>Open another project…</button>
+            <button role="menuitem" onClick={() => { setProjectMenu(null); void chooseProject(true); }}>Open the demo project</button>
+            {recent.filter((item) => item.path !== project?.path).length > 0 && <hr />}
+            {recent.filter((item) => item.path !== project?.path).slice(0, 5).map((item) => <button key={item.path} role="menuitem" title={item.path} onClick={() => { setProjectMenu(null); void openProjectPath(item.path); }}>{item.name}</button>)}
+            <hr />
+            <button role="menuitem" onClick={() => { setProjectMenu(null); void fetch("./__cartographer/reveal", { method: "POST" }); }}>{FILE_MANAGER_LABEL}</button>
+            <button role="menuitem" onClick={() => { setProjectMenu(null); void closeProject(); }}>Close project</button>
+          </div>
+        </div>
+      )}
       {assetMenu && (
         <div className="gbp-menu-backdrop" onMouseDown={() => setAssetMenu(null)} onContextMenu={(event) => { event.preventDefault(); setAssetMenu(null); }}>
           <div className="gbp-menu" role="menu" style={{ left: Math.min(assetMenu.x, window.innerWidth - 220), top: Math.min(assetMenu.y, window.innerHeight - 130) }} onMouseDown={(event) => event.stopPropagation()}>

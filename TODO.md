@@ -21,6 +21,9 @@ into PROGRESS.md when they deserve a note.
 
 - [x] One theme for now: OLED Game Boy green (mauve, then maroon, then the two Game Boy greens: pink felt too GB Studio).
       Other themes stay unlisted in theme.ts.
+- [x] Project menu (click the project name, or the arrows at the bottom of the rail): open another project, the demo,
+      a recent one, Show in Finder, Close project. Unsaved pictures are offered a save first; the old project's tabs
+      close; a picture never saves into a project it didn't come from.
 - [x] Hover is the Game Boy's dark green (`#306850`, light-green text) on buttons, tools, icon buttons, segmented
       groups and tabs; toggled-on buttons brighten on hover instead of going dark.
 - [x] The picture selector is a grid of thumbnail cards; sprite cards show their first frame, not the whole strip.
