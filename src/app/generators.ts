@@ -1,6 +1,6 @@
 /**
  * Map generators (the author's ask, 2026-10-10): a cave or dungeon, and an RPG-style overworld (water, shore,
- * grass, forest, mountains, castles and roads). Each makes a grid of map cells from its settings and a seed (the same
+ * grass, forest, mountains, towns and roads). Each makes a grid of map cells from its settings and a seed (the same
  * settings always give the same map), then draws every cell with simple wireframe primitives in the four GB shades
  * (0 lightest … 3 darkest): placeholder art to paint over. Few distinct cells, so the tile count stays low.
  */
@@ -226,19 +226,19 @@ export interface WorldSettings {
   mountains: number;
   /** Percent of the remaining land that is forest (the dampest). */
   forest: number;
-  /** Castles to place on open grass, spread apart. */
-  castles: number;
+  /** Towns to place on open grass, spread apart. */
+  towns: number;
   /** Feature size: bigger is broader land and seas. */
   scale: number;
   /** Water all round the edge. */
   island: boolean;
-  /** Roads joining the castles (round water and mountains). */
+  /** Roads joining the towns (round water and mountains). */
   roads: boolean;
 }
 
-export const WORLD_DEFAULTS: WorldSettings = { columns: 3, rows: 3, seed: 1, water: 35, mountains: 18, forest: 35, castles: 3, scale: 5, island: true, roads: true };
+export const WORLD_DEFAULTS: WorldSettings = { columns: 3, rows: 3, seed: 1, water: 35, mountains: 18, forest: 35, towns: 3, scale: 5, island: true, roads: true };
 
-export const WATER = 0, SHORE = 1, GRASS = 2, FOREST = 3, MOUNTAIN = 4, CASTLE = 5, ROAD = 6;
+export const WATER = 0, SHORE = 1, GRASS = 2, FOREST = 3, MOUNTAIN = 4, TOWN = 5, ROAD = 6;
 
 /** Smooth noise: random values on a lattice, blended (smoothstep) between them, a few octaves summed. */
 function valueNoise(w: number, h: number, period: number, random: () => number): Float32Array {
@@ -295,7 +295,7 @@ export function worldGrid(settings: WorldSettings): { w: number; h: number; grid
     const x = at % w, y = Math.floor(at / w);
     if (SIDES.some(([dx, dy]) => { const nx = x + dx, ny = y + dy; return nx >= 0 && ny >= 0 && nx < w && ny < h && grid[ny * w + nx] === WATER; })) grid[at] = SHORE;
   }
-  placeCastles(grid, w, h, settings, random);
+  placeTowns(grid, w, h, settings, random);
   return { w, h, grid };
 }
 
@@ -304,35 +304,35 @@ function edgeCell(at: number, w: number, h: number) {
   return x === 0 || y === 0 || x === w - 1 || y === h - 1;
 }
 
-/** Castles on grass, each as far as it can be from the others; then roads from each to the nearest castle before it. */
-function placeCastles(grid: Uint8Array, w: number, h: number, settings: WorldSettings, random: () => number) {
+/** Towns on grass, each as far as it can be from the others; then roads from each to the nearest town before it. */
+function placeTowns(grid: Uint8Array, w: number, h: number, settings: WorldSettings, random: () => number) {
   const open = Array.from(grid.keys()).filter((at) => grid[at] === GRASS && !edgeCell(at, w, h));
-  const castles: number[] = [];
-  for (let count = 0; count < settings.castles && open.length; count += 1) {
+  const towns: number[] = [];
+  for (let count = 0; count < settings.towns && open.length; count += 1) {
     let best = open[Math.floor(random() * open.length)], bestSpace = -1;
-    if (castles.length) for (const at of open) {
+    if (towns.length) for (const at of open) {
       const x = at % w, y = Math.floor(at / w);
-      const space = Math.min(...castles.map((castle) => Math.hypot(castle % w - x, Math.floor(castle / w) - y))) + random() * 0.5;
+      const space = Math.min(...towns.map((town) => Math.hypot(town % w - x, Math.floor(town / w) - y))) + random() * 0.5;
       if (space > bestSpace) { bestSpace = space; best = at; }
     }
-    castles.push(best);
-    grid[best] = CASTLE;
+    towns.push(best);
+    grid[best] = TOWN;
     open.splice(open.indexOf(best), 1);
   }
   if (!settings.roads) return;
-  const walkable = (cell: number) => cell === GRASS || cell === FOREST || cell === SHORE || cell === ROAD || cell === CASTLE;
-  for (let at = 1; at < castles.length; at += 1) {
-    const distance = distances(grid, w, h, castles[at], walkable);
-    const reachable = castles.slice(0, at).filter((castle) => distance[castle] > 0);
+  const walkable = (cell: number) => cell === GRASS || cell === FOREST || cell === SHORE || cell === ROAD || cell === TOWN;
+  for (let at = 1; at < towns.length; at += 1) {
+    const distance = distances(grid, w, h, towns[at], walkable);
+    const reachable = towns.slice(0, at).filter((town) => distance[town] > 0);
     if (!reachable.length) continue;
-    // Walk back from the nearest castle along falling distances, laying road.
-    let step = reachable.reduce((best, castle) => distance[castle] < distance[best] ? castle : best);
+    // Walk back from the nearest town along falling distances, laying road.
+    let step = reachable.reduce((best, town) => distance[town] < distance[best] ? town : best);
     while (distance[step] > 1) {
       const x = step % w, y = Math.floor(step / w);
       const next = SIDES.map(([dx, dy]) => (y + dy) * w + x + dx).find((n, side) => { const nx = x + SIDES[side][0], ny = y + SIDES[side][1]; return nx >= 0 && ny >= 0 && nx < w && ny < h && distance[n] === distance[step] - 1; });
       if (next === undefined) break;
       step = next;
-      if (grid[step] !== CASTLE) grid[step] = ROAD;
+      if (grid[step] !== TOWN) grid[step] = ROAD;
     }
   }
 }
@@ -356,7 +356,7 @@ export function drawWorld(settings: WorldSettings): Generated {
     if (cell === SHORE) {
       pen.dot(3, 3, 1); pen.dot(11, 5, 1); pen.dot(6, 9, 1); pen.dot(13, 12, 1); pen.dot(2, 13, 1);
       SIDES.forEach(([dx, dy], side) => { if (at(x + dx, y + dy) === WATER) pen.side(side, 2); });
-    } else if (cell === GRASS || cell === CASTLE || cell === ROAD) {
+    } else if (cell === GRASS || cell === TOWN || cell === ROAD) {
       if (variant % 3 === 0) { pen.dot(4, 3, 1); pen.dot(3, 4, 1); pen.dot(5, 4, 1); pen.dot(11, 10, 1); pen.dot(10, 11, 1); pen.dot(12, 11, 1); }
     }
     if (cell === FOREST) {
@@ -375,20 +375,20 @@ export function drawWorld(settings: WorldSettings): Generated {
       pen.rect(1, 14, 15, 1, 3);
       pen.dot(7, 2, 3); pen.dot(8, 2, 3);
     } else if (cell === ROAD) {
-      // A dirt band from the middle towards each neighbouring road or castle.
+      // A dirt band from the middle towards each neighbouring road or town.
       pen.rect(5, 5, 6, 6, 1);
-      const links = SIDES.map(([dx, dy]) => { const n = at(x + dx, y + dy); return n === ROAD || n === CASTLE; });
+      const links = SIDES.map(([dx, dy]) => { const n = at(x + dx, y + dy); return n === ROAD || n === TOWN; });
       if (links[0]) pen.rect(5, 0, 6, 5, 1);
       if (links[1]) pen.rect(11, 5, 5, 6, 1);
       if (links[2]) pen.rect(5, 11, 6, 5, 1);
       if (links[3]) pen.rect(0, 5, 5, 6, 1);
-    } else if (cell === CASTLE) {
-      // A keep: battlements, walls, a door.
-      pen.rect(2, 6, 12, 9, 1); pen.box(2, 6, 12, 9, 3);
-      for (const bx of [2, 6, 10]) pen.rect(bx, 3, 3, 3, 3);
-      pen.rect(13, 3, 1, 3, 3);
-      pen.rect(7, 10, 2, 5, 3);
-      pen.rect(4, 8, 1, 2, 3); pen.rect(11, 8, 1, 2, 3);
+    } else if (cell === TOWN) {
+      // Two houses: a pitched roof over walls with a door, one up on the left, one down on the right.
+      for (const [hx, hy] of [[1, 0], [8, 6]]) {
+        for (let row = 0; row < 4; row += 1) { pen.rect(hx + 3 - row, hy + 1 + row, row * 2 + 1, 1, 2); pen.dot(hx + 3 - row, hy + 1 + row, 3); pen.dot(hx + 3 + row, hy + 1 + row, 3); }
+        pen.rect(hx, hy + 5, 7, 5, 1); pen.box(hx, hy + 5, 7, 5, 3);
+        pen.rect(hx + 3, hy + 7, 1, 3, 3);
+      }
     }
   }
   return out;

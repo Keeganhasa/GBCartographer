@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { countUniqueTiles } from "../paint";
-import { CASTLE, CAVE_DEFAULTS, MOUNTAIN, ROAD, WATER, WORLD_DEFAULTS, caveGrid, drawCave, drawWorld, worldGrid } from "./generators";
+import { TOWN, CAVE_DEFAULTS, MOUNTAIN, ROAD, WATER, WORLD_DEFAULTS, caveGrid, drawCave, drawWorld, worldGrid } from "./generators";
 
 /** Floor cells reachable from the first one, by sides. */
 function reachable(grid: Uint8Array, w: number, open: (cell: number) => boolean) {
@@ -41,16 +41,16 @@ describe("map generators", () => {
     expect(countUniqueTiles(world.pixels, world.width, world.height, false)).toBeLessThan(192);
   });
 
-  it("gives an overworld about as much water as asked, its castles, and roads between them", () => {
+  it("gives an overworld about as much water as asked, its towns, and roads between them", () => {
     const { w, h, grid } = worldGrid(WORLD_DEFAULTS);
     expect([w, h]).toEqual([30, 27]);
     const water = grid.filter((cell) => cell === WATER).length / grid.length;
     expect(water).toBeGreaterThan(0.25);
     expect(water).toBeLessThan(0.5);
-    expect(grid.filter((cell) => cell === CASTLE).length).toBe(3);
+    expect(grid.filter((cell) => cell === TOWN).length).toBe(3);
     expect(grid.some((cell) => cell === ROAD)).toBe(true);
     expect(grid.some((cell) => cell === MOUNTAIN)).toBe(true);
-    const none = worldGrid({ ...WORLD_DEFAULTS, water: 0, mountains: 0, island: false, castles: 0 }).grid;
-    expect(none.some((cell) => cell === WATER || cell === MOUNTAIN || cell === CASTLE)).toBe(false);
+    const none = worldGrid({ ...WORLD_DEFAULTS, water: 0, mountains: 0, island: false, towns: 0 }).grid;
+    expect(none.some((cell) => cell === WATER || cell === MOUNTAIN || cell === TOWN)).toBe(false);
   });
 });

@@ -1847,7 +1847,7 @@ export default function PaintApp() {
     { label: "New background…", icon: <FilePlus />, disabled: noProject, title: "A blank background in screens, with a palette set in its slots", onSelect: () => setWizard("newBackground") },
     { label: "Tile budget fixer…", icon: <PhPiggyBank size={15} />, disabled: !doc, title: "Get the open picture under GB Studio's tile limit, one merge at a time", onSelect: () => setWizard("budget") },
     { label: "Cave or dungeon…", icon: <Pickaxe />, title: "A cave or dungeon in placeholder art, 2 × 2 screens to start; sliders redraw it live", onSelect: () => setWizard("cave") },
-    { label: "Overworld…", icon: <Mountain />, title: "An RPG-style overworld in placeholder art: water, forest, mountains, castles and roads", onSelect: () => setWizard("world") },
+    { label: "Overworld…", icon: <Mountain />, title: "An RPG-style overworld in placeholder art: water, forest, mountains, towns and roads", onSelect: () => setWizard("world") },
     { label: "New map…", icon: <MapIcon />, disabled: noProject, title: "An adventure-style grid of screens, in the Map Room", onSelect: () => setShowMapRoom(true) },
     { label: "Project check-up…", icon: <PxHeart size={15} />, disabled: noProject, title: "The health report one issue at a time, each with its fix", onSelect: () => setWizard("checkup") },
   ];

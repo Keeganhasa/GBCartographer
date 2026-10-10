@@ -68,7 +68,7 @@ export function GeneratorWizard({ mode, projectName, limit, onClose, onOpen, onS
   return (
     <Dialog open onOpenChange={(open) => { if (!open && !busy) onClose(); }} wide tall
       title={mode === "cave" ? "Cave or dungeon" : "Overworld"} icon={mode === "cave" ? <Pickaxe size={18} /> : <Mountain size={18} />}
-      sub={mode === "cave" ? "A cave or dungeon in placeholder art, sized in screens" : "An RPG-style overworld in placeholder art: water, forest, mountains, castles"}
+      sub={mode === "cave" ? "A cave or dungeon in placeholder art, sized in screens" : "An RPG-style overworld in placeholder art: water, forest, mountains, towns"}
       footer={<>
         <span className="k-label">Name</span><input className="k-input gw-name" aria-label="Name" value={name} onChange={(event) => setName(event.target.value)} />
         <span className="k-spacer" />
@@ -99,10 +99,10 @@ export function GeneratorWizard({ mode, projectName, limit, onClose, onOpen, onS
             <Setting label="Water" value={world.water} unit="%" min={0} max={80} onChange={(water) => setW({ water })} />
             <Setting label="Mountains" value={world.mountains} unit="%" min={0} max={60} onChange={(mountains) => setW({ mountains })} title="Share of the land" />
             <Setting label="Forest" value={world.forest} unit="%" min={0} max={80} onChange={(forest) => setW({ forest })} title="Share of the lowland" />
-            <Setting label="Castles" value={world.castles} min={0} max={8} onChange={(castles) => setW({ castles })} />
+            <Setting label="Towns" value={world.towns} min={0} max={8} onChange={(towns) => setW({ towns })} />
             <Setting label="Feature size" value={world.scale} min={2} max={12} onChange={(scale) => setW({ scale })} title="Bigger: broader land and seas" />
             <Switch checked={world.island} onChange={(island) => setW({ island })}>Island (water all round)</Switch>
-            <Switch checked={world.roads} onChange={(roads) => setW({ roads })}>Roads between castles</Switch>
+            <Switch checked={world.roads} onChange={(roads) => setW({ roads })}>Roads between towns</Switch>
           </>}
           <span className="k-row"><span className="k-label">Layout</span><span className="k-mono k-small k-muted">#{mode === "cave" ? cave.seed : world.seed}</span><span className="k-spacer" />{reroll}</span>
         </div>
