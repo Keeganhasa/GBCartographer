@@ -509,6 +509,58 @@ export function mergeNearTiles(pixels: Uint8Array, width: number, height: number
   return merged;
 }
 
+/**
+ * Linked tiles: cells whose 8 × 8 pixels are identical share a group (an index into `members`). A tile of a single
+ * shade (empty sky, blank background) is never linked, nor is a tile with no twin: their group is -1.
+ */
+export function linkGroups(pixels: Uint8Array, width: number, height: number): { groups: Int32Array; members: number[][] } {
+  const cw = cellsWide(width), count = cw * Math.ceil(height / CELL);
+  const byKey = new Map<string, number[]>();
+  for (let cell = 0; cell < count; cell += 1) {
+    const tile = tileAt(pixels, width, height, cell);
+    if (tile.every((value) => value === tile[0])) continue;
+    const key = tile.join("");
+    const list = byKey.get(key);
+    if (list) list.push(cell); else byKey.set(key, [cell]);
+  }
+  const groups = new Int32Array(count).fill(-1), members: number[][] = [];
+  for (const list of byKey.values()) {
+    if (list.length < 2) continue;
+    for (const cell of list) groups[cell] = members.length;
+    members.push(list);
+  }
+  return { groups, members };
+}
+
+/**
+ * Keeps linked tiles alike: every pixel that changed since `previous` is set at the same spot in each linked copy.
+ * When copies disagree at a spot, a value that differs from `base` (a fresh stroke) wins over one that went back to
+ * it. Returns how many pixels were copied.
+ */
+export function syncLinked(pixels: Uint8Array, previous: Uint8Array, base: Uint8Array, width: number, height: number, link: { groups: Int32Array; members: number[][] }): number {
+  const cw = cellsWide(width);
+  const wanted = new Map<number, number>();
+  for (let at = 0; at < pixels.length; at += 1) {
+    if (pixels[at] === previous[at]) continue;
+    const x = at % width, y = (at - x) / width;
+    const group = link.groups[(y >> 3) * cw + (x >> 3)];
+    if (group < 0) continue;
+    const key = group * 64 + (y & 7) * CELL + (x & 7);
+    if (!wanted.has(key) || pixels[at] !== base[at]) wanted.set(key, pixels[at]);
+  }
+  let copied = 0;
+  for (const [key, value] of wanted) {
+    const offset = key % 64, ox = offset % CELL, oy = (offset - ox) / CELL;
+    for (const cell of link.members[(key - offset) / 64]) {
+      const x = (cell % cw) * CELL + ox, y = Math.floor(cell / cw) * CELL + oy;
+      if (x >= width || y >= height) continue;
+      const at = y * width + x;
+      if (pixels[at] !== value) { pixels[at] = value; copied += 1; }
+    }
+  }
+  return copied;
+}
+
 /** How the picture is shown while painting, like a real screen (never saved). */
 export type Look = "plain" | "dmg" | "pocket" | "gbc";
 /** The original Game Boy's pea-green LCD and the Game Boy Pocket's grey one, lightest first: palettes don't show. */

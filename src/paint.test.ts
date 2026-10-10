@@ -1,7 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, clipRect, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, hexRgb, closeShades, colorDistance, mergeNearTiles, tileUsage, gbStudioShade, gbcCorrect, dropCells, flipFloat, lift, liftCells, linePoints, onTiles, replaceShade, rotateFloat, mirrorPoints, namedSlot, quantize, snapRect, toRgba } from "./paint";
+import { CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, clipRect, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, hexRgb, closeShades, colorDistance, linkGroups, syncLinked, mergeNearTiles, tileUsage, gbStudioShade, gbcCorrect, dropCells, flipFloat, lift, liftCells, linePoints, onTiles, replaceShade, rotateFloat, mirrorPoints, namedSlot, quantize, snapRect, toRgba } from "./paint";
 
 describe("GB Cartographer pixels", () => {
+  it("links identical tiles (not flat ones) and keeps them alike while painting", () => {
+    // Three tiles: A, A and a flat one.
+    const width = 24, pixels = new Uint8Array(24 * 8);
+    for (let y = 0; y < 8; y += 1) for (let x = 0; x < 16; x += 1) pixels[y * width + x] = (x + y) % 2;
+    const link = linkGroups(pixels, width, 8);
+    expect([...link.groups]).toEqual([0, 0, -1]);
+    const base = pixels.slice(), previous = pixels.slice();
+    pixels[2 * width + 3] = 3;
+    pixels[5 * width + 20] = 3;
+    expect(syncLinked(pixels, previous, base, width, 8, link)).toBe(1);
+    expect(pixels[2 * width + 8 + 3]).toBe(3);
+    // The flat tile's change stays its own.
+    expect(pixels[5 * width + 20]).toBe(3);
+    expect(pixels.slice(0, 8).join()).toBe(pixels.slice(8, 16).join());
+  });
+
   it("shows where the tile budget goes and merges tiles that nearly match another", () => {
     // Four tiles in a row: A, A, A with one pixel changed, and a very different B.
     const width = 32, pixels = new Uint8Array(32 * 8);
