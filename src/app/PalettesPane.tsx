@@ -82,7 +82,7 @@ export function PalettesPane({ doc, palettes, sceneSlots, slotPalettes, slotWher
             })}
           </div>
           <span title="A time-of-day version (a name ending in D, N or S, like DWC-2-Computer N) saves as its base palette's slot when the base is in the scene's slots">
-            <Switch checked={namedSlots} onChange={onNamedSlots}>Named slots: variants save as their base's</Switch>
+            <Switch checked={namedSlots} onChange={onNamedSlots}>Time-of-day palettes</Switch>
           </span>
         </section>
       )}
@@ -94,7 +94,7 @@ export function PalettesPane({ doc, palettes, sceneSlots, slotPalettes, slotWher
             <button key={`${index}-${palette.name}`} role="option" aria-selected={activePalette === index} className="app-row" title={index && sceneSlots.length ? "Right-click: put in a slot" : undefined} onClick={() => onPick(index)} onContextMenu={(event) => openSlotMenu(event, index)}>
               <Chips colors={palette.colors} /><span className="app-name">{palette.name}</span>
               {slot >= 0 && <Chip title={doc?.asset?.kind === "sprites" ? `Sprite palette slot ${slot + 1}` : `Palette slot ${slot + 1} of this background's scene`}>{slot + 1}</Chip>}
-              {named >= 0 && <Chip title={`Saves as slot ${named + 1} (named slots)`}>→ {named + 1}</Chip>}
+              {named >= 0 && <Chip title={`Saves as slot ${named + 1} (time-of-day palettes)`}>→ {named + 1}</Chip>}
             </button>
           ))}
         </div>

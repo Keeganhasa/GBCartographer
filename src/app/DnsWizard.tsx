@@ -2,7 +2,7 @@
  * Day, sunset and night (W2, the author's pick 2026-10-10): time-of-day versions of a scene's slot palettes in one
  * go. Three steps: pick the palettes and times, look at the versions (with a strength and the open picture under
  * each time), then add them to the project. Versions are named "<base> D", "<base> S" and "<base> N", so with
- * Named slots on, tiles painted with one save in their base's slot and GB Studio events can swap them in.
+ * Time-of-day palettes on, tiles painted with one save in their base's slot and GB Studio events can swap them in.
  */
 import { ArrowLeft, ArrowRight, Check, Moon, Sun, Sunset } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type JSX, type ReactNode } from "react";
@@ -203,10 +203,10 @@ export function DnsWizard({ slots, where, existing, picture, onClose, onCreate }
   );
 
   const createStep = done !== null ? (
-    <div className="k-well dw-note dw-done"><Check size={16} /><span>Added {plural(done, "palette")}. With Named slots on, tiles painted with a version save in their base's slot.</span></div>
+    <div className="k-well dw-note dw-done"><Check size={16} /><span>Added {plural(done, "palette")}. With Time-of-day palettes on, tiles painted with a version save in their base's slot.</span></div>
   ) : (
     <div className="k-stack">
-      <div className="k-well dw-note">Adds {plural(toAdd.length, "palette")} to the project{pickedTimes.length ? ` (${picked.length} × ${pickedTimes.map((time) => time.key).join(", ")}${skipped ? `, less ${skipped} that exist` : ""})` : ""}. Named slots then save them in their bases' slots.</div>
+      <div className="k-well dw-note">Adds {plural(toAdd.length, "palette")} to the project{pickedTimes.length ? ` (${picked.length} × ${pickedTimes.map((time) => time.key).join(", ")}${skipped ? `, less ${skipped} that exist` : ""})` : ""}. Time-of-day palettes then save them in their bases' slots.</div>
       <div className="dw-list dw-list--grid">{versions.map((version) => (
         <div key={version.name} className={`dw-item${version.exists ? " is-skipped" : ""}`}>
           <span className="dw-name">{version.name}</span><span className="k-spacer" />

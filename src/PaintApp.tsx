@@ -1054,7 +1054,7 @@ export default function PaintApp() {
 
   /**
    * Writes a background's or sprite sheet's tile palettes into GB Studio as palette slots: a tile wearing one of
-   * the eight palettes gets that slot (with named slots on, a Chorbi-style variant gets its base palette's);
+   * the eight palettes gets that slot (with Time-of-day palettes on, a D / N / S version gets its base palette's);
    * "None" and palettes outside the eight leave the tile's slot as it is. Only
    * cells whose slot differs from the one they were opened with are sent, so a sprite slice that several frames
    * show in different palettes keeps them unless the user paints it.
