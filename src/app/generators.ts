@@ -5,8 +5,10 @@
  * (0 lightest … 3 darkest): placeholder art to paint over. Few distinct cells, so the tile count stays low.
  */
 
-import library from "../palettes/library.json";
 import { Pen } from "../wireframes/pen";
+import { CAVE_THEMES, WORLD_THEMES, themeOf } from "./mapThemes";
+
+export { OVERWORLD_PALETTES } from "./mapThemes";
 
 /** A small seeded random generator (mulberry32): numbers in [0, 1). */
 export function seeded(seed: number): () => number {
@@ -52,6 +54,8 @@ export interface CaveSettings {
   connected: boolean;
   /** Stairs at two far-apart floor cells (a way in and a way on). */
   stairs: boolean;
+  /** The palette it wears: a CAVE_THEMES id ("" or unknown: the GB greens). */
+  theme?: string;
 }
 
 export const CAVE_DEFAULTS: CaveSettings = { style: "cave", columns: 2, rows: 2, cell: 16, seed: 1, fill: 46, smooth: 4, rooms: 8, roomSize: 5, connected: true, stairs: true };
@@ -160,6 +164,8 @@ export function drawCave(settings: CaveSettings): Generated {
   const { w, h, grid } = caveGrid(settings);
   const size = settings.cell;
   const out: Generated = { width: w * size, height: h * size, pixels: new Uint8Array(w * size * h * size) };
+  const theme = themeOf(CAVE_THEMES, settings.theme ?? "");
+  if (theme) { out.cells = new Uint8Array(Math.ceil(out.width / 8) * Math.ceil(out.height / 8)).fill(1); out.palettes = theme.palettes.map(({ name, colors }) => ({ name, colors: [...colors] })); }
   const rock = (x: number, y: number) => x < 0 || y < 0 || x >= w || y >= h || grid[y * w + x] === 1;
   for (let y = 0; y < h; y += 1) for (let x = 0; x < w; x += 1) {
     const pen = new Pen(out, x * size, y * size, size);
@@ -212,20 +218,15 @@ export interface WorldSettings {
   island: boolean;
   /** Roads joining the towns (round water and mountains). */
   roads: boolean;
-  /** Each terrain in its own palette from the library's Overworld set (else the GB greens). */
-  colors: boolean;
+  /** The palettes it wears: a WORLD_THEMES id ("" or unknown: the GB greens). */
+  theme: string;
 }
 
-export const WORLD_DEFAULTS: WorldSettings = { columns: 3, rows: 3, seed: 1, water: 35, mountains: 18, forest: 35, towns: 3, scale: 5, island: true, roads: true, colors: true };
+export const WORLD_DEFAULTS: WorldSettings = { columns: 3, rows: 3, seed: 1, water: 35, mountains: 18, forest: 35, towns: 3, scale: 5, island: true, roads: true, theme: "overworld" };
 
 export const WATER = 0, SHORE = 1, GRASS = 2, FOREST = 3, MOUNTAIN = 4, TOWN = 5, ROAD = 6;
 
-/**
- * The Overworld palettes (the author's set in the library, 2026-10-10: Chorbi's warm sands and deep navy-purple
- * darks, hue-shifted ramps), one per terrain. Every terrain on grass keeps the same shade 0, so cells meet cleanly.
- */
-export const OVERWORLD_PALETTES: { name: string; colors: string[] }[] = (library.collections.find((group) => group.name === "Overworld")?.palettes ?? []).map(({ name, colors }) => ({ name, colors: [...colors] }));
-/** Each terrain's palette in that set (1-based): grass 1, forest 2, mountain 3, water 4, shore 5, road 6, town 7. */
+/** Each terrain's palette in a seven-palette theme (1-based): grass 1, forest 2, mountain 3, water 4, shore 5, road 6, town 7. */
 const TERRAIN_PALETTE: Record<number, number> = { [GRASS]: 1, [FOREST]: 2, [MOUNTAIN]: 3, [WATER]: 4, [SHORE]: 5, [ROAD]: 6, [TOWN]: 7 };
 
 /** Smooth noise: random values on a lattice, blended (smoothstep) between them, a few octaves summed. */
@@ -328,12 +329,13 @@ function placeTowns(grid: Uint8Array, w: number, h: number, settings: WorldSetti
 export function drawWorld(settings: WorldSettings): Generated {
   const { w, h, grid } = worldGrid(settings);
   const out: Generated = { width: w * 16, height: h * 16, pixels: new Uint8Array(w * 16 * h * 16) };
-  if (settings.colors && OVERWORLD_PALETTES.length === 7) {
-    // Each 16-pixel cell is 2 × 2 tiles, all in its terrain's palette.
+  const theme = themeOf(WORLD_THEMES, settings.theme);
+  if (theme) {
+    // Each 16-pixel cell is 2 × 2 tiles, all in its terrain's palette (or the theme's one palette).
     const tilesWide = w * 2;
     out.cells = new Uint8Array(tilesWide * h * 2);
-    for (let at = 0; at < out.cells.length; at += 1) out.cells[at] = TERRAIN_PALETTE[grid[Math.floor(Math.floor(at / tilesWide) / 2) * w + Math.floor((at % tilesWide) / 2)]];
-    out.palettes = OVERWORLD_PALETTES.map(({ name, colors }) => ({ name, colors: [...colors] }));
+    for (let at = 0; at < out.cells.length; at += 1) out.cells[at] = theme.palettes.length === 7 ? TERRAIN_PALETTE[grid[Math.floor(Math.floor(at / tilesWide) / 2) * w + Math.floor((at % tilesWide) / 2)]] : 1;
+    out.palettes = theme.palettes.map(({ name, colors }) => ({ name, colors: [...colors] }));
   }
   const at = (x: number, y: number) => x < 0 || y < 0 || x >= w || y >= h ? -1 : grid[y * w + x];
   for (let y = 0; y < h; y += 1) for (let x = 0; x < w; x += 1) {

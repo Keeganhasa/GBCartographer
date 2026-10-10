@@ -187,5 +187,5 @@ export const scenes = {
   dungeon: () => fromMap(dungeon, dungeonLegend),
   level: () => fromMap(level, levelLegend),
   cave: (): Canvas => drawCave({ style: "cave", columns: 2, rows: 2, cell: 16, seed: 7, fill: 46, smooth: 4, rooms: 8, roomSize: 5, connected: true, stairs: true }),
-  overworld: (): Canvas => drawWorld({ columns: 3, rows: 3, seed: 3, water: 35, mountains: 18, forest: 35, towns: 3, scale: 5, island: true, roads: true, colors: false }),
+  overworld: (): Canvas => drawWorld({ columns: 3, rows: 3, seed: 3, water: 35, mountains: 18, forest: 35, towns: 3, scale: 5, island: true, roads: true, theme: "" }),
 };

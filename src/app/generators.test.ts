@@ -65,6 +65,6 @@ describe("map generators", () => {
       expect(world.cells?.[tileOf(water) + offset]).toBe(4);
       expect(world.cells?.[tileOf(town) + offset]).toBe(7);
     }
-    expect(drawWorld({ ...WORLD_DEFAULTS, colors: false }).cells).toBeUndefined();
+    expect(drawWorld({ ...WORLD_DEFAULTS, theme: "" }).cells).toBeUndefined();
   });
 });

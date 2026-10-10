@@ -6,7 +6,8 @@
 import { Dices, Mountain, Pickaxe } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { countUniqueTiles, toRgba } from "../paint";
-import { Button, Chip, Dialog, IconButton, Segmented, Slider, Switch } from "../ui/kit";
+import { Button, Chip, Dialog, IconButton, Segmented, Select, Slider, Switch } from "../ui/kit";
+import { CAVE_THEMES, WORLD_THEMES, themeOf } from "./mapThemes";
 import { CAVE_DEFAULTS, WORLD_DEFAULTS, drawCave, drawWorld, type CaveSettings, type Generated, type WorldSettings } from "./generators";
 import "./GeneratorWizard.css";
 
@@ -36,12 +37,14 @@ function Setting({ label, value, unit = "", min, max, step, onChange, title }: {
 }
 
 export function GeneratorWizard({ mode, projectName, limit, onClose, onOpen, onSave }: Props) {
-  const [cave, setCave] = useState<CaveSettings>(() => ({ ...CAVE_DEFAULTS, seed: newSeed() }));
+  const [cave, setCave] = useState<CaveSettings>(() => ({ ...CAVE_DEFAULTS, seed: newSeed(), theme: "V20-5-Stone" }));
   const [world, setWorld] = useState<WorldSettings>(() => ({ ...WORLD_DEFAULTS, seed: newSeed() }));
   const [name, setName] = useState(mode === "cave" ? "Cave" : "Overworld");
   const [busy, setBusy] = useState(false);
   const setC = (change: Partial<CaveSettings>) => setCave((old) => ({ ...old, ...change }));
   const setW = (change: Partial<WorldSettings>) => setWorld((old) => ({ ...old, ...change }));
+  const themes = mode === "cave" ? CAVE_THEMES : WORLD_THEMES;
+  const theme = themeOf(themes, (mode === "cave" ? cave.theme : world.theme) ?? "");
   const columns = mode === "cave" ? cave.columns : world.columns, rows = mode === "cave" ? cave.rows : world.rows;
 
   const picture = useMemo(() => mode === "cave" ? drawCave(cave) : drawWorld(world), [mode, cave, world]);
@@ -103,8 +106,12 @@ export function GeneratorWizard({ mode, projectName, limit, onClose, onOpen, onS
             <Setting label="Feature size" value={world.scale} min={2} max={12} onChange={(scale) => setW({ scale })} title="Bigger: broader land and seas" />
             <Switch checked={world.island} onChange={(island) => setW({ island })}>Island (water all round)</Switch>
             <Switch checked={world.roads} onChange={(roads) => setW({ roads })}>Roads between towns</Switch>
-            <span title="The library's Overworld set, one palette per terrain (added to the project with Make background)"><Switch checked={world.colors} onChange={(colors) => setW({ colors })}>Overworld palettes</Switch></span>
           </>}
+          <div className="k-stack k-stack--tight">
+            <Select label="Palettes" value={(mode === "cave" ? cave.theme : world.theme) || "greens"} onChange={(id) => mode === "cave" ? setC({ theme: id === "greens" ? "" : id }) : setW({ theme: id === "greens" ? "" : id })}
+              options={[{ value: "greens", label: "GB greens" }, ...themes.map((theme) => ({ value: theme.id, label: theme.name }))]} />
+            <span className="k-muted k-xs">{theme ? `${theme.credit} · ${theme.palettes.length} palette${theme.palettes.length === 1 ? "" : "s"}, added with Make background` : "No palettes: the greens"}</span>
+          </div>
           <span className="k-row"><span className="k-label">Layout</span><span className="k-mono k-small k-muted">#{mode === "cave" ? cave.seed : world.seed}</span><span className="k-spacer" />{reroll}</span>
         </div>
         <div className="gw-stage">
