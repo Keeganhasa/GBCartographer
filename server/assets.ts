@@ -461,15 +461,40 @@ export function writeTileColors(path: string, slots: readonly (number | null)[],
 }
 
 /**
+ * Adds a new picture to the project: `assets/<kind>/<name>.png`, `bytes` a PNG in whole 8 × 8 tiles. The name is
+ * a plain file name (letters, digits, spaces, - _ ( ) .); an existing file is never replaced. No sidecar is
+ * written: GB Studio makes one when it next reads the folder. Returns the file name.
+ */
+export function createAsset(project: string, kind: AssetKind, name: string, bytes: Buffer): { file: string } {
+  const size = pngSize(bytes);
+  if (!size) throw new AssetWriteError("Not a PNG", 400);
+  if (size.width % 8 || size.height % 8 || !size.width || !size.height) throw new AssetWriteError("A new picture must be whole 8 × 8 tiles.", 400);
+  const base = name.trim().replace(/\.png$/i, "");
+  if (!base || !/^[\w ()\-.]+$/.test(base) || base.startsWith(".")) throw new AssetWriteError("Use a plain name: letters, digits, spaces, - _ ( ) and dots.", 400);
+  const folder = join(project, "assets", kind);
+  const file = `${base}.png`;
+  mkdirSync(folder, { recursive: true });
+  try {
+    writeFileSync(join(folder, file), bytes, { flag: "wx" });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "EEXIST") throw new AssetWriteError(`assets/${kind}/${file} already exists.`, 409);
+    throw error;
+  }
+  return { file };
+}
+
+/**
  * Overwrites an asset PNG with `bytes`: same size as the file it replaces (sprite frames and scene sizes are
  * indexed by position), unchanged on disk since `expectedMtime` unless `force`, and the old file backed up first
  * (backups.ts). Returns the new modification time and the backup's path.
  */
-export function writeAsset(path: string, bytes: Buffer, backup: Backup, expectedMtime: number | null, force: boolean): { mtime: number; backup: string | null } {
+export function writeAsset(path: string, bytes: Buffer, backup: Backup, expectedMtime: number | null, force: boolean, resize = false): { mtime: number; backup: string | null } {
   const size = pngSize(bytes);
   if (!size) throw new AssetWriteError("Not a PNG", 400);
   const current = pngSizeOfFile(path);
-  if (current && (current.width !== size.width || current.height !== size.height)) throw new AssetWriteError(`The file on disk is ${current.width} × ${current.height} px; a GB Studio asset keeps its size (this picture is ${size.width} × ${size.height}).`, 400);
+  // A new size only when the user resized on purpose (`resize`), in whole tiles.
+  if (resize && (size.width % 8 || size.height % 8)) throw new AssetWriteError("A resized picture must be whole 8 × 8 tiles.", 400);
+  if (!resize && current && (current.width !== size.width || current.height !== size.height)) throw new AssetWriteError(`The file on disk is ${current.width} × ${current.height} px; a GB Studio asset keeps its size (this picture is ${size.width} × ${size.height}).`, 400);
   const mtime = statSync(path).mtimeMs;
   if (!force && expectedMtime !== null && Math.abs(mtime - expectedMtime) > 1) throw new AssetWriteError("The file changed on disk since it was opened.", 409, mtime);
   const copy = backupFile(backup.dir, backup.project, path);

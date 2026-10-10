@@ -74,7 +74,8 @@ and KizulEmeraldfire from the GB Studio Community Assets repository (MIT); the f
 
 GB Cartographer is careful with your game files. It only ever writes:
 
-- the PNG you saved, under `assets/backgrounds`, `sprites`, `tilesets`, `fonts`, `emotes`, `avatars` or `ui`, with the same size as before;
+- the PNG you saved, under `assets/backgrounds`, `sprites`, `tilesets`, `fonts`, `emotes`, `avatars` or `ui`, with the same size as before (or the new size, after **Resize…**);
+- a new PNG when you make one with **New** (it never replaces a file; GB Studio adds its own settings for it);
 - the `tileColors` field of a background's or tileset's `.png.gbsres` sidecar;
 - the `paletteIndex` of the slices in a sprite sheet's `.png.gbsres` sidecar;
 - palette files in `project/palettes/`: a new one when you add a palette from the manager, or the name and

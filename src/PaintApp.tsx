@@ -4,7 +4,7 @@
  * A tint only changes how the plain tiles look while painting. Saving writes one flat PNG, and for a project
  * picture also its tile palettes (see server/endpoints.ts).
  */
-import { ChevronDown, CircleHelp, Download, FlipHorizontal2, FolderOpen, FolderTree, Grid3x3, Magnet, Minus, Palette as PaletteIcon, Pause, Play, Plus, Redo2, Save, Tv, Undo2, X } from "lucide-react";
+import { ChevronDown, CircleHelp, Download, FilePlus, FlipHorizontal2, FolderOpen, FolderTree, Grid3x3, Magnet, Minus, Palette as PaletteIcon, Pause, Play, Plus, Redo2, Save, Tv, Undo2, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useReducer, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { flushSync } from "react-dom";
 import { LogoMark } from "./ui/LogoMark";
@@ -19,6 +19,7 @@ import { readStored, sessionStore, store } from "./app/storage";
 import { HelpTip } from "./app/HelpTip";
 import { HelpWindow } from "./app/HelpWindow";
 import { AboutWindow } from "./app/AboutWindow";
+import { NewPictureWindow, ResizeWindow, type NewPicture } from "./app/NewPictureWindow";
 import { Menu } from "./app/Menu";
 import { StartScreen } from "./app/StartScreen";
 
@@ -53,6 +54,8 @@ export default function PaintApp() {
   const [showPalettes, setShowPalettes] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showResize, setShowResize] = useState(false);
   /** Whether the user was warned this session that GB Studio is open (it may overwrite project JSON when it saves). */
   const gbStudioWarned = useRef(false);
   /** Projects whose GB Studio version note was shown this session. */
@@ -543,6 +546,71 @@ export default function PaintApp() {
     }
   }
 
+  /**
+   * A new blank picture: written into the project as a new PNG (then opened from there), or kept here as an
+   * untitled picture that Save asks a place for. Resolves true when it was made.
+   */
+  async function createPicture({ kind, name, width, height }: NewPicture): Promise<boolean> {
+    const keyed = kind ? isKeyed(kind) : false;
+    const pixels = new Uint8Array(width * height).fill(keyed ? CLEAR : 0);
+    const cells = new Uint8Array(cellsWide(width) * Math.ceil(height / CELL));
+    if (!kind) {
+      const id = newDocId(docs.current);
+      docs.current.push({ id, name: `${name.replace(/\.png$/i, "")}.png`, width, height, pixels, cells, hasAlpha: false, palettes: clonePalettes(palettesRef.current), undo: [], redo: [], dirty: true, zoom: fitZoom(width, height), sel: null, float: null });
+      setActiveId(id);
+      scheduleSession();
+      bump();
+      return true;
+    }
+    const canvas = document.createElement("canvas");
+    Object.assign(canvas, { width, height });
+    canvas.getContext("2d")!.putImageData(new ImageData(toRgba(pixels, cells, width, [], keyed ? KEY_GREEN : undefined), width, height), 0, 0);
+    const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((made) => made ? resolve(made) : reject(new Error("No PNG")), "image/png"));
+    const response = await fetch(`./__cartographer/gbstudio-new-asset?${new URLSearchParams({ kind, name })}`, { method: "POST", body: blob }).catch(() => null);
+    const result = response ? await response.json().catch(() => null) as { ok?: boolean; error?: string; file?: string } | null : null;
+    if (!response?.ok || !result?.ok || !result.file) { say(`Could not make the picture: ${result?.error ?? response?.statusText ?? "no answer"}`); return false; }
+    await loadProject();
+    setProjectKind(kind);
+    const made = projectRef.current?.assets.find((asset) => asset.kind === kind && asset.file === result.file);
+    if (made) await openAsset(made);
+    say(`Made assets/${kind}/${result.file} in ${projectRef.current?.name ?? "the project"}`);
+    return true;
+  }
+
+  /**
+   * Gives the open picture a new size in whole tiles, at the top-left or centered on tile edges. Tile palettes stay
+   * with their tiles; new space is blank. Undo starts over (the sizes differ); Save writes the new size.
+   */
+  function resizePicture(width: number, height: number, center: boolean) {
+    if (!doc) return;
+    dropFloat(doc);
+    const dx = center ? Math.floor((width - doc.width) / 2 / CELL) * CELL : 0, dy = center ? Math.floor((height - doc.height) / 2 / CELL) * CELL : 0;
+    const pixels = new Uint8Array(width * height).fill(blank(doc));
+    for (let y = 0; y < doc.height; y += 1) {
+      const ty = y + dy;
+      if (ty < 0 || ty >= height) continue;
+      for (let x = 0; x < doc.width; x += 1) {
+        const tx = x + dx;
+        if (tx >= 0 && tx < width) pixels[ty * width + tx] = doc.pixels[y * doc.width + x];
+      }
+    }
+    const oldCw = cellsWide(doc.width), oldCh = Math.ceil(doc.height / CELL), cw = cellsWide(width), ch = Math.ceil(height / CELL);
+    const move = <T,>(source: ArrayLike<T>, fill: T, make: (length: number) => { [index: number]: T; length: number }) => {
+      const out = make(cw * ch);
+      for (let i = 0; i < out.length; i += 1) out[i] = fill;
+      for (let y = 0; y < oldCh; y += 1) for (let x = 0; x < oldCw; x += 1) {
+        const tx = x + dx / CELL, ty = y + dy / CELL;
+        if (tx >= 0 && ty >= 0 && tx < cw && ty < ch) out[ty * cw + tx] = source[y * oldCw + x];
+      }
+      return out;
+    };
+    const cells = move(doc.cells, 0, (length) => new Uint8Array(length)) as Uint8Array;
+    if (doc.asset?.opened) doc.asset.opened = Array.from(move(doc.asset.opened, -1, (length) => new Array<number>(length)) as number[]);
+    Object.assign(doc, { width, height, pixels, cells, undo: [], redo: [], sel: null, float: null, resized: true, zoom: fitZoom(width, height) });
+    touch(doc);
+    say(`${doc.name} is now ${width} × ${height}. Undo starts over from here; Save writes the new size.`);
+  }
+
   /** Writes the picture over its GB Studio asset (the server keeps a backup and refuses a file that changed on disk). */
   async function saveAsset(target: Doc, blob: Blob): Promise<boolean> {
     const asset = target.asset!;
@@ -551,7 +619,8 @@ export default function PaintApp() {
       say(`${asset.name} belongs to ${asset.project}. Open that project to save it, or use Export.`);
       return false;
     }
-    const post = (force: boolean) => fetch(`${ASSET_URL}?${assetQuery(asset)}&mtime=${asset.mtime}${force ? "&force=1" : ""}`, { method: "POST", body: blob });
+    if (target.resized && !window.confirm(`Save ${asset.name} at its new size, ${target.width} × ${target.height}? The old file goes to Backups.${asset.kind === "backgrounds" ? " Scenes showing it take their size from it in GB Studio." : ""}`)) return false;
+    const post = (force: boolean) => fetch(`${ASSET_URL}?${assetQuery(asset)}&mtime=${asset.mtime}${force ? "&force=1" : ""}${target.resized ? "&resize=1" : ""}`, { method: "POST", body: blob });
     let response = await post(false);
     if (response.status === 409) {
       if (!window.confirm(`${asset.name} changed on disk since you opened it (GB Studio or another app saved it). Replace it with this picture?`)) return false;
@@ -563,6 +632,7 @@ export default function PaintApp() {
     asset.mtime = result.mtime ?? asset.mtime;
     target.dirty = false;
     target.changedOnDisk = undefined;
+    target.resized = false;
     // The thumbnail in the project panel shows the new file.
     setProject((current) => current && { ...current, assets: current.assets.map((item) => item.kind === asset.kind && item.file === asset.file ? { ...item, mtime: asset.mtime } : item) });
     const notes = [`Saved ${asset.name} into the GB Studio project`];
@@ -1278,6 +1348,7 @@ export default function PaintApp() {
       <header className="gbp-bar">
         <button className="gbp-brand" aria-haspopup="menu" title={served ? "Projects: open, switch or close" : "GB Cartographer"} onClick={(event) => { if (!served) return; const r = event.currentTarget.getBoundingClientRect(); setProjectMenu({ x: r.left, y: r.bottom + 6 }); }}><LogoMark size={22} /><b>GB Cartographer</b><span className="gbp-alpha" title="Alpha release: expect bugs, and keep your GB Studio project backed up">Alpha</span>{served && <ChevronDown size={14} />}</button>
         <span className="gbp-seg" role="group" aria-label="File">
+          <button className="quiet-button" title={project ? `A new blank picture: in ${project.name} (a new PNG in its assets) or just here` : "A new blank picture"} onClick={() => setShowNew(true)}><FilePlus size={14} />New</button>
           <button className="quiet-button" title="Open PNG files · Ctrl+O (or drop them on the window)" onClick={() => void pickFiles()}><FolderOpen size={14} />Open</button>
           <button className="quiet-button" disabled={!doc} title={`Save every changed picture · Ctrl+S${doc?.asset ? ` (this one over ${doc.asset.file} in the project; old files go to the backups folder)` : doc?.handle ? ` (this one over ${doc.name})` : " (this one asks where)"}`} onClick={() => void save(false)}><Save size={14} />Save</button>
           <button className="quiet-button" disabled={!doc} aria-haspopup="menu" title="Export a copy in the GB greens (Ctrl+E), or an image to share: as shown, scaled up" onClick={(event) => { const r = event.currentTarget.getBoundingClientRect(); setExportMenu({ x: r.left, y: r.bottom + 6 }); }}><Download size={14} />Export</button>
@@ -1483,12 +1554,15 @@ export default function PaintApp() {
           ) : (
             <div className="gbp-side-pane gbp-picture">
               {doc ? (
+                <>
                 <dl>
                   <dt>Picture</dt><dd>{doc.name}</dd>
                   <dt>Size</dt><dd>{doc.width} × {doc.height} px · {Math.ceil(doc.width / CELL)} × {Math.ceil(doc.height / CELL)} tiles</dd>
                   {doc.asset && <><dt>File</dt><dd>assets/{doc.asset.kind}/{doc.asset.file}</dd></>}
                   <dt>Unique tiles</dt><dd>{tileCount} of {budget.limit}</dd>
                 </dl>
+                <button className="quiet-button" title="A new size in whole tiles" onClick={() => setShowResize(true)}>Resize…</button>
+                </>
               ) : <p className="gbp-note">No picture open.</p>}
               <label className="gbp-field">Tile budget
                 <select aria-label="Tile budget" value={budget.id} onChange={(event) => setBudgetId(event.target.value)}>
@@ -1578,6 +1652,8 @@ export default function PaintApp() {
       )}
       {showHelp && <HelpWindow onClose={() => setShowHelp(false)} onAbout={() => { setShowHelp(false); setShowAbout(true); }} />}
       {showAbout && <AboutWindow onClose={() => setShowAbout(false)} />}
+      {showNew && <NewPictureWindow projectName={project?.name ?? null} initialKind={projectKind} onClose={() => setShowNew(false)} onCreate={createPicture} />}
+      {showResize && doc && <ResizeWindow width={doc.width} height={doc.height} sprite={doc.asset?.kind === "sprites"} inProject={Boolean(doc.asset)} onClose={() => setShowResize(false)} onResize={resizePicture} />}
       {backups && project && (
         <BackupsWindow projectName={project.name} initialFile={backups.file} onClose={() => setBackups(null)} onRestore={restoreFromBackup} />
       )}

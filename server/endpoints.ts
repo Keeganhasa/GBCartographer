@@ -7,7 +7,9 @@
  *   GET  /__cartographer/gbstudio-asset       one PNG            ?kind=backgrounds|sprites|tilesets|fonts|emotes|avatars|ui&file=name.png
  *   GET  /__cartographer/gbstudio-asset-info  its size, times, per-cell palette slots and the slot palette ids
  *   GET  /__cartographer/gbstudio-asset-preview the PNG colored the way GB Studio shows it (thumbnails)
- *   POST /__cartographer/gbstudio-asset       overwrite that PNG (same size; ?mtime= guards against a file that changed; &force=1)
+ *   POST /__cartographer/gbstudio-asset       overwrite that PNG (same size; ?mtime= guards against a file that changed; &force=1;
+ *                                             &resize=1 allows a new size in whole tiles)
+ *   POST /__cartographer/gbstudio-new-asset   ?kind=&name= a new PNG in assets/<kind>/ (never replaces a file; no sidecar)
  *   POST /__cartographer/gbstudio-tile-colors { slots } per-cell palette slots into the sidecar (?kind=&file=&metaMtime=&force=1)
  *   POST /__cartographer/gbstudio-palette     { name, colors } adds a palette file to the project; { id, name, colors } rewrites one
  *   POST /__cartographer/gbstudio-palette-slot { slot, paletteId } puts a palette in an asset's slot (?kind=&file=): the
@@ -27,7 +29,7 @@ import { execFileSync, spawn } from "node:child_process";
 import { dirname, resolve, sep } from "node:path";
 import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { AssetWriteError, paletteUsage, assetInfo, assetPath, listAssets, listPalettes, projectName, renderPreview, writeAsset, writePalette, writePaletteSlot, writeSpritePalettes, writeTileColors, type AssetKind } from "./assets";
+import { AssetWriteError, ASSET_KINDS, createAsset, paletteUsage, assetInfo, assetPath, listAssets, listPalettes, projectName, renderPreview, writeAsset, writePalette, writePaletteSlot, writeSpritePalettes, writeTileColors, type AssetKind } from "./assets";
 import { backupPath, listBackups, projectBackupDir, restoreBackup } from "./backups";
 import { demoProjectCopy, projectFolder, projectFolderFor, projectProblem, projectVersion, recentProjects, saveProjectFolder, setProjectFolder, versionNote } from "./project";
 
@@ -180,6 +182,20 @@ export async function handleCartographerRequest(req: IncomingMessage, res: Serve
       reply(res, 200, { ok: true, times });
       return true;
     }
+    if (url.pathname === "/__cartographer/gbstudio-new-asset" && req.method === "POST") {
+      const kind = url.searchParams.get("kind") ?? "";
+      if (!(ASSET_KINDS as readonly string[]).includes(kind)) {
+        reply(res, 400, { error: "Unknown asset kind" });
+        return true;
+      }
+      try {
+        reply(res, 200, { ok: true, ...createAsset(project, kind as AssetKind, url.searchParams.get("name") ?? "", await readBody(req)) });
+      } catch (error) {
+        if (error instanceof AssetWriteError) reply(res, error.status, { error: error.message });
+        else throw error;
+      }
+      return true;
+    }
     if (url.pathname === "/__cartographer/palette-usage") {
       reply(res, 200, { ok: true, palettes: paletteUsage(project) });
       return true;
@@ -219,7 +235,7 @@ export async function handleCartographerRequest(req: IncomingMessage, res: Serve
       if (req.method === "POST") {
         const expected = url.searchParams.get("mtime");
         try {
-          const written = writeAsset(path, await readBody(req), backup, expected === null ? null : Number(expected), url.searchParams.get("force") === "1");
+          const written = writeAsset(path, await readBody(req), backup, expected === null ? null : Number(expected), url.searchParams.get("force") === "1", url.searchParams.get("resize") === "1");
           reply(res, 200, { ok: true, ...written });
         } catch (error) {
           if (error instanceof AssetWriteError) reply(res, error.status, { error: error.message, mtime: error.mtime });

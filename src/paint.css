@@ -514,3 +514,14 @@
 
 /* Game Boy screens: a 160 × 144 frame grid over the picture. */
 .gbp-screens { position: absolute; inset: 0; pointer-events: none; background-image: linear-gradient(to right, rgba(255, 196, 64, .85) 2px, transparent 2px), linear-gradient(to bottom, rgba(255, 196, 64, .85) 2px, transparent 2px); background-position: -1px -1px; box-shadow: inset -2px -2px 0 rgba(255, 196, 64, .85); }
+
+/* New picture and Resize. */
+.gbp-small-modal { width: min(560px, calc(100vw - 48px)); }
+.gbp-form { display: flex; flex-direction: column; gap: 12px; }
+.gbp-form .gbp-field { display: flex; flex-direction: column; gap: 6px; }
+.gbp-form input[type="text"], .gbp-form select { width: 100%; box-sizing: border-box; }
+.gbp-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.gbp-presets .quiet-button { flex-direction: column; align-items: flex-start; gap: 0; height: auto; padding: 6px 10px; }
+.gbp-presets small { color: var(--muted); font-size: var(--fs-xs); }
+.gbp-size-row { display: flex; align-items: center; gap: 6px; }
+.gbp-size-row input { width: 80px; }

@@ -257,6 +257,25 @@ describe("tile palettes", () => {
   });
 });
 
+describe("new pictures and resizing", () => {
+  it("adds a new picture in whole tiles without replacing anything, and resizes only when asked", async () => {
+    const blank = (w: number, h: number) => encodePng(new Uint8ClampedArray(w * h * 4).fill(255), w, h, deflateSync);
+    const make = (name: string, bytes: Uint8Array, kind = "backgrounds") => fetch(`${base}/gbstudio-new-asset?kind=${kind}&name=${encodeURIComponent(name)}`, { method: "POST", body: bytes });
+    expect(await json(await make("Cave Entrance", blank(160, 144)))).toMatchObject({ ok: true, file: "Cave Entrance.png" });
+    expect(readFileSync(join(project, "assets/backgrounds/Cave Entrance.png")).length).toBeGreaterThan(0);
+    expect((await make("Cave Entrance", blank(160, 144))).status).toBe(409);
+    expect((await make("../escape", blank(8, 8))).status).toBe(400);
+    expect((await make("odd", blank(10, 8))).status).toBe(400);
+    expect((await make("x", blank(8, 8), "music")).status).toBe(400);
+    const { mtime } = await json<{ mtime: number }>(await fetch(`${base}/gbstudio-asset-info?kind=backgrounds&file=Cave%20Entrance.png`));
+    const post = (query: string) => fetch(`${base}/gbstudio-asset?kind=backgrounds&file=Cave%20Entrance.png&mtime=${mtime}${query}`, { method: "POST", body: blank(320, 144) });
+    expect((await post("")).status).toBe(400);
+    expect((await post("&resize=1")).status).toBe(200);
+    const size = readFileSync(join(project, "assets/backgrounds/Cave Entrance.png"));
+    expect(size.readUInt32BE(16)).toBe(320);
+  });
+});
+
 describe("palette usage", () => {
   it("lists each palette's uses by scene and default, inherited blanks, and palettes with the same colors", async () => {
     const result = await json<{ palettes: { id: string; uses: { kind: string; slot: number; scene: string | null; inherited?: boolean }[]; sameColors: string[] }[] }>(await fetch(`${base}/palette-usage`));

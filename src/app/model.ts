@@ -89,6 +89,8 @@ export interface Doc extends Snapshot {
   asset?: { kind: AssetKind; file: string; name: string; mtime: number; slots?: string[]; /** The scene whose palette list the slots are; null: the project's default palettes. */ slotScene?: string | null; metaMtime?: number | null; /** Each cell's slot when the picture was opened (-1 unknown): only cells moved off it are written back. */ opened?: number[]; /** A sprite sheet's animations, for the frames strip. */ animations?: SpriteAnimation[]; /** The project folder it came from: Save refuses to write it into another project. */ project?: string; /** GB Studio's Automatic color is on (Save asks first). */ autoColor?: boolean };
   /** The file changed on disk while this picture had unsaved changes: the times seen, until Reload or Keep mine. */
   changedOnDisk?: { mtime: number; metaMtime: number | null; /** Keep mine: the bar hides; Save still asks before replacing. */ kept?: boolean };
+  /** Resized since it was opened or saved: Save writes the new size (a project asset's size is otherwise fixed). */
+  resized?: boolean;
   /** A sprite sheet: see-through pixels are GB Studio's key green in the file. */
   keyGreen?: boolean;
   zoom: number;

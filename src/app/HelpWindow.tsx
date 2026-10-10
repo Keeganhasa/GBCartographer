@@ -20,7 +20,7 @@ export function HelpWindow({ onClose, onAbout }: { onClose: () => void; onAbout:
               <tr><td /><td><b>Files</b></td><td><kbd>Ctrl+O</kbd> <kbd>Ctrl+S</kbd> <kbd>Ctrl+E</kbd></td><td>Open PNGs, save, export a copy. Ctrl+Z / Ctrl+Shift+Z undo and redo; Ctrl+C / X / V and Ctrl+A work on the selection; Ctrl+= / Ctrl+- zoom; Esc drops the selection.</td></tr>
             </tbody>
           </table>
-          <p className="gbp-note">What Save writes into a GB Studio project: the PNG (same size), a background's tile palettes (<code>tileColors</code>), a sprite sheet's slice palettes (<code>paletteIndex</code>), palette files from the palette manager, and when you put a palette in a slot, the scene's palette list or the project's default palettes. Nothing else. The old file is backed up first (Backups… in the project menu).</p>
+          <p className="gbp-note">What Save writes into a GB Studio project: the PNG (same size, or the new one after Resize), a new PNG from New, a background's tile palettes (<code>tileColors</code>), a sprite sheet's slice palettes (<code>paletteIndex</code>), palette files from the palette manager, and when you put a palette in a slot, the scene's palette list or the project's default palettes. Nothing else. The old file is backed up first (Backups… in the project menu).</p>
         </div>
       </div>
     </div>
