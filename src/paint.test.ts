@@ -136,13 +136,14 @@ describe("GB Cartographer pixels", () => {
     expect([...pixels]).toEqual([0, 0, 3, 2]);
   });
 
-  it("gives Chorbi-style palette names a slot: the base palette's, else the number in the name", () => {
-    const slots = ["DWC-1-Cliffs", "DWC-4-Foliage", undefined];
+  it("gives a time-of-day version its base palette's slot, and never reads numbers in names", () => {
+    const slots = ["DWC-1-Cliffs", "DWC-4-Foliage", undefined, "Town"];
     expect(namedSlot("DWC-1-Cliffs D", slots)).toBe(0);
     expect(namedSlot("DWC-4-Foliage N", slots)).toBe(1);
-    expect(namedSlot("DWC-6-MauveBldg S", slots)).toBe(5);
-    expect(namedSlot("WIN-2-Sky", slots)).toBe(1);
-    expect(namedSlot("DWC-SP6-Fire", slots)).toBe(-1);
+    expect(namedSlot("Town S", slots)).toBe(3);
+    // The base isn't in the slots: no slot, whatever number the name has.
+    expect(namedSlot("DWC-6-MauveBldg S", slots)).toBe(-1);
+    expect(namedSlot("WIN-2-Sky", slots)).toBe(-1);
     expect(namedSlot("Town day", slots)).toBe(-1);
   });
 

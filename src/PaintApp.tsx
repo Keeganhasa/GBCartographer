@@ -141,7 +141,7 @@ export default function PaintApp() {
   const fontSheets = useRef(new Map<string, FontSheet>());
   /** The selection's right-click menu: use or save it as a stamp, copy. */
   const [selectionMenu, setSelectionMenu] = useState<{ x: number; y: number } | null>(null);
-  /** Palettes named like DWC-2-Computer D save as their base palette's slot (or the number in the name). */
+  /** Time-of-day versions ("DWC-2-Computer D") save as their base palette's slot when the base is in the slots. */
   const [namedSlots, setNamedSlots] = useState<boolean>(() => readStored(NAMED_SLOTS_KEY, false));
   const namedSlotsRef = useRef(namedSlots);
   namedSlotsRef.current = namedSlots;

@@ -193,11 +193,6 @@ export function toRgba(pixels: Uint8Array, cells: Uint8Array, width: number, pal
 }
 
 /**
- * The slot a palette saves as by its name, for palettes outside the eight: a Chorbi-style name
- * "<Set>-<n>-<Name>", with or without a D / N / S variant letter, takes the slot of its base palette when that is
- * in the slots, else slot n. Returns -1 for any other name. `slotNames` are the eight slot palettes' names.
- */
-/**
  * A time-of-day version of a palette (the DWC convention: the base name, a space, then D for day, N for night or S
  * for sunset), or null. Events switch these in, so they may be unused, and night or sunset ones are meant to be dim.
  */
@@ -206,11 +201,15 @@ export function timeVariant(name: string): { base: string; variant: "D" | "N" | 
   return match ? { base: match[1], variant: match[2] as "D" | "N" | "S" } : null;
 }
 
+/**
+ * The slot a palette outside the eight saves as: a time-of-day version ("<base> D", "<base> N", "<base> S") takes
+ * its base palette's slot when the base is in the slots, else -1, as does any other palette. Numbers in palette names
+ * are only labels for the reader (the author, 2026-10-10): they never pick a slot. `slotNames` are the eight slot
+ * palettes' names.
+ */
 export function namedSlot(name: string, slotNames: readonly (string | undefined)[]): number {
-  const match = /^(.+?-([1-8])-.+?)(?: [DNS])?$/.exec(name.trim());
-  if (!match) return -1;
-  const base = slotNames.indexOf(match[1]);
-  return base >= 0 ? base : Number(match[2]) - 1;
+  const variant = timeVariant(name);
+  return variant ? slotNames.indexOf(variant.base) : -1;
 }
 
 /**

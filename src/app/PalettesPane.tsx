@@ -81,7 +81,7 @@ export function PalettesPane({ doc, palettes, sceneSlots, slotPalettes, slotWher
               );
             })}
           </div>
-          <span title="Palettes named like DWC-2-Computer D (a D / N / S variant) save as their base palette's slot, or the number in the name (WIN-1-Snow saves as slot 1)">
+          <span title="A time-of-day version (a name ending in D, N or S, like DWC-2-Computer N) saves as its base palette's slot when the base is in the scene's slots">
             <Switch checked={namedSlots} onChange={onNamedSlots}>Named slots: variants save as their base's</Switch>
           </span>
         </section>
