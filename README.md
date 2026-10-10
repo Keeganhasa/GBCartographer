@@ -8,6 +8,8 @@ palettes straight back into the project.
 > will be bugs. It writes into your GB Studio project when you save, so keep the project backed up or in version
 > control, and close GB Studio while you work. Please report problems in the repository's issues.
 
+![GB Cartographer with GB Studio's sample project open: "Paint and Color directly in app" painted over the wide parallax background in its scene's palettes, the project's backgrounds on the left and the palettes on the right](docs/screenshot-paint-directly.png)
+
 ![Painting palettes onto the demo's Winter Tileset, tile by tile, with the palette brush](docs/demo.gif)
 
 | Spray | Select and move | Pencil |
@@ -119,7 +121,7 @@ npm run build
 
 Code: MIT (see LICENSE). The logo is the author's pixel art, CC0. [Public Pixel](https://ggbot.itch.io/public-pixel-font)
 by GGBotNet (CC0, shipped in `public/fonts/`) is an optional UI font. Inter by Rasmus Andersson and JetBrains Mono are loaded from Google Fonts (SIL Open Font License 1.1).
-The demo project's art is credited in [demo/CREDITS.md](demo/CREDITS.md). The second and third screenshots show GB
+The demo project's art is credited in [demo/CREDITS.md](demo/CREDITS.md). The main screenshot and the font and wide-background screenshots show GB
 Studio's sample project (`appData/templates/gbs2` in the [GB Studio repository](https://github.com/chrismaltby/gb-studio)),
 Copyright (c) 2019-2026 Chris Maltby, used under the MIT license. GB Studio is by Chris Maltby and
 contributors; GB Cartographer is not affiliated with it.
