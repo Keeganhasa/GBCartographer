@@ -27,7 +27,7 @@ import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { AssetWriteError, assetInfo, assetPath, listAssets, listPalettes, projectName, renderPreview, writeAsset, writePalette, writePaletteSlot, writeSpritePalettes, writeTileColors, type AssetKind } from "./assets";
 import { backupPath, listBackups, projectBackupDir, restoreBackup } from "./backups";
-import { demoProjectCopy, isProjectFolder, projectFolder, projectFolderFor, recentProjects, saveProjectFolder, setProjectFolder } from "./project";
+import { demoProjectCopy, projectFolder, projectFolderFor, projectProblem, projectVersion, recentProjects, saveProjectFolder, setProjectFolder, versionNote } from "./project";
 
 export interface ServerOptions {
   /** The repo or app folder. */
@@ -109,7 +109,7 @@ export async function handleCartographerRequest(req: IncomingMessage, res: Serve
       return true;
     }
     if (url.pathname === "/__cartographer/ping") {
-      reply(res, 200, { ok: true, project: project ? { name: projectName(project), path: project } : null, recent: recentProjects(options.settingsFile).map((path) => ({ name: projectName(path), path })) });
+      reply(res, 200, { ok: true, project: project ? { name: projectName(project), path: project, version: projectVersion(project), versionNote: versionNote(project) } : null, recent: recentProjects(options.settingsFile).map((path) => ({ name: projectName(path), path })) });
       return true;
     }
     if (url.pathname === "/__cartographer/project" && req.method === "POST") {
@@ -125,8 +125,9 @@ export async function handleCartographerRequest(req: IncomingMessage, res: Serve
         reply(res, 200, { ok: true, project: null });
         return true;
       }
-      if (!isProjectFolder(path)) {
-        reply(res, 400, { error: "That folder is not a GB Studio project (it needs assets/ and project/ folders)." });
+      const problem = projectProblem(path);
+      if (problem) {
+        reply(res, 400, { error: problem });
         return true;
       }
       setProjectFolder(path);

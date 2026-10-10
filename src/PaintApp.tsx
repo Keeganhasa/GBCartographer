@@ -89,7 +89,7 @@ interface Project { name: string; path: string; assets: Asset[]; palettes: (Pale
 interface SpriteFrame { tiles: { x: number; y: number; sliceX: number; sliceY: number; flipX: boolean; flipY: boolean }[] }
 interface SpriteAnimation { name: string; frames: SpriteFrame[] }
 /** What the server knows about an asset besides its pixels (see assetInfo in server/assets.ts). */
-interface AssetInfo { mtime: number; tileColors: number[]; slots: string[]; slotScene?: string | null; metaMtime: number | null; animations?: SpriteAnimation[] }
+interface AssetInfo { mtime: number; tileColors: number[]; slots: string[]; slotScene?: string | null; /** GB Studio's Automatic color: it reads the colors from the PNG, so a save in greens loses them. */ autoColor?: boolean; metaMtime: number | null; animations?: SpriteAnimation[] }
 /** A picture to open: a file (with a handle to save back to), or a project asset with its info. */
 /** A file to open; `replace` names an open picture (by id) that it reloads in place (same tab, same zoom). */
 interface Opening { file: File; handle?: FileHandle; asset?: Asset; info?: AssetInfo; replace?: number }
@@ -112,7 +112,7 @@ interface Doc extends Snapshot {
    * A background or sprite sheet also carries its eight palette slot ids and its sidecar's time: Save writes each
    * tile's palette into the sidecar (a background's tileColors, a sprite's slices' paletteIndex) as a slot.
    */
-  asset?: { kind: AssetKind; file: string; name: string; mtime: number; slots?: string[]; /** The scene whose palette list the slots are; null: the project's default palettes. */ slotScene?: string | null; metaMtime?: number | null; /** Each cell's slot when the picture was opened (-1 unknown): only cells moved off it are written back. */ opened?: number[]; /** A sprite sheet's animations, for the frames strip. */ animations?: SpriteAnimation[]; /** The project folder it came from: Save refuses to write it into another project. */ project?: string };
+  asset?: { kind: AssetKind; file: string; name: string; mtime: number; slots?: string[]; /** The scene whose palette list the slots are; null: the project's default palettes. */ slotScene?: string | null; metaMtime?: number | null; /** Each cell's slot when the picture was opened (-1 unknown): only cells moved off it are written back. */ opened?: number[]; /** A sprite sheet's animations, for the frames strip. */ animations?: SpriteAnimation[]; /** The project folder it came from: Save refuses to write it into another project. */ project?: string; /** GB Studio's Automatic color is on (Save asks first). */ autoColor?: boolean };
   /** A sprite sheet: see-through pixels are GB Studio's key green in the file. */
   keyGreen?: boolean;
   zoom: number;
@@ -220,6 +220,8 @@ export default function PaintApp() {
   const [showHelp, setShowHelp] = useState(false);
   /** Whether the user was warned this session that GB Studio is open (it may overwrite project JSON when it saves). */
   const gbStudioWarned = useRef(false);
+  /** Projects whose GB Studio version note was shown this session. */
+  const versionNoted = useRef(new Set<string>());
   const shadeInputs = useRef<(HTMLInputElement | null)[]>([]);
   const [recent, setRecent] = useState<{ name: string; path: string }[]>([]);
   /** The right-click menu on a picture card: where it opened and for which asset. */
@@ -417,13 +419,14 @@ export default function PaintApp() {
         const old = replace !== undefined ? docs.current.findIndex((item) => item.id === replace) : -1;
         const id = old >= 0 ? replace! : nextDocId++;
         if (old < 0) last = id;
-        const opened: Doc = { id, name: asset?.name ?? file.name, width: bitmap.width, height: bitmap.height, pixels: picture.pixels, cells: picture.cells, hasAlpha: picture.hasAlpha || keyGreen, palettes: picture.palettes, undo: [], redo: [], dirty: false, handle, asset: asset && info ? { kind: asset.kind, file: asset.file, name: asset.name, mtime: info.mtime, ...(hasSlots(asset.kind) ? { slots: info.slots, slotScene: info.slotScene ?? null, metaMtime: info.metaMtime, opened: info.tileColors.map((value) => value < 0 ? -1 : value & 7) } : {}), ...(asset.kind === "sprites" && info.animations?.length ? { animations: info.animations } : {}), project: projectRef.current?.path } : undefined, keyGreen: keyGreen || undefined, zoom: old >= 0 ? docs.current[old].zoom : fitZoom(bitmap.width, bitmap.height), sel: null, float: null };
+        const opened: Doc = { id, name: asset?.name ?? file.name, width: bitmap.width, height: bitmap.height, pixels: picture.pixels, cells: picture.cells, hasAlpha: picture.hasAlpha || keyGreen, palettes: picture.palettes, undo: [], redo: [], dirty: false, handle, asset: asset && info ? { kind: asset.kind, file: asset.file, name: asset.name, mtime: info.mtime, ...(hasSlots(asset.kind) ? { slots: info.slots, slotScene: info.slotScene ?? null, metaMtime: info.metaMtime, opened: info.tileColors.map((value) => value < 0 ? -1 : value & 7) } : {}), ...(asset.kind === "sprites" && info.animations?.length ? { animations: info.animations } : {}), project: projectRef.current?.path, ...(info.autoColor ? { autoColor: true } : {}) } : undefined, keyGreen: keyGreen || undefined, zoom: old >= 0 ? docs.current[old].zoom : fitZoom(bitmap.width, bitmap.height), sel: null, float: null };
         if (old >= 0) docs.current[old] = opened;
         else docs.current.push(opened);
         if (old >= 0) continue;
         const made = picture.palettes.length - palettesRef.current.length;
-        if (picture.snapped) say(`${file.name}: ${picture.snapped} color${picture.snapped === 1 ? "" : "s"} in tiles of more than four colors became the nearest shade.`);
-        else if (made) say(`${file.name}: tiles in colors outside the library keep them as ${made} palette${made === 1 ? "" : "s"} of the file.${asset ? " Save writes them as GB greens in order of brightness, which may differ from how GB Studio reads the colors." : ""}`);
+        if (info?.autoColor) say(`${asset?.name ?? file.name} uses GB Studio's Automatic color: GB Studio reads its colors from the PNG itself. Saving here writes the four greens and loses them; Save asks first.`);
+        else if (picture.snapped) say(`${file.name}: ${picture.snapped} color${picture.snapped === 1 ? "" : "s"} read as the same shade as another color in their tile (GB Studio reads colors by their green), so they show alike, as in GB Studio.`);
+        else if (made) say(`${file.name}: tiles in colors outside the library keep them as ${made} palette${made === 1 ? "" : "s"} of the file. Each pixel's shade is the one GB Studio reads it as (by its green); Save writes those greens.`);
         else if (dressed) say(`${asset?.name}: ${dressed} tile${dressed === 1 ? "" : "s"} wear the palettes GB Studio gives them.`);
         else if (picture.near) say(`${file.name}: ${picture.near} color${picture.near === 1 ? "" : "s"} a hair off the GB greens read as those greens.`);
       } catch {
@@ -459,8 +462,13 @@ export default function PaintApp() {
   /** Reads the open GB Studio project (its pictures and palettes), or notes that none is open. */
   async function loadProject(): Promise<void> {
     const asJson = <T,>(response: Response) => response.ok && response.headers.get("content-type")?.includes("json") ? response.json() as Promise<T> : null;
-    const ping = await fetch("./__cartographer/ping", { cache: "no-cache" }).then((response) => asJson<{ ok?: boolean; project?: { path: string } | null; recent?: { name: string; path: string }[] }>(response)).catch(() => null);
+    const ping = await fetch("./__cartographer/ping", { cache: "no-cache" }).then((response) => asJson<{ ok?: boolean; project?: { path: string; versionNote?: string | null } | null; recent?: { name: string; path: string }[] }>(response)).catch(() => null);
     setServed(Boolean(ping?.ok));
+    // A project made with a GB Studio version this wasn't tested with: say so once per project and session.
+    if (ping?.project?.versionNote && !versionNoted.current.has(ping.project.path)) {
+      versionNoted.current.add(ping.project.path);
+      say(ping.project.versionNote);
+    }
     setRecent(ping?.recent ?? []);
     const opened = ping?.ok && ping.project ? await fetch(PROJECT_URL, { cache: "no-cache" }).then((response) => asJson<{ ok?: boolean } & Project>(response)).catch(() => null) : null;
     if (opened?.ok) {
@@ -681,6 +689,7 @@ export default function PaintApp() {
   /** Writes the picture over its GB Studio asset (the server keeps a backup and refuses a file that changed on disk). */
   async function saveAsset(target: Doc, blob: Blob): Promise<boolean> {
     const asset = target.asset!;
+    if (asset.autoColor && !window.confirm(`${asset.name} uses GB Studio's Automatic color: GB Studio reads its colors straight from the PNG. Saving writes it in the four GB greens, so those colors are lost (the old file goes to Backups). Save anyway?`)) return false;
     if (asset.project && asset.project !== projectRef.current?.path) {
       say(`${asset.name} belongs to ${asset.project}. Open that project to save it, or use Export.`);
       return false;

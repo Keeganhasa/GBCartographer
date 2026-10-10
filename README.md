@@ -64,9 +64,9 @@ parallax background painted with its scene's palettes.
 ## Try it with the demo project
 
 The app ships with a small GB Studio 4 project in `demo/`: a winter scene, a cabin interior and a forest, a furniture
-tileset, animal and snow-folk sprite sheets, six fonts, and a set of palettes. **Try the demo project** on the
+tileset, animal and snow-folk sprite sheets, four fonts, and a set of palettes. **Try the demo project** on the
 start screen opens a copy of it (in the app's data folder, so the shipped copy stays clean). The art is by
-Spencer "Raptorspank" Gerowe (CC0) and by GumpyFunction, yoanqwp, krümel, Paige Ashlynn, Anima, Santiago Crespo
+Spencer "Raptorspank" Gerowe (CC0) and by GumpyFunction, yoanqwp, krümel, Paige Ashlynn, Anima
 and KizulEmeraldfire from the GB Studio Community Assets repository (MIT); the full list is in
 [demo/CREDITS.md](demo/CREDITS.md).
 
@@ -86,7 +86,9 @@ GB Cartographer is careful with your game files. It only ever writes:
 Every other field of those files, and every other file in the project, is left untouched. Before each write the
 old file is copied to GB Cartographer's backups folder (the last 10 versions of each file, kept per project; **Backups…** in the project menu shows them and puts one back), and a file that changed on disk
 since you opened it is never overwritten without asking. GB Studio 4 projects (the folder with `assets/` and
-`project/`) are supported.
+`project/`) are supported, tested with GB Studio 4.2. A GB Studio 3 project needs opening and saving once in GB Studio 4
+first. Colors other than the four greens shade exactly as GB Studio reads them (by their green channel), and a
+background with GB Studio's Automatic color asks before saving, since a save in greens would lose its colors.
 
 ## Running it
 

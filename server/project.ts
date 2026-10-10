@@ -3,13 +3,53 @@
  * its settings file; the dev server reads GBC_PROJECT or cartographer.local.json ({ "project": "<folder>" }) next to
  * the repo. A folder counts as a project when it has an assets/ folder (GB Studio 4 layout).
  */
-import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+
+/** The GB Studio versions GB Cartographer was tested with (major.minor). */
+export const TESTED_GB_STUDIO = ["4.2"];
 
 let current: string | null = null;
 
 export function projectFolder(): string | null {
   return current;
+}
+
+/** The `_version` in the folder's .gbsproj (e.g. "4.2.0"), or null. */
+export function projectVersion(path: string): string | null {
+  try {
+    const file = readdirSync(path).find((name) => name.toLowerCase().endsWith(".gbsproj"));
+    const version = file ? (JSON.parse(readFileSync(resolve(path, file), "utf8")) as { _version?: unknown })._version : null;
+    return typeof version === "string" ? version : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Why a folder can't be opened, in words for the user, or null when it can. A GB Studio 3 project keeps
+ * everything in its .gbsproj (no project/ folder); GB Studio 4 converts it when it opens and saves it.
+ */
+export function projectProblem(path: string): string | null {
+  if (isProjectFolder(path)) return null;
+  const gbsproj = existsSync(path) && readdirSync(path).some((name) => name.toLowerCase().endsWith(".gbsproj"));
+  if (gbsproj && existsSync(resolve(path, "assets"))) {
+    const version = projectVersion(path);
+    return `This looks like a GB Studio 3 project${version ? ` (${version})` : ""}: everything is in its .gbsproj file. GB Cartographer reads GB Studio 4 projects. Open it in GB Studio 4 and save once (GB Studio converts it; keep a copy first), then open it here.`;
+  }
+  return "That folder is not a GB Studio project (it needs assets/ and project/ folders).";
+}
+
+/**
+ * A note when the project was made with a GB Studio version GB Cartographer wasn't tested with, or null.
+ */
+export function versionNote(path: string): string | null {
+  const version = projectVersion(path);
+  if (!version) return null;
+  const [major, minor] = version.split(".");
+  if (TESTED_GB_STUDIO.includes(`${major}.${minor}`)) return null;
+  if (major !== "4") return `This project was made with GB Studio ${version}; GB Cartographer was tested with GB Studio ${TESTED_GB_STUDIO.join(", ")}. Keep a backup and check pictures in GB Studio after saving.`;
+  return `Made with GB Studio ${version} (tested with ${TESTED_GB_STUDIO.join(", ")}). Files should read the same; check the first save in GB Studio.`;
 }
 
 /** True when the folder looks like a GB Studio project GB Cartographer can read. */

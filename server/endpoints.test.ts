@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { encodePng } from "../src/gb/png";
 import { handleCartographerRequest } from "./endpoints";
 import { KEEP, listBackups, projectBackupDir } from "./backups";
-import { setProjectFolder } from "./project";
+import { setProjectFolder, versionNote } from "./project";
 
 // A throwaway folder with a tiny fake GB Studio 4 project.
 let root = "";
@@ -254,6 +254,31 @@ describe("tile palettes", () => {
     const stale = await put("backgrounds", "town.png", { slot: 3, paletteId: "pal-town", expected: "pal-default" });
     expect(stale.status).toBe(409);
     expect((await json<{ current: string }>(stale)).current).toBe("pal-town");
+  });
+});
+
+describe("GB Studio versions", () => {
+  it("explains a GB Studio 3 project, notes untested versions, and leaves files of an unexpected type alone", async () => {
+    const gb3 = join(root, "old-game");
+    mkdirSync(join(gb3, "assets/backgrounds"), { recursive: true });
+    writeFileSync(join(gb3, "old.gbsproj"), JSON.stringify({ name: "Old", _version: "3.1.0", scenes: [] }));
+    const refused = await fetch(`${base}/project`, { method: "POST", body: JSON.stringify({ path: gb3 }) });
+    expect(refused.status).toBe(400);
+    expect((await json<{ error: string }>(refused)).error).toContain("GB Studio 3 project (3.1.0)");
+    expect(versionNote(project)).toBeNull();
+    const newer = join(root, "newer");
+    mkdirSync(newer);
+    writeFileSync(join(newer, "n.gbsproj"), JSON.stringify({ _version: "4.3.1" }));
+    expect(versionNote(newer)).toContain("GB Studio 4.3.1");
+    writeFileSync(join(newer, "n.gbsproj"), JSON.stringify({ _version: "4.2.7" }));
+    expect(versionNote(newer)).toBeNull();
+    // A sidecar that says it is something else is not rewritten.
+    const sidecar = join(project, "assets/tilesets/props.png.gbsres");
+    const before = readFileSync(sidecar, "utf8");
+    writeFileSync(sidecar, JSON.stringify({ ...JSON.parse(before), _resourceType: "mystery" }));
+    const odd = await fetch(`${base}/gbstudio-tile-colors?kind=tilesets&file=props.png&force=1`, { method: "POST", body: JSON.stringify({ slots: [6] }) });
+    expect(odd.status).toBe(400);
+    writeFileSync(sidecar, before);
   });
 });
 

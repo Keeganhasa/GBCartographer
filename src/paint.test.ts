@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, clipRect, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, hexRgb, lift, linePoints, mirrorPoints, namedSlot, quantize, snapRect, toRgba } from "./paint";
+import { CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, clipRect, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, hexRgb, gbStudioShade, lift, linePoints, mirrorPoints, namedSlot, quantize, snapRect, toRgba } from "./paint";
 
 describe("GB Cartographer pixels", () => {
   it("gives Chorbi-style palette names a slot: the base palette's, else the number in the name", () => {
@@ -24,9 +24,13 @@ describe("GB Cartographer pixels", () => {
 
   it("reads a sprite sheet's key green as see-through and writes it back as key green", () => {
     const rgba = new Uint8ClampedArray([0x65, 0xff, 0, 255, ...hexRgb(GB_SHADES[3]), 255]);
-    // Read as a background, the green is just one more color: the tile keeps it as a palette of the file.
+    // Read as a background, the green is just one more color (GB Studio reads it as the lightest shade): the tile
+    // keeps it as a palette of the file.
     const plain = quantize(rgba, 2, 1);
-    expect([[...plain.pixels], plain.hasAlpha, plain.palettes.length]).toEqual([[0, 1], false, 1]);
+    expect([[...plain.pixels], plain.hasAlpha, plain.palettes.length]).toEqual([[0, 3], false, 1]);
+    // GB Studio's other see-through colors for sprites: low alpha, and a strong blue or magenta with no green.
+    const keys = quantize(new Uint8ClampedArray([255, 0, 255, 255, 0, 0, 255, 255, 120, 120, 120, 150]), 3, 1, [], true);
+    expect([...keys.pixels]).toEqual([CLEAR, CLEAR, CLEAR]);
     const sprite = quantize(rgba, 2, 1, [], true);
     expect([...sprite.pixels]).toEqual([CLEAR, 3]);
     expect(sprite).toMatchObject({ hasAlpha: true, snapped: 0, palettes: [] });
@@ -56,36 +60,52 @@ describe("GB Cartographer pixels", () => {
     expect(spriteShades(["#000000", "#111111", "#222222", "#333333"])).toEqual(["#111111", "#222222", "#333333", "#333333"]);
   });
 
-  it("snaps other colors to the nearest shade by brightness", () => {
+  it("reads other colors as GB Studio does: by the green channel (below 65, 130, 205)", () => {
+    expect([255, 205, 204, 130, 129, 65, 64, 0].map(gbStudioShade)).toEqual([0, 0, 1, 1, 2, 2, 3, 3]);
+    // A bright red has no green, so GB Studio reads it as the darkest shade (brightness would say mid).
     const rgba = new Uint8ClampedArray([255, 255, 255, 255, 170, 170, 170, 255, 85, 85, 85, 255, 0, 0, 0, 255, 200, 0, 0, 255]);
     const result = quantize(rgba, 5, 1);
-    expect([...result.pixels]).toEqual([0, 1, 2, 3, 2]);
-    expect(result).toMatchObject({ hasAlpha: false, snapped: 5, palettes: [] });
+    expect([...result.pixels]).toEqual([0, 1, 2, 3, 3]);
+    // Black and red read as the same shade: GB Studio shows them alike, and so does the tile's palette.
+    expect(result).toMatchObject({ hasAlpha: false, snapped: 1 });
+    expect(result.palettes[0].colors).toEqual(["#FFFFFF", "#AAAAAA", "#555555", "#000000"]);
   });
 
   it("keeps a tile of up to four unknown colors as a palette of the file", () => {
     const rgba = new Uint8ClampedArray(16 * 8 * 4).fill(255);
     // #282828 is more than 24 per channel from the GB dark green, so it is a color of its own.
-    for (let i = 0; i < 16 * 8; i += 1) rgba.set((i % 16) < 8 ? (i % 2 ? [40, 40, 40] : [250, 0, 0]) : [40, 40, 40], i * 4);
+    for (let i = 0; i < 16 * 8; i += 1) rgba.set((i % 16) < 8 ? (i % 2 ? [40, 40, 40] : [250, 240, 0]) : [40, 40, 40], i * 4);
     const result = quantize(rgba, 16, 8, [{ name: "A", colors: ["#FF0000", "#00FF00", "#0000FF", "#101010"], id: "pal-a" }]);
     expect(result.palettes.map(({ name, id }) => [name, id])).toEqual([["A", "pal-a"], ["File 1", undefined]]);
-    expect(result.palettes[1].colors).toEqual(["#FA0000", "#282828", "#282828", "#282828"]);
+    // Each color at the shade GB Studio reads it as; the shades the tile doesn't use keep their GB green.
+    expect(result.palettes[1].colors).toEqual(["#FAF000", "#86C06C", "#306850", "#282828"]);
     expect([...result.cells]).toEqual([2, 2]);
     expect(result.snapped).toBe(0);
     expect([...toRgba(result.pixels, result.cells, 16, result.palettes)]).toEqual([...rgba]);
   });
 
   it("gives a tile drawn in one palette's colors that palette, and writes the colors back", () => {
-    const palettes = [{ name: "A", colors: ["#FF0000", "#00FF00", "#0000FF", "#101010"] }, { name: "B", colors: ["#FFFFFF", "#CCCCCC", "#0000FF", "#000000"] }];
+    // Each palette's colors sit at the shades GB Studio reads them as (by green: 240, 180, 100, 16 / 255, 204, 80, 0).
+    const palettes = [{ name: "A", colors: ["#F0F0F0", "#00B400", "#0064FF", "#101010"] }, { name: "B", colors: ["#FFFFFF", "#CCCCCC", "#505050", "#000000"] }];
     const pixels = new Uint8Array(16 * 8);
     pixels.forEach((_, i) => { pixels[i] = (i % 16) < 8 ? i % 4 : 2 + (i % 2); });
     const cells = new Uint8Array([0, 2]);
     const rgba = toRgba(pixels, cells, 16, palettes);
-    expect([...rgba.slice(8 * 4, 8 * 4 + 3)]).toEqual([0, 0, 255]);
+    expect([...rgba.slice(8 * 4, 8 * 4 + 3)]).toEqual([80, 80, 80]);
     const back = quantize(rgba, 16, 8, palettes);
     expect([...back.cells]).toEqual([0, 2]);
     expect([...back.pixels]).toEqual([...pixels]);
     expect(back.snapped).toBe(0);
+  });
+
+  it("does not let a palette reorder shades: colors at other positions than GB Studio reads them get a palette of the file", () => {
+    // In "Upside down" the lightest color sits at position 3, but GB Studio still reads it as the lightest shade.
+    const palettes = [{ name: "Upside down", colors: ["#000000", "#505050", "#CCCCCC", "#FFFFFF"] }];
+    const rgba = new Uint8ClampedArray([255, 255, 255, 255, 0, 0, 0, 255]);
+    const result = quantize(rgba, 2, 1, palettes);
+    expect([...result.pixels]).toEqual([0, 3]);
+    expect([...result.cells]).toEqual([2]);
+    expect(result.palettes[1].colors).toEqual(["#FFFFFF", "#86C06C", "#306850", "#000000"]);
   });
 
   it("draws brush marks, lines and mirrored points inside the picture", () => {

@@ -28,7 +28,7 @@ export interface ProjectPalette { id: string; name: string; colors: string[]; /*
  * the two cells it covers, -1 on cells no slice uses). `slots`: the eight palette ids those slots mean (the
  * scene's background palettes, or the project's sprite palettes). `metaMtime`: the sidecar's time, or null.
  */
-export interface AssetInfo { mtime: number; width: number; height: number; tileColors: number[]; slots: string[]; /** The scene whose palette list the slots are (null: the project's defaults). */ slotScene: string | null; metaMtime: number | null; /** A sprite sheet's animations (every state's), each a list of frames made of 8 × 16 slices. */ animations: SpriteAnimation[] }
+export interface AssetInfo { mtime: number; width: number; height: number; tileColors: number[]; slots: string[]; /** The scene whose palette list the slots are (null: the project's defaults). */ slotScene: string | null; /** GB Studio's Automatic color (backgrounds): it reads the colors from the PNG itself. */ autoColor: boolean; metaMtime: number | null; /** A sprite sheet's animations (every state's), each a list of frames made of 8 × 16 slices. */ animations: SpriteAnimation[] }
 export interface SpriteFrame { tiles: { x: number; y: number; sliceX: number; sliceY: number; flipX: boolean; flipY: boolean }[] }
 export interface SpriteAnimation { name: string; frames: SpriteFrame[] }
 
@@ -230,7 +230,7 @@ export function assetInfo(project: string, kind: AssetKind, path: string): Asset
     source = slotSource(project, kind, id);
   }
   const slots = source ? resolveScenePaletteIds(source.ids, source.defaults) : [];
-  return { mtime: statSync(path).mtimeMs, width: size.width, height: size.height, tileColors, slots, slotScene: source?.scene ?? null, metaMtime: hasSidecar ? statSync(`${path}.gbsres`).mtimeMs : null, animations: kind === "sprites" && sidecar ? spriteAnimations(sidecar) : [] };
+  return { mtime: statSync(path).mtimeMs, width: size.width, height: size.height, tileColors, slots, slotScene: source?.scene ?? null, autoColor: sidecar?.autoColor === true, metaMtime: hasSidecar ? statSync(`${path}.gbsres`).mtimeMs : null, animations: kind === "sprites" && sidecar ? spriteAnimations(sidecar) : [] };
 }
 
 /** Reads a sidecar for writing: it must exist and be unchanged since `expectedMtime` (unless forced). */
@@ -239,9 +239,19 @@ function openSidecar(path: string, what: string, expectedMtime: number | null, f
   if (!existsSync(sidecar)) throw new AssetWriteError(`This ${what} has no .gbsres file to hold its palettes.`, 400);
   const meta = readJson(sidecar);
   if (!meta) throw new AssetWriteError(`The ${what}'s .gbsres file could not be read.`, 400);
+  expectType(meta, what === "sprite sheet" ? "sprite" : what, sidecar);
   const mtime = statSync(sidecar).mtimeMs;
   if (!force && expectedMtime !== null && Math.abs(mtime - expectedMtime) > 1) throw new AssetWriteError(`The ${what}'s palettes changed on disk since it was opened.`, 409, mtime);
   return { sidecar, meta, mtime };
+}
+
+/**
+ * Refuses to write a file whose `_resourceType` is not the one expected (a GB Studio version that changed its
+ * formats, or the wrong file): GB Cartographer only rewrites files it understands. A file without the field passes.
+ */
+function expectType(meta: Record<string, unknown>, type: string, file: string) {
+  const found = meta._resourceType;
+  if (found !== undefined && found !== type) throw new AssetWriteError(`${basename(file)} is a "${String(found)}" file, not a "${type}": GB Cartographer leaves it alone.`, 400);
 }
 
 /** Writes a sidecar back as GB Studio writes it (two-space JSON, no trailing newline), after copying the old one to the backup folder. */
@@ -294,6 +304,7 @@ export function writePaletteSlot(project: string, kind: AssetKind, path: string,
   const source = slotSource(project, kind, assetId(path));
   const meta = readJson(source.file);
   if (!meta) throw new AssetWriteError(source.scene ? `The scene file of ${source.scene} could not be read.` : "The project's settings.gbsres could not be read.", 400);
+  expectType(meta, source.scene ? "scene" : "settings", source.file);
   // `expected` is the palette the user saw in that slot: if GB Studio (or another window) changed it since, ask first.
   const shown = resolveScenePaletteIds(source.ids, source.defaults)[slot];
   if (expected !== undefined && expected !== shown) throw new AssetWriteError(`Slot ${slot + 1} changed on disk since it was shown.`, 409, undefined, shown);
@@ -328,6 +339,7 @@ export function writePalette(project: string, palette: { id?: string; name: stri
     for (const file of readdirSync(folder).filter((entry) => entry.endsWith(".gbsres"))) {
       const meta = readJson(join(folder, file));
       if (meta?.id !== palette.id) continue;
+      expectType(meta, "palette", join(folder, file));
       const mtime = statSync(join(folder, file)).mtimeMs;
       if (!force && expectedMtime !== null && Math.abs(mtime - expectedMtime) > 1) throw new AssetWriteError(`${typeof meta.name === "string" ? meta.name : "The palette"} changed on disk since the project was read.`, 409, mtime);
       return { id: palette.id, file, mtime: writeSidecar(join(folder, file), { ...meta, name, colors }, backup) };

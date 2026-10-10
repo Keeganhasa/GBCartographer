@@ -29,10 +29,6 @@ Ashlynn), MIT license; the repository asks that each asset's maker be credited.
 - `assets/fonts/DotGothic8 (Paige Ashlynn).png`: by **Paige Ashlynn**, a slim font adapted from Fontworks Inc.'s DotGothic16
   (SIL Open Font License).
 - `assets/fonts/thinrpg (Anima).png`: by **Anima / Animaloser / SodoDev**.
-- `assets/fonts/CompaqThin (Santiago Crespo).png`: by **Santiago Crespo**, based on a custom DOS font made by Compaq
-  (https://int10h.org/oldschool-pc-fonts/fontlist/font?compaqthin_8x8).
-- `assets/fonts/ACM-VGA (Santiago Crespo).png`: by **Santiago Crespo**, based on the Chromatic Research MPACT 2 VGA BIOS font
-  (https://int10h.org/oldschool-pc-fonts/fontlist/font?acm_vga_8x8).
 - `assets/fonts/ascii_thick_italic (KizulEmeraldfire).png`, `ascii_thick_italic_inverted (KizulEmeraldfire).png`: by **KizulEmeraldfire**.
 
 ## Palettes

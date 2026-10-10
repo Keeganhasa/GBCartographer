@@ -18,8 +18,6 @@ export function hexRgb(hex: string): [number, number, number] {
   return [value >> 16, (value >> 8) & 255, value & 255];
 }
 
-const luma = (r: number, g: number, b: number) => 0.299 * r + 0.587 * g + 0.114 * b;
-
 export const CELL = 8;
 /** A four-color palette from the library; a cell (one 8 × 8 tile) may wear one. */
 export interface Palette { name: string; colors: string[]; /** GB Studio's palette id, for palettes read from a project. */ id?: string }
@@ -32,33 +30,47 @@ export const NEAR_SHADE_TOLERANCE = 24;
 const FILE_PALETTE_LIMIT = 64;
 
 /**
- * Turns RGBA pixels into shades. The four GB greens map exactly. A tile drawn entirely in the colors of one
- * palette gets that palette (`cells` holds its position + 1, 0 for none) and its pixels become positions in it.
- * A tile of up to four other colors gets a palette made from them ("File 1", …, lightest first), added after the
- * library's in `palettes`. Any color left over goes to the shade nearest in brightness (`snapped` counts those).
- * Mostly see-through pixels become CLEAR. Colors within NEAR_SHADE_TOLERANCE of a GB green count as that green
- * (`near` counts them), as in the main app: exported art is often a hair off.
+ * GB Studio's own rule for reading a color as a shade (`tileDataIndexFn` in GB Studio's source): the green channel
+ * alone, below 65 the darkest, below 130 the next, below 205 the next, else the lightest. Sprites use the same
+ * thresholds (their two dark shades draw alike), so a picture here shades exactly as GB Studio will.
+ */
+export function gbStudioShade(g: number): number {
+  return g < 65 ? 3 : g < 130 ? 2 : g < 205 ? 1 : 0;
+}
+
+/**
+ * GB Studio's see-through rule for sprite sheets (`spriteDataIndexFn`): alpha below 200, its key green (green
+ * above 249 with red below 180 and blue below 20), or a strong blue / magenta with almost no green.
+ */
+export function gbStudioSpriteClear(r: number, g: number, b: number, a: number): boolean {
+  return a < 200 || (g > 249 && r < 180 && b < 20) || (b >= 200 && g < 20);
+}
+
+/**
+ * Turns RGBA pixels into shades, the way GB Studio reads them: the four GB greens map exactly, and any other color
+ * takes GB Studio's shade for it (`gbStudioShade`). Palettes only decide how a tile looks here. A tile drawn in a
+ * library palette's colors, each at the position GB Studio reads it as, wears that palette (`cells` holds its
+ * position + 1, 0 for none). Any other tile of colors gets a palette made from them ("File 1", …), each color at
+ * its shade, added after the library's in `palettes`; when two of a tile's colors read as the same shade, GB
+ * Studio shows them alike and so does this (`snapped` counts such colors). Mostly see-through pixels become CLEAR
+ * (sprites: GB Studio's rule, including its key green). Colors within NEAR_SHADE_TOLERANCE of a GB green leave a
+ * tile plain green (`near` counts them); they still shade by GB Studio's rule.
  */
 export function quantize(rgba: Uint8ClampedArray, width: number, height: number, library: readonly Palette[] = [], keyGreen = false): Picture {
   const rgbKey = ([r, g, b]: [number, number, number]) => (r << 16) | (g << 8) | b;
-  // A pixel is see-through when its alpha is low, or (sprites) when it is GB Studio's key green.
-  const clear = (p: number) => rgba[p + 3] < 128 || (keyGreen && rgba[p] === 0x65 && rgba[p + 1] === 0xff && rgba[p + 2] === 0);
-  const keyLuma = (key: number) => luma(key >> 16, (key >> 8) & 255, key & 255);
+  const clear = keyGreen
+    ? (p: number) => gbStudioSpriteClear(rgba[p], rgba[p + 1], rgba[p + 2], rgba[p + 3])
+    : (p: number) => rgba[p + 3] < 128;
   const shades = GB_SHADES.map(hexRgb);
-  const lumas = shades.map(([r, g, b]) => luma(r, g, b));
   const gb = new Map<number, number>(shades.map((shade, index) => [rgbKey(shade), index]));
-  // A color near a GB green is read as that green; `nearKeys` remembers each color's answer.
-  const nearKeys = new Map<number, number>();
-  const exactKey = (key: number) => {
-    if (gb.has(key)) return key;
-    let found = nearKeys.get(key);
-    if (found === undefined) {
-      const r = key >> 16, g = (key >> 8) & 255, b = key & 255;
-      const index = shades.findIndex(([sr, sg, sb]) => Math.abs(sr - r) <= NEAR_SHADE_TOLERANCE && Math.abs(sg - g) <= NEAR_SHADE_TOLERANCE && Math.abs(sb - b) <= NEAR_SHADE_TOLERANCE);
-      found = index >= 0 ? rgbKey(shades[index]) : key;
-      nearKeys.set(key, found);
-    }
-    return found;
+  const shadeOf = (key: number) => gb.get(key) ?? gbStudioShade((key >> 8) & 255);
+  const near = new Set<number>();
+  const isGreen = (key: number) => {
+    if (gb.has(key)) return true;
+    const r = key >> 16, g = (key >> 8) & 255, b = key & 255;
+    const close = shades.some(([sr, sg, sb]) => Math.abs(sr - r) <= NEAR_SHADE_TOLERANCE && Math.abs(sg - g) <= NEAR_SHADE_TOLERANCE && Math.abs(sb - b) <= NEAR_SHADE_TOLERANCE);
+    if (close) near.add(key);
+    return close;
   };
   const palettes: Palette[] = library.map(({ name, colors, id }) => ({ name, colors: [...colors], ...(id ? { id } : {}) }));
   const paletteKeys = palettes.map((palette) => palette.colors.map((color) => rgbKey(hexRgb(color))));
@@ -68,7 +80,10 @@ export function quantize(rgba: Uint8ClampedArray, width: number, height: number,
     const x0 = (cell % cw) * CELL, y0 = Math.floor(cell / cw) * CELL;
     return { x0, y0, x1: Math.min(width, x0 + CELL), y1: Math.min(height, y0 + CELL) };
   };
-  const wearing = (keys: number[]) => paletteKeys.findIndex((colors) => keys.every((key) => colors.includes(key)));
+  // A palette fits a tile when each of the tile's colors sits at the position GB Studio reads it as.
+  const fits = (colors: number[], keys: number[]) => keys.every((key) => colors[shadeOf(key)] === key);
+  const wearing = (keys: number[]) => paletteKeys.findIndex((colors) => fits(colors, keys));
+  const snapped = new Set<number>();
   // First the tiles the GB greens or a library palette explain; the rest wait, biggest color sets first, so a tile
   // with fewer colors can share the palette made for a fuller one.
   const waiting: { cell: number; keys: number[] }[] = [];
@@ -78,54 +93,49 @@ export function quantize(rgba: Uint8ClampedArray, width: number, height: number,
     for (let y = y0; y < y1; y += 1) {
       for (let x = x0; x < x1; x += 1) {
         const p = (y * width + x) * 4;
-        const key = exactKey((rgba[p] << 16) | (rgba[p + 1] << 8) | rgba[p + 2]);
+        const key = (rgba[p] << 16) | (rgba[p + 1] << 8) | rgba[p + 2];
         if (!clear(p) && !keys.includes(key)) keys.push(key);
       }
     }
-    if (keys.every((key) => gb.has(key))) continue;
+    if (keys.every(isGreen)) continue;
     const wears = wearing(keys);
     if (wears >= 0) cells[cell] = wears + 1;
-    else if (keys.length <= 4) waiting.push({ cell, keys });
+    else waiting.push({ cell, keys });
   }
   waiting.sort((a, b) => b.keys.length - a.keys.length);
   for (const { cell, keys } of waiting) {
     let wears = wearing(keys);
     if (wears < 0 && palettes.length - library.length < FILE_PALETTE_LIMIT) {
-      const sorted = [...keys].sort((a, b) => keyLuma(b) - keyLuma(a));
-      while (sorted.length < 4) sorted.push(sorted[sorted.length - 1]);
-      wears = palettes.length;
-      paletteKeys.push(sorted);
-      palettes.push({ name: `File ${palettes.length - library.length + 1}`, colors: sorted.map((key) => `#${key.toString(16).padStart(6, "0").toUpperCase()}`) });
-    }
+      // Each color at its shade; a shade the tile doesn't use keeps its GB green.
+      const colors = shades.map(rgbKey);
+      const taken = new Set<number>();
+      for (const key of keys) {
+        const shade = shadeOf(key);
+        if (taken.has(shade)) { snapped.add(key); continue; }
+        taken.add(shade);
+        colors[shade] = key;
+      }
+      wears = paletteKeys.findIndex((existing) => existing.every((key, at) => key === colors[at]));
+      if (wears < 0) {
+        wears = palettes.length;
+        paletteKeys.push(colors);
+        palettes.push({ name: `File ${palettes.length - library.length + 1}`, colors: colors.map((key) => `#${key.toString(16).padStart(6, "0").toUpperCase()}`) });
+      }
+    } else if (wears < 0) for (const key of keys) snapped.add(key);
     if (wears >= 0) cells[cell] = wears + 1;
   }
-  const nearest = new Map<number, number>();
   const pixels = new Uint8Array(width * height);
   let hasAlpha = false;
-  for (let cell = 0; cell < cells.length; cell += 1) {
-    const { x0, y0, x1, y1 } = bounds(cell);
-    const colors = cells[cell] ? paletteKeys[cells[cell] - 1] : null;
-    for (let y = y0; y < y1; y += 1) {
-      for (let x = x0; x < x1; x += 1) {
-        const i = y * width + x, p = i * 4;
-        if (clear(p)) {
-          pixels[i] = CLEAR;
-          hasAlpha = true;
-          continue;
-        }
-        const key = exactKey((rgba[p] << 16) | (rgba[p + 1] << 8) | rgba[p + 2]);
-        let shade = colors ? colors.indexOf(key) : gb.get(key) ?? nearest.get(key);
-        if (shade === undefined) {
-          const value = luma(rgba[p], rgba[p + 1], rgba[p + 2]);
-          shade = 0;
-          for (let s = 1; s < 4; s += 1) if (Math.abs(lumas[s] - value) < Math.abs(lumas[shade] - value)) shade = s;
-          nearest.set(key, shade);
-        }
-        pixels[i] = shade;
-      }
+  for (let i = 0; i < pixels.length; i += 1) {
+    const p = i * 4;
+    if (clear(p)) {
+      pixels[i] = CLEAR;
+      hasAlpha = true;
+      continue;
     }
+    pixels[i] = shadeOf((rgba[p] << 16) | (rgba[p + 1] << 8) | rgba[p + 2]);
   }
-  return { pixels, cells, hasAlpha, snapped: nearest.size, near: [...nearKeys.values()].filter((key) => gb.has(key)).length, palettes };
+  return { pixels, cells, hasAlpha, snapped: snapped.size, near: near.size, palettes };
 }
 
 /**

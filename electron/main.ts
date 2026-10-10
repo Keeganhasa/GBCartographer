@@ -10,7 +10,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import { extname, join, normalize, resolve } from "node:path";
 import { handleCartographerRequest } from "../server/endpoints";
-import { isProjectFolder, loadProjectFolder, projectFolder, projectFolderFor, saveProjectFolder, setProjectFolder } from "../server/project";
+import { loadProjectFolder, projectFolder, projectFolderFor, projectProblem, saveProjectFolder, setProjectFolder } from "../server/project";
 
 const ROOT = resolve(__dirname, "..");
 const ICON = join(ROOT, "build", "icon.png");
@@ -101,8 +101,9 @@ ipcMain.handle("gbc-choose-project", async (event) => {
   const picked = result.canceled ? null : result.filePaths[0];
   if (!picked) return null;
   const folder = projectFolderFor(picked);
-  if (!isProjectFolder(folder)) {
-    await dialog.showMessageBox({ type: "warning", message: "That folder is not a GB Studio project.", detail: "GB Cartographer needs the project folder with its assets/ and project/ folders inside (GB Studio 4)." });
+  const problem = projectProblem(folder);
+  if (problem) {
+    await dialog.showMessageBox({ type: "warning", message: "GB Cartographer can't open this project.", detail: problem });
     return null;
   }
   setProjectFolder(folder);
