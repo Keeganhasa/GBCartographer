@@ -32,7 +32,7 @@ export interface ProjectPalette { id: string; name: string; colors: string[]; /*
  * the two cells it covers, -1 on cells no slice uses). `slots`: the eight palette ids those slots mean (the
  * scene's background palettes, or the project's sprite palettes). `metaMtime`: the sidecar's time, or null.
  */
-export interface AssetInfo { mtime: number; width: number; height: number; tileColors: number[]; slots: string[]; /** The scene whose palette list the slots are (null: the project's defaults). */ slotScene: string | null; /** GB Studio's Automatic color (backgrounds): it reads the colors from the PNG itself. */ autoColor: boolean; metaMtime: number | null; /** A sprite sheet's animations (every state's), each a list of frames made of 8 × 16 slices. */ animations: SpriteAnimation[] }
+export interface AssetInfo { mtime: number; width: number; height: number; tileColors: number[]; slots: string[]; /** A sprite sheet's GB Studio animation speed: 60 / (animSpeed + 1) frames a second; 255 none. */ animSpeed: number | null; /** The scene whose palette list the slots are (null: the project's defaults). */ slotScene: string | null; /** GB Studio's Automatic color (backgrounds): it reads the colors from the PNG itself. */ autoColor: boolean; metaMtime: number | null; /** A sprite sheet's animations (every state's), each a list of frames made of 8 × 16 slices. */ animations: SpriteAnimation[] }
 export interface SpriteFrame { tiles: { x: number; y: number; sliceX: number; sliceY: number; flipX: boolean; flipY: boolean }[] }
 export interface SpriteAnimation { name: string; frames: SpriteFrame[] }
 
@@ -284,7 +284,7 @@ export function assetInfo(project: string, kind: AssetKind, path: string): Asset
     source = slotSource(project, kind, id);
   }
   const slots = source ? resolveScenePaletteIds(source.ids, source.defaults) : [];
-  return { mtime: statSync(path).mtimeMs, width: size.width, height: size.height, tileColors, slots, slotScene: source?.scene ?? null, autoColor: sidecar?.autoColor === true, metaMtime: hasSidecar ? statSync(`${path}.gbsres`).mtimeMs : null, animations: kind === "sprites" && sidecar ? spriteAnimations(sidecar) : [] };
+  return { mtime: statSync(path).mtimeMs, width: size.width, height: size.height, tileColors, slots, animSpeed: kind === "sprites" && typeof sidecar?.animSpeed === "number" ? sidecar.animSpeed : null, slotScene: source?.scene ?? null, autoColor: sidecar?.autoColor === true, metaMtime: hasSidecar ? statSync(`${path}.gbsres`).mtimeMs : null, animations: kind === "sprites" && sidecar ? spriteAnimations(sidecar) : [] };
 }
 
 /** Reads a sidecar for writing: it must exist and be unchanged since `expectedMtime` (unless forced). */

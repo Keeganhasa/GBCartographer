@@ -279,7 +279,7 @@ export default function PaintApp() {
         const old = replace !== undefined ? docs.current.findIndex((item) => item.id === replace) : -1;
         const id = old >= 0 ? replace! : newDocId(docs.current);
         if (old < 0) last = id;
-        const opened: Doc = { id, name: asset?.name ?? file.name, width: bitmap.width, height: bitmap.height, pixels: picture.pixels, cells: picture.cells, hasAlpha: picture.hasAlpha || keyGreen, palettes: picture.palettes, undo: [], redo: [], dirty: false, handle, asset: asset && info ? { kind: asset.kind, file: asset.file, name: asset.name, mtime: info.mtime, ...(hasSlots(asset.kind) ? { slots: info.slots, slotScene: info.slotScene ?? null, metaMtime: info.metaMtime, opened: info.tileColors.map((value) => value < 0 ? -1 : value & 7) } : {}), ...(asset.kind === "sprites" && info.animations?.length ? { animations: info.animations } : {}), project: projectRef.current?.path, ...(info.autoColor ? { autoColor: true } : {}) } : undefined, keyGreen: keyGreen || undefined, zoom: old >= 0 ? docs.current[old].zoom : fitZoom(bitmap.width, bitmap.height), sel: null, float: null };
+        const opened: Doc = { id, name: asset?.name ?? file.name, width: bitmap.width, height: bitmap.height, pixels: picture.pixels, cells: picture.cells, hasAlpha: picture.hasAlpha || keyGreen, palettes: picture.palettes, undo: [], redo: [], dirty: false, handle, asset: asset && info ? { kind: asset.kind, file: asset.file, name: asset.name, mtime: info.mtime, ...(hasSlots(asset.kind) ? { slots: info.slots, slotScene: info.slotScene ?? null, metaMtime: info.metaMtime, opened: info.tileColors.map((value) => value < 0 ? -1 : value & 7) } : {}), ...(asset.kind === "sprites" && info.animations?.length ? { animations: info.animations, animSpeed: info.animSpeed ?? null } : {}), project: projectRef.current?.path, ...(info.autoColor ? { autoColor: true } : {}) } : undefined, keyGreen: keyGreen || undefined, zoom: old >= 0 ? docs.current[old].zoom : fitZoom(bitmap.width, bitmap.height), sel: null, float: null };
         if (old >= 0) docs.current[old] = opened;
         else docs.current.push(opened);
         if (old >= 0) continue;
@@ -697,7 +697,7 @@ export default function PaintApp() {
       const info = await fetch(`${ASSET_URL}-info?${assetQuery(asset)}`, { cache: "no-cache" }).then((response) => response.ok ? response.json() as Promise<AssetInfo> : null).catch(() => null);
       if (!info) return;
       if (!asset.slots) Object.assign(asset, { metaMtime: info.metaMtime, opened: info.tileColors.map((value) => value < 0 ? -1 : value & 7), project: path });
-      Object.assign(asset, { slots: info.slots, slotScene: info.slotScene ?? null });
+      Object.assign(asset, { slots: info.slots, slotScene: info.slotScene ?? null, ...(asset.kind === "sprites" ? { animSpeed: info.animSpeed ?? null } : {}) });
     }));
     if (ours.length) bump();
   }
@@ -1246,11 +1246,14 @@ export default function PaintApp() {
     window.addEventListener("focus", check);
     return () => { window.clearInterval(timer); window.removeEventListener("focus", check); };
   }, [project]);
+  // Frames play at the sheet's GB Studio speed (60 / (animSpeed + 1) frames a second), else 8 a second.
+  const animSpeed = doc?.asset?.animSpeed;
+  const fps = animSpeed == null || animSpeed === 255 ? 8 : 60 / (animSpeed + 1);
   useEffect(() => {
     if (!playing || frames.length < 2) return;
-    const timer = window.setInterval(() => setFrame((at) => ({ ...at, index: (at.index + 1) % frames.length })), 125);
+    const timer = window.setInterval(() => setFrame((at) => ({ ...at, index: (at.index + 1) % frames.length })), 1000 / fps);
     return () => window.clearInterval(timer);
-  }, [playing, frames.length]);
+  }, [playing, frames.length, fps]);
   // Frame thumbnails: each frame's slices copied from the drawn sheet, after the sheet itself is drawn.
   useLayoutEffect(() => {
     const sheet = canvasRef.current;
@@ -1425,7 +1428,7 @@ export default function PaintApp() {
                   {animations.map((item, index) => <option key={index} value={index}>{item.name} · {item.frames.length}</option>)}
                 </select>
               )}
-              <button className="icon-button small" aria-label={playing ? "Pause" : "Play"} title={playing ? "Pause" : "Play the animation (8 frames a second)"} disabled={frames.length < 2} onClick={() => setPlaying(!playing)}>{playing ? <Pause size={12} /> : <Play size={12} />}</button>
+              <button className="icon-button small" aria-label={playing ? "Pause" : "Play"} title={playing ? "Pause" : animSpeed == null ? "Play the animation (8 frames a second)" : animSpeed === 255 ? "Play the frames (GB Studio's speed is None: it doesn't animate this sheet; 8 a second here)" : `Play the animation at GB Studio's speed ${[127, 63, 31, 15, 7, 3, 1, 0].indexOf(animSpeed) + 1 || "?"} (${Math.round(fps * 100) / 100} frames a second)`} disabled={frames.length < 2} onClick={() => setPlaying(!playing)}>{playing ? <Pause size={12} /> : <Play size={12} />}</button>
               <div className="gbp-frames-list">
                 {frames.map((_, index) => (
                   <button key={index} className={`gbp-frame ${index === frame.index ? "selected" : ""}`} title={`Frame ${index + 1}`} onClick={() => { setFrame({ ...frame, index }); setPlaying(false); }}>

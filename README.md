@@ -43,7 +43,7 @@ palettes straight back into the project.
   whole tiles.
 - **GB Studio's limits in view.** A tile counter shows unique 8 × 8 tiles against the 192 / 384 budget, and an
   overlay shows where each 160 × 144 screen falls.
-- **Sprite frames and font samples.** A sprite sheet shows its animations' frames above it (and plays them); a font
+- **Sprite frames and font samples.** A sprite sheet shows its animations' frames above it (and plays them at GB Studio's speed); a font
   sheet shows a sample sentence set in its own glyphs.
 - **Export to share.** Any picture as shown, in its palettes, or in the greens, scaled up 2× to 8× with crisp pixels.
 - **Careful with your files.** The last 10 versions of every file it overwrites, restorable from **Backups…**; a
@@ -55,7 +55,7 @@ palettes straight back into the project.
 ## Planned
 
 - Prebuilt apps for macOS, Windows and Linux (GitHub Releases and itch.io), and a tested Windows pass.
-- Palette manager round 2 (delete, reorder, import / export); GB Studio's animation speeds in the frames strip.
+- Palette manager round 2 (delete, reorder, import / export).
 
 ## Screenshots
 

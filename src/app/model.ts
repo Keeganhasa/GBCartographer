@@ -63,7 +63,7 @@ export interface Project { name: string; path: string; assets: Asset[]; palettes
 export interface SpriteFrame { tiles: { x: number; y: number; sliceX: number; sliceY: number; flipX: boolean; flipY: boolean }[] }
 export interface SpriteAnimation { name: string; frames: SpriteFrame[] }
 /** What the server knows about an asset besides its pixels (see assetInfo in server/assets.ts). */
-export interface AssetInfo { mtime: number; tileColors: number[]; slots: string[]; slotScene?: string | null; /** GB Studio's Automatic color: it reads the colors from the PNG, so a save in greens loses them. */ autoColor?: boolean; metaMtime: number | null; animations?: SpriteAnimation[] }
+export interface AssetInfo { mtime: number; tileColors: number[]; slots: string[]; /** GB Studio's animSpeed (sprite sheets): 60 / (animSpeed + 1) fps; 255 none. */ animSpeed?: number | null; slotScene?: string | null; /** GB Studio's Automatic color: it reads the colors from the PNG, so a save in greens loses them. */ autoColor?: boolean; metaMtime: number | null; animations?: SpriteAnimation[] }
 /** A picture to open: a file (with a handle to save back to), or a project asset with its info. */
 /** A file to open; `replace` names an open picture (by id) that it reloads in place (same tab, same zoom). */
 export interface Opening { file: File; handle?: FileHandle; asset?: Asset; info?: AssetInfo; replace?: number }
@@ -86,7 +86,7 @@ export interface Doc extends Snapshot {
    * A background or sprite sheet also carries its eight palette slot ids and its sidecar's time: Save writes each
    * tile's palette into the sidecar (a background's tileColors, a sprite's slices' paletteIndex) as a slot.
    */
-  asset?: { kind: AssetKind; file: string; name: string; mtime: number; slots?: string[]; /** The scene whose palette list the slots are; null: the project's default palettes. */ slotScene?: string | null; metaMtime?: number | null; /** Each cell's slot when the picture was opened (-1 unknown): only cells moved off it are written back. */ opened?: number[]; /** A sprite sheet's animations, for the frames strip. */ animations?: SpriteAnimation[]; /** The project folder it came from: Save refuses to write it into another project. */ project?: string; /** GB Studio's Automatic color is on (Save asks first). */ autoColor?: boolean };
+  asset?: { kind: AssetKind; file: string; name: string; mtime: number; slots?: string[]; /** The scene whose palette list the slots are; null: the project's default palettes. */ slotScene?: string | null; metaMtime?: number | null; /** Each cell's slot when the picture was opened (-1 unknown): only cells moved off it are written back. */ opened?: number[]; /** A sprite sheet's animations, for the frames strip. */ animations?: SpriteAnimation[]; /** GB Studio's animSpeed for the sheet. */ animSpeed?: number | null; /** The project folder it came from: Save refuses to write it into another project. */ project?: string; /** GB Studio's Automatic color is on (Save asks first). */ autoColor?: boolean };
   /** The file changed on disk while this picture had unsaved changes: the times seen, until Reload or Keep mine. */
   changedOnDisk?: { mtime: number; metaMtime: number | null; /** Keep mine: the bar hides; Save still asks before replacing. */ kept?: boolean };
   /** Resized since it was opened or saved: Save writes the new size (a project asset's size is otherwise fixed). */
