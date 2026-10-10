@@ -49,12 +49,15 @@ export default function BackupsWindow({ projectName, initialFile, onClose, onRes
   const [version, setVersion] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [stamp, setStamp] = useState(0);
+  /** Backups from before history was kept exist (a flat folder, any project): offered as a folder to look in. */
+  const [older, setOlder] = useState(false);
 
   useEffect(() => {
     let live = true;
-    fetch("./__cartographer/backups", { cache: "no-cache" }).then((response) => response.json() as Promise<{ files?: BackupFile[] }>)
+    fetch("./__cartographer/backups", { cache: "no-cache" }).then((response) => response.json() as Promise<{ files?: BackupFile[]; older?: boolean }>)
       .then((result) => {
         if (!live) return;
+        setOlder(Boolean(result.older));
         const list = result.files ?? [];
         setFiles(list);
         setPicked((current) => current && list.some((entry) => entry.file === current) ? current : list[0]?.file ?? null);
@@ -97,6 +100,7 @@ export default function BackupsWindow({ projectName, initialFile, onClose, onRes
           <nav className="gbp-backup-files" aria-label="Backed-up files">
             {files === null && <p className="gbp-note">Reading…</p>}
             {files?.length === 0 && <p className="gbp-note">Nothing backed up yet. Every save keeps the file it replaces here (the last 10 versions of each).</p>}
+            {older && <button className="gbp-backup-older" title="One copy per file name, from before backups kept history (any project); open the folder to look" onClick={() => void fetch("./__cartographer/reveal?backups=older", { method: "POST" })}><b>Older backups…</b><small>from before history was kept · opens the folder</small></button>}
             {files?.map((item) => (
               <button key={item.file} className={item.file === picked ? "selected" : ""} title={item.file} onClick={() => { setPicked(item.file); setVersion(null); }}>
                 <b>{item.file.split("/").pop()}</b>

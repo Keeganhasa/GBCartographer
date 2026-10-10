@@ -426,7 +426,13 @@ function projectStamp(project: string): string {
   for (const sub of ["project/palettes", "project/scenes"]) {
     const folder = join(project, sub);
     if (!existsSync(folder)) continue;
-    for (const entry of readdirSync(folder)) add(join(folder, entry, sub.endsWith("scenes") ? "scene.gbsres" : ""));
+    for (const entry of readdirSync(folder)) {
+      if (!sub.endsWith("scenes")) { add(join(folder, entry)); continue; }
+      add(join(folder, entry, "scene.gbsres"));
+      // A scene's actors decide which sprite palettes a sheet is shown with.
+      const actors = join(folder, entry, "actors");
+      if (existsSync(actors)) for (const actor of readdirSync(actors)) add(join(actors, actor));
+    }
   }
   return createHash("sha1").update(times.join(",")).digest("hex").slice(0, 12);
 }

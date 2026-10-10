@@ -276,6 +276,11 @@ describe("thumbnails", () => {
     writeFileSync(file, readFileSync(file));
     const again = await json<{ stamp: string }>(await fetch(`${base}/gbstudio-preview-sheet?kind=backgrounds`));
     expect(again.stamp).not.toBe(first.stamp);
+    // So does an actor changing (it decides a sprite sheet's palettes).
+    const actor = join(project, "project/scenes/town/actors/shopkeeper.gbsres");
+    const sprites = await json<{ stamp: string }>(await fetch(`${base}/gbstudio-preview-sheet?kind=sprites`));
+    writeFileSync(actor, readFileSync(actor));
+    expect((await json<{ stamp: string }>(await fetch(`${base}/gbstudio-preview-sheet?kind=sprites`))).stamp).not.toBe(sprites.stamp);
     expect((await fetch(`${base}/gbstudio-preview-sheet?kind=music`)).status).toBe(400);
   });
 });

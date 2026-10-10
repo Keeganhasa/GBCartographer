@@ -148,7 +148,8 @@ export async function handleCartographerRequest(req: IncomingMessage, res: Serve
     }
     const backup = { dir: options.backupDir, project };
     if (url.pathname === "/__cartographer/backups") {
-      reply(res, 200, { ok: true, folder: projectBackupDir(options.backupDir, project), files: listBackups(options.backupDir, project, url.searchParams.get("file") ?? undefined) });
+      // `older`: the flat backups folder from before backups kept history (one copy per file name, any project).
+      reply(res, 200, { ok: true, folder: projectBackupDir(options.backupDir, project), older: existsSync(resolve(options.backupDir, "gbstudio")), files: listBackups(options.backupDir, project, url.searchParams.get("file") ?? undefined) });
       return true;
     }
     if (url.pathname === "/__cartographer/backup") {
@@ -263,6 +264,11 @@ export async function handleCartographerRequest(req: IncomingMessage, res: Serve
     }
     if (url.pathname === "/__cartographer/reveal" && req.method === "POST") {
       const kind = url.searchParams.get("kind");
+      if (url.searchParams.get("backups") === "older" && existsSync(resolve(options.backupDir, "gbstudio"))) {
+        revealInFileManager(resolve(options.backupDir, "gbstudio"), false);
+        reply(res, 200, { ok: true });
+        return true;
+      }
       if (url.searchParams.get("backups") === "1") {
         const folder = projectBackupDir(options.backupDir, project);
         mkdirSync(folder, { recursive: true });

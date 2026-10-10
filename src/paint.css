@@ -528,3 +528,4 @@
 
 /* Thumbnails cut from a preview sheet are canvases: same box as the images they replace. */
 :root .gbp-asset canvas.gbp-asset-thumb { display: block; }
+.gbp-backup-files .gbp-backup-older { order: 99; margin-top: 8px; border: 1px dashed var(--b-edge, var(--line)); }
