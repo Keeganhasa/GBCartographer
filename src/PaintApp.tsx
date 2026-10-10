@@ -23,6 +23,7 @@ import { NewPictureWindow, ResizeWindow, type NewPicture } from "./app/NewPictur
 import { Menu } from "./app/Menu";
 import { StartScreen } from "./app/StartScreen";
 import { ProjectPanel } from "./app/ProjectPanel";
+import { encodeGif } from "./gb/gif";
 
 /** A new picture's id: one above every open one (a counter would restart when the module reloads in development). */
 const newDocId = (docs: readonly { id: number }[]) => docs.reduce((top, item) => Math.max(top, item.id), 0) + 1;
@@ -816,10 +817,15 @@ export default function PaintApp() {
     context.drawImage(small, 0, 0, big.width, big.height);
     const blob = await new Promise<Blob>((resolve, reject) => big.toBlob((made) => made ? resolve(made) : reject(new Error("No PNG")), "image/png"));
     const name = `${target.name.replace(/\.png$/i, "")}${colored ? "" : " greens"}${scale > 1 ? ` ${scale}x` : ""}.png`;
+    if (await saveBlob(blob, name, PNG_TYPES)) say(`Exported ${name} (${big.width} × ${big.height})`);
+  }
+
+  /** Lets the user keep a file: a save dialog where the browser has one, else a download. Resolves true when kept. */
+  async function saveBlob(blob: Blob, name: string, types: object[]): Promise<boolean> {
     try {
       const picker = (window as PickerWindow).showSaveFilePicker;
       if (picker) {
-        const handle = await picker.call(window, { suggestedName: name, types: PNG_TYPES });
+        const handle = await picker.call(window, { suggestedName: name, types });
         const writable = await handle.createWritable();
         await writable.write(blob);
         await writable.close();
@@ -830,9 +836,46 @@ export default function PaintApp() {
         link.click();
         window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
       }
-      say(`Exported ${name} (${big.width} × ${big.height})`);
+      return true;
     } catch (error) {
       if ((error as Error).name !== "AbortError") say(`Could not export ${name}: ${(error as Error).message}`);
+      return false;
+    }
+  }
+
+  /**
+   * The sprite sheet's current animation as a looping GIF, frames put together from their slices as shown here
+   * (palettes, screen look), at GB Studio's speed, enlarged `scale` times with hard pixel edges.
+   */
+  async function exportGif(scale: number) {
+    const sheet = canvasRef.current;
+    if (!doc || !sheet || !frames.length) return;
+    const left = Math.min(0, ...frames.flatMap((item) => item.tiles.map((tile) => tile.x))), top = Math.min(0, ...frames.flatMap((item) => item.tiles.map((tile) => tile.y)));
+    const width = Math.max(16, ...frames.flatMap((item) => item.tiles.map((tile) => tile.x + 8))) - left, height = Math.max(16, ...frames.flatMap((item) => item.tiles.map((tile) => tile.y + 16))) - top;
+    const small = document.createElement("canvas"), big = document.createElement("canvas");
+    Object.assign(small, { width, height });
+    Object.assign(big, { width: width * scale, height: height * scale });
+    const context = small.getContext("2d")!, wide = big.getContext("2d", { willReadFrequently: true })!;
+    wide.imageSmoothingEnabled = false;
+    const images = frames.map((item) => {
+      context.clearRect(0, 0, width, height);
+      for (const tile of item.tiles) {
+        context.save();
+        context.translate(tile.x - left + (tile.flipX ? 8 : 0), tile.y - top + (tile.flipY ? 16 : 0));
+        context.scale(tile.flipX ? -1 : 1, tile.flipY ? -1 : 1);
+        context.drawImage(sheet, tile.sliceX, tile.sliceY, 8, 16, 0, 0, 8, 16);
+        context.restore();
+      }
+      wide.clearRect(0, 0, big.width, big.height);
+      wide.drawImage(small, 0, 0, big.width, big.height);
+      return wide.getImageData(0, 0, big.width, big.height).data;
+    });
+    try {
+      const gif = encodeGif(images, big.width, big.height, Math.max(2, Math.round(100 / fps)));
+      const name = `${doc.name.replace(/\.png$/i, "")}${animations.length > 1 && animation?.name ? ` ${animation.name}` : ""}${scale > 1 ? ` ${scale}x` : ""}.gif`;
+      if (await saveBlob(new Blob([gif], { type: "image/gif" }), name, [{ description: "GIF animation", accept: { "image/gif": [".gif"] } }])) say(`Exported ${name} (${frames.length} frames, ${big.width} × ${big.height})`);
+    } catch (error) {
+      say(`Could not make the GIF: ${(error as Error).message}`);
     }
   }
 
@@ -1677,11 +1720,15 @@ export default function PaintApp() {
         </Menu>
       )}
       {exportMenu && doc && (
-        <Menu x={exportMenu.x} y={exportMenu.y} width={300} height={260} className="gbp-export-menu" onClose={() => setExportMenu(null)}>
+        <Menu x={exportMenu.x} y={exportMenu.y} width={300} height={320} className="gbp-export-menu" onClose={() => setExportMenu(null)}>
           <button role="menuitem" onClick={() => { setExportMenu(null); void save(true); }}>Copy of the file, in the GB greens <kbd>Ctrl+E</kbd></button>
           <hr />
           <span className="gbp-menu-label">Image as shown, in its palettes</span>
           <div className="gbp-menu-row">{[1, 2, 3, 4, 6, 8].map((scale) => <button key={scale} role="menuitem" title={`${doc.width * scale} × ${doc.height * scale} px`} onClick={() => { setExportMenu(null); void exportImage(scale, true); }}>{scale}×</button>)}</div>
+          {frames.length > 1 && <>
+            <span className="gbp-menu-label">Animation as GIF{animations.length > 1 && animation?.name ? ` · ${animation.name}` : ""}</span>
+            <div className="gbp-menu-row">{[1, 2, 4, 6, 8].map((scale) => <button key={scale} role="menuitem" title={`${frames.length} frames at GB Studio's speed`} onClick={() => { setExportMenu(null); void exportGif(scale); }}>{scale}×</button>)}</div>
+          </>}
           <span className="gbp-menu-label">Image in the GB greens</span>
           <div className="gbp-menu-row">{[1, 2, 3, 4, 6, 8].map((scale) => <button key={scale} role="menuitem" title={`${doc.width * scale} × ${doc.height * scale} px`} onClick={() => { setExportMenu(null); void exportImage(scale, false); }}>{scale}×</button>)}</div>
         </Menu>
