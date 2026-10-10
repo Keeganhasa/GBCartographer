@@ -3,7 +3,7 @@
  * priority brushes, the stamp, selections and panning), and the pieces they share. Called once per render with the
  * app's current state; it owns only the state of a drag in progress.
  */
-import { useRef, type PointerEvent, type RefObject } from "react";
+import { useEffect, useRef, type PointerEvent, type RefObject } from "react";
 import { CELL, CLEAR, cellsWide, clipRect, dot, drop, dropCells, ellipsePoints, fillRect, floodFill, lift, liftCells, linePoints, linkGroups, mirrorPoints, onTiles, rectFrom, replaceShade, snapRect, spray, syncLinked, type Floating, type Mirror, type Palette, type Pattern } from "../paint";
 import type { Doc, Drag, Point, ToolId } from "./model";
 
@@ -51,6 +51,8 @@ export function usePainting(app: Painting) {
   const stamp = useRef<(Floating & { palettes: Palette[] }) | null>(null);
   /** During a stroke with linked tiles: the groups, the pixels before the stroke, and after the last step. */
   const linkStroke = useRef<{ link: ReturnType<typeof linkGroups>; base: Uint8Array; previous: Uint8Array } | null>(null);
+  /** Where the pointer last was over the picture, so the brush outline follows size and tool changes ([ and ]) at once. */
+  const hover = useRef<{ clientX: number; clientY: number } | null>(null);
 
   function pointAt(event: { clientX: number; clientY: number }): Point {
     const box = app.wrapRef.current!.getBoundingClientRect();
@@ -143,6 +145,28 @@ export function usePainting(app: Painting) {
     stroke.previous.set(target.pixels);
   }
 
+  /** The brush's footprint under the pointer: pixels, tiles for the palette and priority brushes, or the stamp. */
+  function drawOutline(point: Point) {
+    const outline = app.brushRef.current;
+    if (!doc || !outline) return;
+    if (tool === "stamp") {
+      // The stamp's footprint where it would land.
+      const visible = inside(doc, point) && Boolean(stamp.current);
+      Object.assign(outline.style, { display: visible ? "block" : "none", left: `${(point.x & ~7) * doc.zoom}px`, top: `${(point.y & ~7) * doc.zoom}px`, width: `${(stamp.current?.w ?? CELL) * doc.zoom}px`, height: `${(stamp.current?.h ?? CELL) * doc.zoom}px` });
+    } else {
+      const cells = tool === "palette" || tool === "priority", tall = tool === "palette" && doc.keyGreen;
+      const cellH = tall ? 2 * CELL : CELL, cellOffset = Math.floor((cellBrush - 1) / 2);
+      const size = cells ? CELL * cellBrush : brush, offset = cells ? 0 : Math.floor((brush - 1) / 2);
+      const [x, y] = cells ? [(point.x & ~7) - cellOffset * CELL, (tall ? point.y & ~15 : point.y & ~7) - cellOffset * cellH] : [point.x - offset, point.y - offset];
+      const visible = inside(doc, point) && tool !== "hand" && tool !== "select" && tool !== "move";
+      Object.assign(outline.style, { display: visible ? "block" : "none", left: `${x * doc.zoom}px`, top: `${y * doc.zoom}px`, width: `${size * doc.zoom}px`, height: `${(cells ? cellH * cellBrush : size) * doc.zoom}px` });
+    }
+  }
+
+  useEffect(() => {
+    if (hover.current && doc && app.wrapRef.current) drawOutline(pointAt(hover.current));
+  });
+
   function pointerDown(event: PointerEvent) {
     if (!doc || event.button === 1) return;
     const scroller = app.scrollerRef.current!;
@@ -229,21 +253,8 @@ export function usePainting(app: Painting) {
     if (!doc) return;
     const point = pointAt(event);
     if (app.readoutRef.current) app.readoutRef.current.textContent = inside(doc, point) ? `${point.x}, ${point.y} · tile ${point.x >> 3}, ${point.y >> 3}` : "";
-    const outline = app.brushRef.current;
-    if (outline) {
-      if (tool === "stamp") {
-        // The stamp's footprint where it would land.
-        const visible = inside(doc, point) && Boolean(stamp.current);
-        Object.assign(outline.style, { display: visible ? "block" : "none", left: `${(point.x & ~7) * doc.zoom}px`, top: `${(point.y & ~7) * doc.zoom}px`, width: `${(stamp.current?.w ?? CELL) * doc.zoom}px`, height: `${(stamp.current?.h ?? CELL) * doc.zoom}px` });
-      } else {
-        const cells = tool === "palette" || tool === "priority", tall = tool === "palette" && doc.keyGreen;
-        const cellH = tall ? 2 * CELL : CELL, cellOffset = Math.floor((cellBrush - 1) / 2);
-        const size = cells ? CELL * cellBrush : brush, offset = cells ? 0 : Math.floor((brush - 1) / 2);
-        const [x, y] = cells ? [(point.x & ~7) - cellOffset * CELL, (tall ? point.y & ~15 : point.y & ~7) - cellOffset * cellH] : [point.x - offset, point.y - offset];
-        const visible = inside(doc, point) && tool !== "hand" && tool !== "select" && tool !== "move";
-        Object.assign(outline.style, { display: visible ? "block" : "none", left: `${x * doc.zoom}px`, top: `${y * doc.zoom}px`, width: `${size * doc.zoom}px`, height: `${(cells ? cellH * cellBrush : size) * doc.zoom}px` });
-      }
-    }
+    hover.current = { clientX: event.clientX, clientY: event.clientY };
+    drawOutline(point);
     if (app.seamless && inside(doc, point) && (app.hoverCell?.x !== point.x >> 3 || app.hoverCell?.y !== point.y >> 3)) app.setHoverCell({ x: point.x >> 3, y: point.y >> 3 });
     const state = drag.current;
     if (!state) return;
