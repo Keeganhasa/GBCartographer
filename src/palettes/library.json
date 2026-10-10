@@ -2,6 +2,7 @@
  "collections": [
   {
    "name": "Game Boy",
+   "about": "The Game Boy screens' own shades, and GB Studio's greens.",
    "palettes": [
     {
      "name": "GB greens",
@@ -61,6 +62,9 @@
   },
   {
    "name": "Chorbi",
+   "about": "The author's own palettes, set by set, many with day, sunset and night versions.",
+   "author": "Keegan (Chorbi)",
+   "license": "CC0",
    "palettes": [
     {
      "name": "0-GBStudioDMG",
@@ -2109,6 +2113,9 @@
   },
   {
    "name": "Overworld",
+   "about": "One palette per terrain for overworld maps: grass, forest, mountain, water, shore, road, town.",
+   "author": "Keegan",
+   "license": "CC0",
    "palettes": [
     {
      "name": "OW-1-Grass",
@@ -2171,6 +2178,226 @@
       "#F6E8CE",
       "#C9524C",
       "#301850"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "SpicyGame GB",
+   "shelf": "SpicyGame",
+   "about": "Two ready-made four-color Game Boy palettes and a two-tone one.",
+   "author": "SpicyGame",
+   "license": "Public domain",
+   "source": "https://spicygame.itch.io/palettes",
+   "palettes": [
+    {
+     "name": "SG-Campfire GB",
+     "colors": [
+      "#D9FFD3",
+      "#C3DCE5",
+      "#DE804D",
+      "#B33131"
+     ]
+    },
+    {
+     "name": "SG-Winter Forest GB",
+     "colors": [
+      "#EEFFFF",
+      "#55BBDD",
+      "#007744",
+      "#332200"
+     ]
+    },
+    {
+     "name": "SG-1-Bit Chill",
+     "colors": [
+      "#C3DCE5",
+      "#C3DCE5",
+      "#110C22",
+      "#110C22"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Vibrant-14 (SpicyGame)",
+   "shelf": "SpicyGame",
+   "about": "A bright 14-color palette, grouped by Claude into scene palettes.",
+   "author": "SpicyGame",
+   "license": "Public domain",
+   "source": "https://spicygame.itch.io/palettes",
+   "palettes": [
+    {
+     "name": "V14-1-Warm",
+     "colors": [
+      "#FFEEE5",
+      "#F77622",
+      "#DA2424",
+      "#1C162D"
+     ]
+    },
+    {
+     "name": "V14-2-Fire",
+     "colors": [
+      "#FEE761",
+      "#ECAB11",
+      "#F77622",
+      "#841252"
+     ]
+    },
+    {
+     "name": "V14-3-Foliage",
+     "colors": [
+      "#07E5A0",
+      "#43BD35",
+      "#124E89",
+      "#1C162D"
+     ]
+    },
+    {
+     "name": "V14-4-Water",
+     "colors": [
+      "#FFEEE5",
+      "#0099DB",
+      "#124E89",
+      "#1C162D"
+     ]
+    },
+    {
+     "name": "V14-5-Stone",
+     "colors": [
+      "#FFEEE5",
+      "#5A7088",
+      "#3E4A6D",
+      "#1C162D"
+     ]
+    },
+    {
+     "name": "V14-6-Berry",
+     "colors": [
+      "#FFEEE5",
+      "#DA2424",
+      "#841252",
+      "#3D083B"
+     ]
+    },
+    {
+     "name": "V14-7-Gold",
+     "colors": [
+      "#FFEEE5",
+      "#FEE761",
+      "#ECAB11",
+      "#3D083B"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "VIBE-20 (SpicyGame)",
+   "shelf": "SpicyGame",
+   "about": "A 20-color palette, grouped by Claude into eight scene palettes (VIBE-21 differs only in two purples).",
+   "author": "SpicyGame",
+   "license": "Public domain",
+   "source": "https://spicygame.itch.io/palettes",
+   "palettes": [
+    {
+     "name": "V20-1-Skin",
+     "colors": [
+      "#FFEEE5",
+      "#FFD09C",
+      "#B94F38",
+      "#84240F"
+     ]
+    },
+    {
+     "name": "V20-2-Fire",
+     "colors": [
+      "#FEE761",
+      "#F77622",
+      "#DA2424",
+      "#1C162D"
+     ]
+    },
+    {
+     "name": "V20-3-Foliage",
+     "colors": [
+      "#A7FF19",
+      "#43BD35",
+      "#007A49",
+      "#1C162D"
+     ]
+    },
+    {
+     "name": "V20-4-Water",
+     "colors": [
+      "#FFEEE5",
+      "#07E5A0",
+      "#0099DB",
+      "#124E89"
+     ]
+    },
+    {
+     "name": "V20-5-Stone",
+     "colors": [
+      "#FFEEE5",
+      "#96A3B0",
+      "#5A7088",
+      "#3E4A6D"
+     ]
+    },
+    {
+     "name": "V20-6-Rose",
+     "colors": [
+      "#FFEEE5",
+      "#FF7373",
+      "#DA2424",
+      "#660B61"
+     ]
+    },
+    {
+     "name": "V20-7-Wood",
+     "colors": [
+      "#FFD09C",
+      "#B94F38",
+      "#84240F",
+      "#1C162D"
+     ]
+    },
+    {
+     "name": "V20-8-UI",
+     "colors": [
+      "#FFEEE5",
+      "#FEE761",
+      "#3E4A6D",
+      "#1C162D"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "CMYK Printer (SpicyGame)",
+   "shelf": "SpicyGame",
+   "about": "Print inks: white, yellow, cyan, magenta and black, as two palettes.",
+   "author": "SpicyGame",
+   "license": "Public domain",
+   "source": "https://spicygame.itch.io/palettes",
+   "palettes": [
+    {
+     "name": "CMYK-1-Cyan",
+     "colors": [
+      "#FFFFFF",
+      "#FFF200",
+      "#00DDFF",
+      "#000000"
+     ]
+    },
+    {
+     "name": "CMYK-2-Magenta",
+     "colors": [
+      "#FFFFFF",
+      "#FFF200",
+      "#E500FF",
+      "#000000"
      ]
     }
    ]

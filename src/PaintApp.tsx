@@ -4,7 +4,7 @@
  * A tint only changes how the plain tiles look while painting. Saving writes one flat PNG, and for a project
  * picture also its tile palettes (see server/endpoints.ts).
  */
-import { Mountain, Pickaxe, ChevronDown, Clock, Copy, ImagePlus, FolderArchive, FolderSearch, FolderX, Gamepad2, History, Info, MessageSquare, RotateCcw, FilePlus, FolderOpen, FolderTree, Grid3x3, Magnet, Map as MapIcon, Minus, SwatchBook, Plus, Redo2, Rocket, Save, Undo2, X } from "lucide-react";
+import { Mountain, Pickaxe, Store as StoreIcon, ChevronDown, Clock, Copy, ImagePlus, FolderArchive, FolderSearch, FolderX, Gamepad2, History, Info, MessageSquare, RotateCcw, FilePlus, FolderOpen, FolderTree, Grid3x3, Magnet, Map as MapIcon, Minus, SwatchBook, Plus, Redo2, Rocket, Save, Undo2, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { LogoMark } from "./ui/LogoMark";
@@ -30,6 +30,7 @@ import { CheckupWizard } from "./app/CheckupWizard";
 import { NewBackgroundWizard, type NewBackground } from "./app/NewBackgroundWizard";
 import { PaletteSetWizard } from "./app/PaletteSetWizard";
 import { GeneratorWizard, type GeneratorMode } from "./app/GeneratorWizard";
+import { StoreWindow } from "./app/StoreWindow";
 import type { Generated } from "./app/generators";
 import type { FitResult } from "./app/pictureFit";
 
@@ -98,6 +99,7 @@ export default function PaintApp() {
   /** Whether the page is served by something that can open a project (the dev server or the desktop app). */
   const [served, setServed] = useState(false);
   const [showPalettes, setShowPalettes] = useState(false);
+  const [showStore, setShowStore] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const [showHealth, setShowHealth] = useState(false);
@@ -1871,6 +1873,7 @@ export default function PaintApp() {
           {served && !project && <Button icon={<FolderTree />} title="Open a GB Studio project folder" onClick={() => void chooseProject()}>Open project…</Button>}
           {project && <Button icon={<MapIcon />} title="Map Room: adventure-style grids of screens, each a background" onClick={() => setShowMapRoom(true)}>Maps</Button>}
           <Button icon={<SwatchBook />} title="Palette manager: the project's palettes, a library, and your own" onClick={() => setShowPalettes(true)}>Palettes</Button>
+          <Button icon={<StoreIcon />} title="Store: credited palette sets to take into your project, a set or a palette at a time" onClick={() => setShowStore(true)}>Store</Button>
           <Menu items={wizardItems} trigger={<Button icon={<PxRobotHappy size={15} />} title="Wizards: step-by-step helpers">Wizards</Button>} />
         </span>
         <IconButton label="Undo" keys="Ctrl+Z" disabled={!doc?.undo.length} onClick={() => stepHistory("undo")}><Undo2 /></IconButton>
@@ -2017,6 +2020,11 @@ export default function PaintApp() {
         <PaletteSetWizard projectName={project.name} slotsWhere={setSlotsAsset()?.where ?? null}
           picture={doc ? { name: doc.name, width: doc.width, height: doc.height, rgba: (() => { const flat = doc.pixels.slice(); if (doc.float) drop(flat, doc.width, doc.height, doc.float); return toRgba(flat, doc.cells, doc.width, doc.palettes); })() } : null}
           onClose={() => setWizard(null)} onAddToProject={addPaletteSet} onAddToMine={(list) => { addToMine(list); say(`Added ${list.length} palettes to Mine (the palette manager).`); }} />
+      )}
+      {showStore && (
+        <StoreWindow projectName={project?.name ?? null} projectPalettes={project?.palettes ?? []} onClose={() => setShowStore(false)}
+          onAddToProject={async (list) => { const written = await addPalettes(list); if (written) say(`Added ${written} palette${written === 1 ? "" : "s"} to the project.`); return written; }}
+          onAddToMine={(list) => { addToMine(list); say(`${list.length} palette${list.length === 1 ? "" : "s"} kept in Mine.`); }} />
       )}
       {(wizard === "cave" || wizard === "world") && (
         <GeneratorWizard mode={wizard} projectName={project?.name ?? null} limit={budget.limit} onClose={() => setWizard(null)}

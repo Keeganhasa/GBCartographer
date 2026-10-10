@@ -34,6 +34,11 @@ palettes straight back into the project.
   sets) and your own, with a live preview of the open picture; add palettes to the project or edit its own, and
   see which scenes use each one (unused and duplicate palettes are marked, and an unused one can be taken out);
   import palettes from Lospec `.hex` or GIMP `.gpl` files and export your own as JSON.
+- **A store.** Credited palette sets to take into a project, a whole set or one palette at a time: the author's
+  Chorbi and Overworld sets (CC0), Game Boy screens, and SpicyGame's public-domain palettes.
+- **Wizards and generators.** A picture to a background, day/sunset/night palettes, a palette set from Lospec or a
+  picture, a tile budget fixer, a project check-up, and live cave/dungeon and overworld generators in placeholder
+  art to paint over.
 - **Palettes edited in place.** Click a shade square again to change that color; Save writes the recolored
   palette back into the project, and undo brings old colors back.
 - **The usual tools.** Pencil, eraser, spray, line, rectangle, ellipse, fill (Alt-click replaces a shade
@@ -165,7 +170,7 @@ npm run build
 
 Code: MIT (see LICENSE). The logo is the author's pixel art, CC0. [Public Pixel](https://ggbot.itch.io/public-pixel-font)
 by GGBotNet (CC0, shipped in `public/fonts/`) is an optional UI font. Inter by Rasmus Andersson and the Inter Project Authors, and JetBrains Mono by JetBrains, ship with the app (SIL Open Font License 1.1, licences in `public/fonts/`).
-The demo project's art is credited in [demo/CREDITS.md](demo/CREDITS.md). The main screenshot and the font and wide-background screenshots show GB
+Bundled palettes: the author's own (CC0) and [SpicyGame's](https://spicygame.itch.io/palettes) (public domain), grouped into Game Boy palettes. The demo project's art is credited in [demo/CREDITS.md](demo/CREDITS.md). The main screenshot and the font and wide-background screenshots show GB
 Studio's sample project (`appData/templates/gbs2` in the [GB Studio repository](https://github.com/chrismaltby/gb-studio)),
 Copyright (c) 2019-2026 Chris Maltby, used under the MIT license. GB Studio is by Chris Maltby and
 contributors; GB Cartographer is not affiliated with it.

@@ -1,0 +1,22 @@
+/* The store: shelves on the left, the shelf's sets as cards. */
+.st { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: var(--k-4); height: 100%; min-height: 0; }
+.st-shelves { overflow: auto; }
+.st-search { position: relative; display: flex; align-items: center; margin-bottom: var(--k-2); }
+.st-search svg { position: absolute; left: 10px; color: var(--k-ink-3); pointer-events: none; }
+.st-search .k-input { width: 100%; padding-left: 30px; }
+.st-shelf { width: 100%; }
+.st-body { overflow: auto; min-height: 0; padding-right: 4px; display: flex; flex-direction: column; gap: var(--k-5); }
+.st-head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--k-2); }
+.st-title { font-weight: 650; font-size: var(--k-text-md); color: var(--k-ink); }
+.st-source { display: inline-flex; align-items: center; gap: 4px; color: var(--k-acc); text-decoration: none; }
+.st-source:hover { text-decoration: underline; }
+.st-about { margin: 0; }
+.st-sets { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--k-3); align-items: start; }
+.st-set { display: flex; flex-direction: column; gap: var(--k-2); padding: var(--k-3); }
+.st-set-top { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 0; color: inherit; background: none; border: 0; text-align: left; cursor: pointer; }
+.st-set-name { font-weight: 600; color: var(--k-ink); }
+.st-swatches { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 4px; }
+.st-palettes { max-height: 220px; overflow: auto; }
+.st-palette { cursor: default; }
+.st-added { color: var(--k-acc); flex: none; margin-right: 6px; }
+.st-actions { margin-top: 2px; }
