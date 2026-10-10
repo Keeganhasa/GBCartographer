@@ -4,7 +4,7 @@
  * A tint only changes how the plain tiles look while painting. Saving writes one flat PNG, and for a project
  * picture also its tile palettes (see server/endpoints.ts).
  */
-import { ChevronDown, CircleHelp, Download, FilePlus, FolderOpen, FolderTree, Grid3x3, Magnet, Map as MapIcon, Minus, Palette as PaletteIcon, Plus, Redo2, Save, ScanSearch, Tv, Undo2, Video, X } from "lucide-react";
+import { ChevronDown, CircleHelp, Clock, FolderArchive, FolderSearch, FolderX, Gamepad2, HeartPulse, History, Info, MessageSquare, RotateCcw, Download, FilePlus, FolderOpen, FolderTree, Grid3x3, Magnet, Map as MapIcon, Minus, Palette as PaletteIcon, Plus, Redo2, Save, ScanSearch, Tv, Undo2, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { LogoMark } from "./ui/LogoMark";
@@ -62,10 +62,6 @@ export default function PaintApp() {
   const [linked, setLinked] = useState(false);
   /** Seamless view: the tile under the pointer (or the selection) repeated 3 × 3 above the picture. */
   const [seamless, setSeamless] = useState(false);
-  /** Camera walk: a 160 × 144 screen dragged over the picture (null: off). */
-  const [camera, setCamera] = useState<{ x: number; y: number } | null>(null);
-  const cameraCanvas = useRef<HTMLCanvasElement>(null);
-  const cameraDrag = useRef<{ dx: number; dy: number } | null>(null);
   const [hoverCell, setHoverCell] = useState<{ x: number; y: number } | null>(null);
   const seamlessCanvas = useRef<HTMLCanvasElement>(null);
   /** The fill pattern for Flood fill and Filled rectangle (D cycles it). */
@@ -1363,26 +1359,6 @@ export default function PaintApp() {
     });
   });
 
-  // The camera's view, copied from the picture as just drawn.
-  useLayoutEffect(() => {
-    const target = cameraCanvas.current, sheet = canvasRef.current;
-    if (!target || !sheet || !camera || !doc) return;
-    Object.assign(target, { width: 160, height: 144 });
-    const context = target.getContext("2d")!;
-    context.fillStyle = "#000";
-    context.fillRect(0, 0, 160, 144);
-    // Parallax (GB Studio): layers from the top of the screen, n tile rows each, scroll at camera x / 2^speed
-    // (speed 128 stays put); the last layer reaches the bottom of the screen; rows below the layers scroll normally.
-    const layers = doc.asset?.parallax ?? [];
-    let row = 0;
-    layers.forEach((layer, index) => {
-      const last = index === layers.length - 1, rows = last ? 18 - row : Math.min(layer.height, 18 - row);
-      const x = layer.speed === 128 ? 0 : camera.x >> layer.speed;
-      context.drawImage(sheet, x, camera.y + row * 8, 160, rows * 8, 0, row * 8, 160, rows * 8);
-      row += rows;
-    });
-    if (row < 18) context.drawImage(sheet, camera.x, camera.y + row * 8, 160, 144 - row * 8, 0, row * 8, 160, 144 - row * 8);
-  });
 
   // The seamless view copies the picture as just drawn, so it runs after the drawing above.
   useLayoutEffect(() => {
@@ -1416,6 +1392,17 @@ export default function PaintApp() {
   const slotWhere = doc?.asset?.slotScene ? `${doc.asset.slotScene}'s palettes` : doc?.asset?.kind === "sprites" ? "the project's default sprite palettes (every scene without its own)" : "the project's default background palettes (every scene without its own)";
   const pickPalette = (index: number) => { setActivePalette(index); if (index && tool !== "palette") setTool("palette"); };
 
+  // No project and nothing open: the start screen on its own, like a splash window, with no tools behind it.
+  if (served && !project && !docs.current.length) {
+    return (
+      <div className="gbp-shell gbp-splash" onDragOver={(event) => event.preventDefault()} onDrop={(event) => void onDrop(event)}>
+        <StartScreen recent={recent} onChooseProject={() => void chooseProject()} onDemo={() => void chooseProject(true)} onOpenFiles={() => void pickFiles()} onOpenRecent={(path) => void openProjectPath(path)} onAbout={() => setShowAbout(true)} />
+        {toast && <div className="gbp-toast" role="status">{toast}</div>}
+        {showAbout && <AboutWindow onClose={() => setShowAbout(false)} />}
+      </div>
+    );
+  }
+
   return (
     <div className="gbp-shell" onDragOver={(event) => event.preventDefault()} onDrop={(event) => void onDrop(event)}>
       <header className="gbp-bar">
@@ -1426,22 +1413,14 @@ export default function PaintApp() {
           <button className="quiet-button" disabled={!doc} title={`Save every changed picture · Ctrl+S${doc?.asset ? ` (this one over ${doc.asset.file} in the project; old files go to the backups folder)` : doc?.handle ? ` (this one over ${doc.name})` : " (this one asks where)"}`} onClick={() => void save(false)}><Save size={14} />Save</button>
           <button className="quiet-button" disabled={!doc} aria-haspopup="menu" title="Export a copy in the GB greens (Ctrl+E), or an image to share: as shown, scaled up" onClick={(event) => { const r = event.currentTarget.getBoundingClientRect(); setExportMenu({ x: r.left, y: r.bottom + 6 }); }}><Download size={14} />Export</button>
         </span>
-        <span className="gbp-seg" role="group" aria-label="Project and palettes">
-          {project && <button className={`quiet-button ${showProject ? "active-tool" : ""}`} aria-pressed={showProject} title={`Show or hide the project's pictures (${project.path})`} onClick={() => setShowProject(!showProject)}><FolderTree size={14} />Project</button>}
+        <span className="gbp-seg" role="group" aria-label="Maps and palettes">
           {served && !project && <button className="quiet-button" title="Open a GB Studio project folder: its backgrounds, sprites, tilesets and fonts open here and save back into it" onClick={() => void chooseProject()}><FolderTree size={14} />Open project…</button>}
-          <button className="quiet-button" title="Palette manager: the project's palettes, a library, and your own" onClick={() => setShowPalettes(true)}><PaletteIcon size={14} />Palettes</button>
           {project && <button className="quiet-button" title="Map Room: grids of screens (Zelda-style), each a background; new screens take their neighbours' edges" onClick={() => setShowMapRoom(true)}><MapIcon size={14} />Maps</button>}
+          <button className="quiet-button" title="Palette manager: the project's palettes, a library, and your own" onClick={() => setShowPalettes(true)}><PaletteIcon size={14} />Palettes</button>
         </span>
         <button className="icon-button" aria-label="Undo" title="Undo · Ctrl+Z" disabled={!doc?.undo.length} onClick={() => stepHistory("undo")}><Undo2 size={15} /></button>
         <button className="icon-button" aria-label="Redo" title="Redo · Ctrl+Shift+Z" disabled={!doc?.redo.length} onClick={() => stepHistory("redo")}><Redo2 size={15} /></button>
         <span className="gbp-spacer" />
-        {doc && (
-          <label className={`gbp-tiles ${tileCount > budget.limit ? "over" : ""}`} title={`Unique 8 × 8 tiles in this picture, as GB Studio counts them (${budget.flips ? "identical and flipped tiles merge" : "identical tiles merge"}). The budget follows the scene's color mode (Picture tab).`}>
-            <span>TILES</span>
-            <span className="gbp-tiles-track" aria-hidden="true"><b style={{ width: `${Math.min(1, tileCount / budget.limit) * 100}%` }} /></span>
-            <span className="gbp-tiles-count">{tileCount}/{budget.limit}</span>
-          </label>
-        )}
         <span className="gbp-seg gbp-zoom" role="group" aria-label="Zoom">
           <button className="icon-button small" aria-label="Zoom out" disabled={!doc} onClick={() => zoomBy(-1)}><Minus size={12} /></button>
           <b>{doc ? `${doc.zoom * 100}%` : "–"}</b>
@@ -1449,7 +1428,6 @@ export default function PaintApp() {
         </span>
         <button className={`icon-button ${grid ? "active-tool" : ""}`} aria-label="Tile grid" title={`Tile grid: ${grid ? `${grid} px` : "off"} (click for off / 8 px / 16 px)`} onClick={() => setGrid(grid === 0 ? 8 : grid === 8 ? 16 : 0)}><Grid3x3 size={15} />{grid > 0 && <small>{grid}</small>}</button>
         <button className={`icon-button ${budgetView ? "active-tool" : ""}`} aria-label="Tile budget view" aria-pressed={budgetView} title="Tile budget view: red tiles are used only once; amber ones nearly match another tile (Picture tab can merge them)" onClick={() => setBudgetView(!budgetView)}><ScanSearch size={15} /></button>
-        <button className={`icon-button ${camera ? "active-tool" : ""}`} aria-label="Camera walk" aria-pressed={Boolean(camera)} title="Camera walk: drag a 160 × 144 screen across the picture and see what the player sees" onClick={() => setCamera(camera ? null : { x: 0, y: 0 })}><Video size={15} /></button>
         <button className={`icon-button ${screens ? "active-tool" : ""}`} aria-label="Game Boy screens" aria-pressed={screens} title="Game Boy screens: outline every 160 × 144 area (one screen) on the picture" onClick={() => { setScreens(!screens); store(SCREENS_KEY, !screens); }}><Tv size={15} /></button>
         <button className={`icon-button ${snap ? "active-tool" : ""}`} aria-label="Snap selections to tiles" aria-pressed={snap} title="Snap selections and moves to 8 px tiles" onClick={() => setSnap(!snap)}><Magnet size={15} /></button>
         <button className={`icon-button ${showHelp ? "active-tool" : ""}`} aria-label="Help" title="Tools, keys and what Save writes · ?" onClick={() => setShowHelp(!showHelp)}><CircleHelp size={15} /></button>
@@ -1464,11 +1442,12 @@ export default function PaintApp() {
         <button className="map-tab-add" aria-label="Open PNG files" title="Open PNG files" onClick={() => void pickFiles()}>+</button>
       </div>
       <div className="gbp-body">
-        {project && showProject && (
+        {project && (
           <ProjectPanel
             project={project}
             kind={projectKind}
-            onKind={setProjectKind}
+            open={showProject}
+            onKind={(kind) => { if (kind === projectKind) setShowProject(!showProject); else { setProjectKind(kind); setShowProject(true); } }}
             slotsVersion={slotsVersion}
             stateOf={(asset) => { const open = docs.current.find((item) => item.asset?.kind === asset.kind && item.asset.file === asset.file); return { open: Boolean(open), active: Boolean(open && open.id === activeId), dirty: Boolean(open?.dirty) }; }}
             onOpen={(asset) => void openAsset(asset)}
@@ -1484,12 +1463,6 @@ export default function PaintApp() {
               <span className="gbp-spacer" />
               <button className="quiet-button primary" onClick={() => { if (window.confirm(`Reload ${doc.name} from disk? Your unsaved changes here are lost.`)) { const target = doc; target.changedOnDisk = undefined; if (target.asset) void reloadAsset(target); else if (target.handle) void target.handle.getFile().then((file) => openFiles([{ file, handle: target.handle, replace: target.id }])); } }}>Reload from disk</button>
               <button className="quiet-button" title="Keep painting; Save will ask before replacing the file on disk" onClick={() => { doc.changedOnDisk = { ...doc.changedOnDisk!, kept: true }; bump(); }}>Keep mine</button>
-            </div>
-          )}
-          {doc && camera && (
-            <div className="gbp-frames gbp-seamless gbp-camera-strip" role="group" aria-label="Camera view">
-              <span className="gbp-frames-label">camera at {camera.x}, {camera.y} · tile {camera.x >> 3}, {camera.y >> 3} · drag its handle on the picture (Shift snaps to tiles){doc.asset?.parallax?.length ? ` · parallax: ${doc.asset.parallax.map((layer) => layer.speed === 128 ? "fixed" : layer.speed === 0 ? "1" : `1/${2 ** layer.speed}`).join(", ")}` : ""}</span>
-              <canvas ref={cameraCanvas} style={{ width: 320, height: 288 }} />
             </div>
           )}
           {doc && seamless && (
@@ -1511,33 +1484,21 @@ export default function PaintApp() {
                 {gridLines && <div className="gbp-grid" style={{ backgroundSize: `${gridLines} ${gridLines}` }} />}
                 {budgetView && <canvas ref={usageCanvas} className="gbp-usage" />}
                 {tool === "priority" && doc.priority && <canvas ref={priorityCanvas} className="gbp-usage gbp-priority" />}
-                {camera && (
-                  <div className="gbp-camera" style={{ left: camera.x * doc.zoom, top: camera.y * doc.zoom, width: 160 * doc.zoom, height: 144 * doc.zoom }}>
-                    <span className="gbp-camera-handle" title="Drag to move the camera (Shift snaps to tiles)"
-                      onPointerDown={(event) => { event.stopPropagation(); event.currentTarget.setPointerCapture(event.pointerId); const box = wrapRef.current!.getBoundingClientRect(); cameraDrag.current = { dx: (event.clientX - box.left) / doc.zoom - camera.x, dy: (event.clientY - box.top) / doc.zoom - camera.y }; }}
-                      onPointerMove={(event) => {
-                        if (!cameraDrag.current) return;
-                        event.stopPropagation();
-                        const box = wrapRef.current!.getBoundingClientRect();
-                        let x = Math.round((event.clientX - box.left) / doc.zoom - cameraDrag.current.dx), y = Math.round((event.clientY - box.top) / doc.zoom - cameraDrag.current.dy);
-                        if (event.shiftKey) { x = Math.round(x / 8) * 8; y = Math.round(y / 8) * 8; }
-                        setCamera({ x: Math.max(0, Math.min(Math.max(0, doc.width - 160), x)), y: Math.max(0, Math.min(Math.max(0, doc.height - 144), y)) });
-                      }}
-                      onPointerUp={(event) => { event.stopPropagation(); cameraDrag.current = null; }}>camera ⠿</span>
-                  </div>
-                )}
                 {screens && <div className="gbp-screens" style={{ backgroundSize: `${160 * doc.zoom}px ${144 * doc.zoom}px` }} />}
                 {current && current.tiles.map((tile, index) => <div key={index} className="gbp-frame-slice" style={{ left: tile.sliceX * doc.zoom, top: tile.sliceY * doc.zoom, width: 8 * doc.zoom, height: 16 * doc.zoom }} />)}
                 {doc.sel && <div className={`gbp-selection ${doc.float ? "floating" : ""}`} style={{ left: doc.sel.x * doc.zoom, top: doc.sel.y * doc.zoom, width: doc.sel.w * doc.zoom, height: doc.sel.h * doc.zoom }} />}
                 <div className="gbp-brush-outline" ref={brushRef} />
               </div>
             </div>
-          ) : served && !project ? (
-            <StartScreen recent={recent} onChooseProject={() => void chooseProject()} onDemo={() => void chooseProject(true)} onOpenFiles={() => void pickFiles()} onOpenRecent={(path) => void openProjectPath(path)} />
+          ) : project ? (
+            <div className="gbp-empty">
+              <LogoMark size={56} />
+              <p>Pick a picture of {project.name} on the left.</p>
+            </div>
           ) : (
             <div className="gbp-empty">
               <LogoMark size={56} />
-              <p>{project ? `Pick a picture of ${project.name} on the left, drop PNG files here, or` : "Drop PNG files here, or"}</p>
+              <p>Drop PNG files here, or</p>
               <button className="quiet-button" onClick={() => void pickFiles()}><FolderOpen size={14} />Open PNG files</button>
             </div>
           )}
@@ -1562,7 +1523,7 @@ export default function PaintApp() {
             <PalettesPane doc={doc} palettes={docPalettes} sceneSlots={sceneSlots} slotPalettes={slotPalettes} slotWhere={slotWhere} activePalette={activePalette} onPick={pickPalette}
               namedSlots={namedSlots} onNamedSlots={(on) => { setNamedSlots(on); store(NAMED_SLOTS_KEY, on); }} filter={paletteFilter} onFilter={setPaletteFilter} onSlotMenu={(x, y, palette) => setSlotMenu({ x, y, palette })}
               libraryColors={libraryColors} onSaveToProject={project && picked?.id ? () => void (async () => { if (await okToWriteProjectJson() && await writeProjectPalette({ id: picked.id!, name: picked.name, colors: [...picked.colors] })) say(`${picked.name} written to the project`); })() : undefined}
-              onRecolor={recolorPalette} copiedColors={copiedColors} onCopy={(colors) => { setCopiedColors(colors); say(`Copied the colors of ${picked?.name}`); }} />
+              onRecolor={recolorPalette} say={say} copiedColors={copiedColors} onCopy={(colors) => { setCopiedColors(colors); say(`Copied the colors of ${picked?.name}`); }} />
           ) : (
             <PicturePane doc={doc} tileCount={tileCount} budget={budget} onBudget={setBudgetId} look={look} onLook={(next) => { setLook(next); store(LOOK_KEY, next); }}
               tint={tint} onTint={setTint} paletteNames={palettes.map(({ name }) => name)} customTint={customTint} onCustomTint={setCustomTint} font={font} onFont={(next) => { setFont(next); applyFont(next); }}
@@ -1578,28 +1539,36 @@ export default function PaintApp() {
         {look !== "plain" && <button className="gbp-look-tag" title="The picture shows like a real screen (Picture tab → Screen); the file is unchanged. Click for plain." onClick={() => { setLook("plain"); store(LOOK_KEY, "plain"); }}>{look === "dmg" ? "Game Boy screen" : look === "pocket" ? "Pocket screen" : "GBC screen"} ×</button>}
         {doc?.sel && <span>sel {doc.sel.w} × {doc.sel.h} at {doc.sel.x}, {doc.sel.y}</span>}
         {doc && <span title={doc.asset ? `assets/${doc.asset.kind}/${doc.asset.file}` : doc.name}>{doc.width} × {doc.height} · {doc.width / CELL} × {doc.height / CELL} tiles</span>}
+        {doc && (
+          <button className={`gbp-tiles ${tileCount > budget.limit ? "over" : ""}`} title={`Unique 8 × 8 tiles in this picture, as GB Studio counts them (${budget.flips ? "identical and flipped tiles merge" : "identical tiles merge"}). The budget follows the scene's color mode. Click for ${project ? "the project's health report" : "the Picture tab"}.`} onClick={() => { if (project) setShowHealth(true); else setSideTab("picture"); }}>
+            <span>TILES</span>
+            <span className="gbp-tiles-track" aria-hidden="true"><b style={{ width: `${Math.min(1, tileCount / budget.limit) * 100}%` }} /></span>
+            <span className="gbp-tiles-count">{tileCount}/{budget.limit}</span>
+          </button>
+        )}
       </footer>
       {toast && <div className="gbp-toast" role="status">{toast}</div>}
       {projectMenu && (
-        <Menu x={projectMenu.x} y={projectMenu.y} width={260} height={300} onClose={() => setProjectMenu(null)}>
-            <button role="menuitem" onClick={() => { setProjectMenu(null); void chooseProject(); }}>Open another project…</button>
-            <button role="menuitem" onClick={() => { setProjectMenu(null); void chooseProject(true); }}>Open the demo project</button>
-            {project && /[\\/]demo-project$/.test(project.path) && <button role="menuitem" title="Your painted copy goes to the backups folder; a fresh copy of the demo opens" onClick={() => { setProjectMenu(null); void chooseProject(true, true); }}>Reset the demo project…</button>}
-            {recent.filter((item) => item.path !== project?.path).length > 0 && <><hr /><span className="gbp-menu-label">Recent</span></>}
-            {recent.filter((item) => item.path !== project?.path).slice(0, 5).map((item) => <button key={item.path} role="menuitem" title={item.path} onClick={() => { setProjectMenu(null); void openProjectPath(item.path); }}>{item.name}</button>)}
+        <Menu x={projectMenu.x} y={projectMenu.y} width={270} height={420} className="gbp-icon-menu" onClose={() => setProjectMenu(null)}>
+            <button role="menuitem" onClick={() => { setProjectMenu(null); void chooseProject(); }}><FolderOpen size={14} />Open another project…</button>
+            <button role="menuitem" onClick={() => { setProjectMenu(null); void chooseProject(true); }}><Gamepad2 size={14} />Open the demo project</button>
+            {project && /[\\/]demo-project$/.test(project.path) && <button role="menuitem" title="Your painted copy goes to the backups folder; a fresh copy of the demo opens" onClick={() => { setProjectMenu(null); void chooseProject(true, true); }}><RotateCcw size={14} />Reset the demo project…</button>}
+            {recent.filter((item) => item.path !== project?.path).length > 0 && <><hr /><span className="gbp-menu-label"><Clock size={12} />Recent</span></>}
+            {recent.filter((item) => item.path !== project?.path).slice(0, 5).map((item) => <button key={item.path} role="menuitem" className="gbp-menu-indent" title={item.path} onClick={() => { setProjectMenu(null); void openProjectPath(item.path); }}>{item.name}</button>)}
             {project && <>
               <hr />
-              <button role="menuitem" onClick={() => { setProjectMenu(null); void fetch("./__cartographer/reveal", { method: "POST" }); }}>{FILE_MANAGER_LABEL}</button>
-              <button role="menuitem" onClick={() => { setProjectMenu(null); setShowMapRoom(true); }}>Map Room…</button>
-              <button role="menuitem" onClick={() => { setProjectMenu(null); setShowHealth(true); }}>Project health…</button>
-              <button role="menuitem" onClick={() => { setProjectMenu(null); setShowDialogue(true); }}>Dialogue box…</button>
-              <button role="menuitem" onClick={() => { setProjectMenu(null); setBackups({}); }}>Backups…</button>
-              <button role="menuitem" onClick={() => { setProjectMenu(null); void fetch("./__cartographer/reveal?backups=1", { method: "POST" }); }}>Show backups folder</button>
+              <button role="menuitem" onClick={() => { setProjectMenu(null); setShowMapRoom(true); }}><MapIcon size={14} />Map Room…</button>
+              <button role="menuitem" onClick={() => { setProjectMenu(null); setShowHealth(true); }}><HeartPulse size={14} />Project health…</button>
+              <button role="menuitem" onClick={() => { setProjectMenu(null); setShowDialogue(true); }}><MessageSquare size={14} />Dialogue box…</button>
+              <button role="menuitem" onClick={() => { setProjectMenu(null); setBackups({}); }}><History size={14} />Backups…</button>
               <hr />
-              <button role="menuitem" onClick={() => { setProjectMenu(null); void closeProject(); }}>Close project</button>
+              <button role="menuitem" onClick={() => { setProjectMenu(null); void fetch("./__cartographer/reveal", { method: "POST" }); }}><FolderSearch size={14} />{FILE_MANAGER_LABEL}</button>
+              <button role="menuitem" onClick={() => { setProjectMenu(null); void fetch("./__cartographer/reveal?backups=1", { method: "POST" }); }}><FolderArchive size={14} />Show backups folder</button>
+              <hr />
+              <button role="menuitem" onClick={() => { setProjectMenu(null); void closeProject(); }}><FolderX size={14} />Close project</button>
             </>}
             <hr />
-            <button role="menuitem" onClick={() => { setProjectMenu(null); setShowAbout(true); }}>About GB Cartographer</button>
+            <button role="menuitem" onClick={() => { setProjectMenu(null); setShowAbout(true); }}><Info size={14} />About GB Cartographer</button>
         </Menu>
       )}
       {exportMenu && doc && (

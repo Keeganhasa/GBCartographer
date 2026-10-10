@@ -1,7 +1,7 @@
 import { FolderOpen, FolderTree, Star } from "lucide-react";
 
-/** The screen without a project (dev server or desktop app): open a project, the demo, PNG files, or a recent project. */
-export function StartScreen({ recent, onChooseProject, onDemo, onOpenFiles, onOpenRecent }: { recent: { name: string; path: string }[]; onChooseProject: () => void; onDemo: () => void; onOpenFiles: () => void; onOpenRecent: (path: string) => void }) {
+/** The splash without a project (dev server or desktop app): open a project, the demo, PNG files, or a recent project. It fills the window. */
+export function StartScreen({ recent, onChooseProject, onDemo, onOpenFiles, onOpenRecent, onAbout }: { recent: { name: string; path: string }[]; onChooseProject: () => void; onDemo: () => void; onOpenFiles: () => void; onOpenRecent: (path: string) => void; onAbout: () => void }) {
   return (
     <div className="gbp-start">
       <img className="gbp-start-icon" src={`${import.meta.env.BASE_URL}app-icon.png`} alt="" width={96} height={96} />
@@ -20,6 +20,7 @@ export function StartScreen({ recent, onChooseProject, onDemo, onOpenFiles, onOp
         </div>
       )}
       <p className="gbp-start-foot">Save writes only the PNG, tile and slice palettes, palette files and palette slots into your project. The old file is kept in Backups.</p>
+      <button className="gbp-start-about" onClick={onAbout}>About GB Cartographer · version {__APP_VERSION__}</button>
     </div>
   );
 }

@@ -184,6 +184,9 @@
 .gbp-status { white-space: nowrap; overflow: hidden; }
 .gbp-status-hint { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .gbp-status .gbp-readout { flex: none; }
+/* The tile meter in the status bar: a button to the health report. */
+.gbp-status .gbp-tiles { flex: none; margin: 0; padding: 1px 6px 1px 8px; background: none; color: inherit; cursor: pointer; }
+.gbp-status .gbp-tiles:hover { border-color: var(--red); }
 .gbp-slots { grid-template-columns: 1fr; gap: 2px; }
 .gbp-slot-button { grid-template-columns: 14px auto 1fr; padding: 2px 6px; }
 .gbp-slot-button .gbp-chips i { width: 9px; height: 11px; }
@@ -575,11 +578,6 @@
 .gbp-dialogue-stage { display: flex; flex-direction: column; gap: 12px; }
 .gbp-dialogue-stage textarea { width: 480px; box-sizing: border-box; font: 13px var(--mono); color: var(--ink); background: var(--b-ctl, #181b20); border: 1px solid var(--b-edge, var(--line)); border-radius: 8px; padding: 8px; resize: vertical; }
 
-/* Camera walk: the 160 × 144 screen over the picture, the rest dimmed. */
-.gbp-camera { position: absolute; z-index: 3; box-sizing: border-box; border: 2px solid #ffc440; box-shadow: 0 0 0 99999px rgba(0, 0, 0, .45); pointer-events: none; }
-.gbp-camera-handle { position: absolute; left: -2px; top: -2px; padding: 1px 8px; color: #1a1408; background: #ffc440; border-radius: 0 0 6px 0; font: 600 10px var(--ui); cursor: grab; pointer-events: auto; touch-action: none; user-select: none; }
-.gbp-camera-handle:active { cursor: grabbing; }
-.gbp-camera-strip canvas { image-rendering: pixelated; }
 .gbp-wrap { overflow: hidden; }
 .gbp-backup-slider { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: var(--fs-xs); }
 .gbp-backup-slider input { flex: 1; accent-color: var(--acc); }
@@ -615,3 +613,18 @@
 .gbp-fit-stage figure { margin: 0; display: flex; flex-direction: column; gap: 6px; min-height: 0; }
 .gbp-fit-stage figcaption { color: var(--muted); font-size: var(--fs-xs); letter-spacing: .06em; text-transform: uppercase; }
 .gbp-fit-stage canvas { flex: 1; min-height: 0; width: 100%; object-fit: contain; image-rendering: pixelated; }
+
+/* A palette whose colors are hard to tell apart (Palettes tab); the toast says which when an edit causes it. */
+.gbp-low-contrast { margin-left: 8px; padding: 1px 6px; border-radius: 999px; font: 600 var(--fs-xs) var(--sans, inherit); color: #1a1408; background: #ffc440; vertical-align: middle; cursor: help; }
+
+/* Menus with an icon on each item (the project menu); grouped items indent under their label. */
+.gbp-icon-menu button { display: flex; align-items: center; gap: 9px; }
+.gbp-icon-menu button svg { flex: none; opacity: .8; }
+.gbp-icon-menu .gbp-menu-label { display: flex; align-items: center; gap: 6px; padding-top: 4px; }
+.gbp-icon-menu .gbp-menu-indent { padding-left: 33px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+
+/* The start screen as a splash: the whole window, nothing behind it. */
+.gbp-splash { overflow-y: auto; }
+.gbp-splash .gbp-start { min-height: 100vh; }
+.gbp-start-about { margin-top: 4px; padding: 4px 8px; color: var(--muted); background: none; border: 0; font: var(--fs-xs) var(--ui); cursor: pointer; }
+.gbp-start-about:hover { color: var(--ink); }

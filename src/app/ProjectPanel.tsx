@@ -1,5 +1,6 @@
 /**
  * The project panel: a rail of the asset folders (with counts) and the open folder's pictures as thumbnail cards.
+ * Clicking the folder on show again hides the cards (the rail stays), like an editor's side bar.
  * The thumbnails come from one preview sheet per folder (server/assets.ts previewSheet); while it loads the cards
  * show empty boxes, and if it can't be made they fetch their own previews.
  */
@@ -11,6 +12,8 @@ import { KIND_ICONS } from "./tools";
 interface ProjectPanelProps {
   project: Project;
   kind: AssetKind;
+  /** Whether the cards are showing (the rail always is). */
+  open: boolean;
   onKind: (kind: AssetKind) => void;
   /** Bumped when palette slots change, so the thumbnails are drawn again. */
   slotsVersion: number;
@@ -22,7 +25,7 @@ interface ProjectPanelProps {
 
 const assetQuery = (asset: { kind: AssetKind; file: string }) => new URLSearchParams({ kind: asset.kind, file: asset.file });
 
-export function ProjectPanel({ project, kind, onKind, slotsVersion, stateOf, onOpen, onMenu }: ProjectPanelProps) {
+export function ProjectPanel({ project, kind, open, onKind, slotsVersion, stateOf, onOpen, onMenu }: ProjectPanelProps) {
   const [filter, setFilter] = useState("");
   const [sheet, setSheet] = useState<{ kind: AssetKind; image: HTMLImageElement; cells: Map<string, SheetCell> } | null>(null);
   const [sheetFailed, setSheetFailed] = useState(false);
@@ -50,9 +53,9 @@ export function ProjectPanel({ project, kind, onKind, slotsVersion, stateOf, onO
   return (
     <>
       <nav className="gbp-rail" aria-label="Asset folders">
-        {ASSET_KINDS.map(([id, name]) => { const Icon = KIND_ICONS[id]; const count = project.assets.filter((asset) => asset.kind === id).length; return <button key={id} className={`icon-button ${kind === id ? "active-tool" : ""}`} aria-pressed={kind === id} aria-label={`${name} (${count})`} title={`${name} · ${count}`} onClick={() => onKind(id)}><Icon size={16} /><b>{count}</b></button>; })}
+        {ASSET_KINDS.map(([id, name]) => { const Icon = KIND_ICONS[id]; const count = project.assets.filter((asset) => asset.kind === id).length; return <button key={id} className={`icon-button ${kind === id && open ? "active-tool" : ""}`} aria-pressed={kind === id && open} aria-label={`${name} (${count})`} title={`${name} · ${count}${kind === id && open ? " · click to hide" : ""}`} onClick={() => onKind(id)}><Icon size={16} /><b>{count}</b></button>; })}
       </nav>
-      <aside className="gbp-project" aria-label="GB Studio project">
+      {open && <aside className="gbp-project" aria-label="GB Studio project">
         <h2 title={project.path}><span className="gbp-project-name">{project.name}</span></h2>
         <input type="search" className="gbp-filter" placeholder={`Filter ${label.toLowerCase()}`} aria-label={`Filter ${label.toLowerCase()} by name`} value={filter} onChange={(event) => setFilter(event.target.value)} />
         <div className="gbp-assets" role="list">
@@ -70,7 +73,7 @@ export function ProjectPanel({ project, kind, onKind, slotsVersion, stateOf, onO
           })}
           {shown.length === 0 && <p className="gbp-note">No {label.toLowerCase()} {wanted ? "match" : "in this project"}.</p>}
         </div>
-      </aside>
+      </aside>}
     </>
   );
 }

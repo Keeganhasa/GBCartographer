@@ -26,6 +26,8 @@ interface Props {
   onSaveToProject?: () => void;
   onRecolor: (colors: string[]) => void;
   copiedColors: string[] | null; onCopy: (colors: string[]) => void;
+  /** Says something in a toast (a color edit that makes two colors hard to tell apart). */
+  say: (message: string) => void;
 }
 
 const matches = (name: string, filter: string) => !filter.trim() || name.toLowerCase().includes(filter.trim().toLowerCase());
@@ -38,7 +40,7 @@ function helpFor(doc: Doc | null, slots: boolean) {
   return "Each 8 × 8 tile wears one palette, or none. Palettes are only for looking here: saving always writes the GB greens.";
 }
 
-export function PalettesPane({ doc, palettes, sceneSlots, slotPalettes, slotWhere, activePalette, onPick, namedSlots, onNamedSlots, filter, onFilter, onSlotMenu, libraryColors, onSaveToProject, onRecolor, copiedColors, onCopy }: Props) {
+export function PalettesPane({ doc, palettes, sceneSlots, slotPalettes, slotWhere, activePalette, onPick, namedSlots, onNamedSlots, filter, onFilter, onSlotMenu, libraryColors, onSaveToProject, onRecolor, copiedColors, onCopy, say }: Props) {
   const picked = activePalette ? palettes[activePalette - 1] : undefined;
   // A project background or sprite sheet carries its eight palette slots: shown as a strip, and first in the list.
   const slotOf = (palette: Palette) => palette.id ? sceneSlots.indexOf(palette.id) : -1;
@@ -52,6 +54,15 @@ export function PalettesPane({ doc, palettes, sceneSlots, slotPalettes, slotWher
     .sort((a, b) => (a.index === 0 ? -1 : b.index === 0 ? 1 : a.slot >= 0 && b.slot >= 0 ? a.slot - b.slot : a.slot >= 0 ? -1 : b.slot >= 0 ? 1 : a.index - b.index));
   const openSlotMenu = (event: ReactMouseEvent, palette: number) => { if (!sceneSlots.length || !palette) return; event.preventDefault(); onSlotMenu(event.clientX, event.clientY, palette); };
   const unchanged = !libraryColors || (picked && libraryColors.join() === picked.colors.join());
+  const sprite = Boolean(doc?.keyGreen);
+  const close = picked ? closeShades(picked.colors, sprite) : [];
+  /** Recolors, and says so in a toast when the edit makes two colors hard to tell apart. */
+  const recolor = (colors: string[]) => {
+    const before = new Set(close.map(({ a, b }) => `${a}-${b}`));
+    const fresh = closeShades(colors, sprite).filter(({ a, b }) => !before.has(`${a}-${b}`));
+    onRecolor(colors);
+    if (fresh.length) say(`Colors ${fresh[0].a + 1} and ${fresh[0].b + 1} of ${picked?.name ?? "this palette"} are hard to tell apart now (difference ${fresh[0].delta}; aim for 12 or more).`);
+  };
 
   return (
     <div className="gbp-side-pane">
@@ -91,17 +102,16 @@ export function PalettesPane({ doc, palettes, sceneSlots, slotPalettes, slotWher
       </div>
       {doc && picked && (
         <div className="gbp-palette-edit">
-          <h2>{picked.name} in this picture</h2>
+          <h2>{picked.name} in this picture{close.length > 0 && <span className="gbp-low-contrast" title={close.map(({ a, b, delta }) => `Colors ${a + 1} and ${b + 1} are hard to tell apart (difference ${delta}; aim for 12 or more)`).join("\n")}>low contrast</span>}</h2>
           <div className="gbp-palette-colors">
-            {picked.colors.map((color, index) => <input key={index} type="color" aria-label={`${picked.name} color ${index + 1}`} title={`Color ${index + 1}: ${color}`} value={color} onChange={(event) => onRecolor(picked.colors.map((old, at) => at === index ? event.target.value : old))} />)}
+            {picked.colors.map((color, index) => <input key={index} type="color" aria-label={`${picked.name} color ${index + 1}`} title={`Color ${index + 1}: ${color}`} value={color} onChange={(event) => recolor(picked.colors.map((old, at) => at === index ? event.target.value : old))} />)}
           </div>
-          {closeShades(picked.colors, Boolean(doc.keyGreen)).map(({ a, b, delta }) => <p key={`${a}-${b}`} className="gbp-note gbp-pm-warn">Colors {a + 1} and {b + 1} are hard to tell apart (difference {delta}; aim for 12 or more).</p>)}
           <div className="gbp-palette-actions">
             {picked.id && onSaveToProject && <button className="quiet-button primary" disabled={unchanged} title={`Rewrite ${picked.name} in the GB Studio project with these colors (Save does this too)`} onClick={onSaveToProject}>Save to project</button>}
             {sceneSlots.length > 0 && <button className="quiet-button" title={`Put ${picked.name} in one of ${slotWhere}`} onClick={(event) => { const r = event.currentTarget.getBoundingClientRect(); onSlotMenu(r.left, r.bottom + 4, activePalette); }}>Slot…</button>}
-            <button className="quiet-button" disabled={unchanged} title="Back to the colors the project has" onClick={() => libraryColors && onRecolor(libraryColors)}>Revert</button>
+            <button className="quiet-button" disabled={unchanged} title="Back to the colors the project has" onClick={() => libraryColors && recolor(libraryColors)}>Revert</button>
             <button className="quiet-button" title="Copy these four colors, to paste onto a palette here or in another tab" onClick={() => onCopy([...picked.colors])}>Copy values</button>
-            <button className="quiet-button" disabled={!copiedColors} title="Replace these four colors with the copied ones" onClick={() => copiedColors && onRecolor(copiedColors)}>Paste values</button>
+            <button className="quiet-button" disabled={!copiedColors} title="Replace these four colors with the copied ones" onClick={() => copiedColors && recolor(copiedColors)}>Paste values</button>
           </div>
         </div>
       )}
