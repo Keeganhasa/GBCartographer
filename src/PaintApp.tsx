@@ -1243,13 +1243,17 @@ export default function PaintApp() {
     };
   }, []);
 
+  // No project and nothing open: the start screen shows on its own, like a splash window (see the render).
+  const splash = served && !project && !docs.current.length;
+  // Wheel and trackpad zoom (pinch) and middle-button pan, on the picture area. It only exists outside the splash,
+  // so the handlers attach again whenever the splash comes or goes.
   useEffect(() => {
     const scroller = scrollerRef.current;
     if (!scroller) return;
     const detachWheel = attachWheelZoom(scroller, () => latest.current.zoom, (direction) => latest.current.zoomBy(direction), () => wrapRef.current);
     const detachPan = attachMiddlePan(scroller);
     return () => { detachWheel(); detachPan(); };
-  }, []);
+  }, [splash]);
 
   useEffect(() => { document.title = doc ? `${doc.name}${doc.dirty ? " *" : ""} · GB Cartographer` : "GB Cartographer"; });
   useEffect(() => { store(TINT_KEY, tint); store(CUSTOM_TINT_KEY, customTint); store(GRID_KEY, grid); store(BUDGET_KEY, budgetId); store(PROJECT_PANEL_KEY, showProject); store(PROJECT_KIND_KEY, projectKind); }, [tint, customTint, grid, budgetId, showProject, projectKind]);
@@ -1487,7 +1491,7 @@ export default function PaintApp() {
   const pickPalette = (index: number) => { setActivePalette(index); if (index && tool !== "palette") setTool("palette"); };
 
   // No project and nothing open: the start screen on its own, like a splash window, with no tools behind it.
-  if (served && !project && !docs.current.length) {
+  if (splash) {
     return (
       <div className="gbp-shell gbp-splash" onDragOver={(event) => event.preventDefault()} onDrop={(event) => void onDrop(event)}>
         <StartScreen recent={recent} onChooseProject={() => void chooseProject()} onDemo={() => void chooseProject(true)} onOpenFiles={() => void pickFiles()} onOpenRecent={(path) => void openProjectPath(path)} onAbout={() => setShowAbout(true)} />

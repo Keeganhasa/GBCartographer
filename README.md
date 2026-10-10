@@ -104,7 +104,8 @@ GB Cartographer is careful with your game files. It only ever writes:
   in its `scene.gbsres`), or of the project's default palettes (`defaultBackgroundPaletteIds` or
   `defaultSpritePaletteIds` in `project/settings.gbsres`);
 - its own folder, `Cartographer/`, beside `assets/` and `project/`: saved stamps in `Cartographer/stamps/` (a PNG
-  each, its tile palettes in a `.png.json` beside it) and a `README.txt` saying what the folder is. GB Studio
+  each, its tile palettes in a `.png.json` beside it), the Map Room's layouts in `Cartographer/maps.json`, and a
+  `README.txt` saying what the folder is. GB Studio
   doesn't read this folder; it travels with your project.
 
 Every other field of those files, and every other file in the project, is left untouched. Before each write the
@@ -140,7 +141,8 @@ its data folder:
 
 **Show backups folder** in the project menu opens this project's backups. On the dev server they go to `backups/` in
 the checkout instead, next to `cartographer.local.json`. Open pictures and per-window choices (font, tint, panels)
-live in the app's own browser storage.
+live in the app's own browser storage. Saved stamps and Map Room layouts are kept in the project itself, in its
+`Cartographer/` folder, so they travel with it.
 
 `npm run install-mac-app` puts a GB Cartographer app in /Applications that runs this checkout; `npm run install-shortcut`
 does the same on Windows.

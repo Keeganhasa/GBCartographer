@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, request, type Server } from "node:http";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { deflateSync } from "node:zlib";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { decodeTileColors } from "../src/gb/gbstudio";
@@ -368,13 +368,23 @@ describe("parallax", () => {
 });
 
 describe("map room layouts", () => {
-  it("keeps a project's maps in the app's data folder, never in the project", async () => {
-    expect((await json<{ maps: unknown[] }>(await fetch(`${base}/maps`))).maps).toEqual([]);
+  it("keeps a project's maps in its Cartographer folder, and moves older ones there from the data folder", async () => {
+    // A layout kept in the app's data folder (before maps moved into the project) moves there on first read.
+    const old = [{ id: "m0", name: "Old", screen: { width: 160, height: 144 }, overlap: 1, cells: [{ x: 0, y: 0, file: "town.png" }] }];
+    mkdirSync(join(root, "maps"), { recursive: true });
+    const oldFile = join(root, "maps", `${basename(projectBackupDir("", project))}.json`);
+    writeFileSync(oldFile, JSON.stringify({ maps: old }));
+    expect((await json<{ maps: unknown[] }>(await fetch(`${base}/maps`))).maps).toEqual(old);
+    expect(existsSync(oldFile)).toBe(false);
+    expect(existsSync(join(project, "Cartographer/maps.json"))).toBe(true);
     const maps = [{ id: "m1", name: "Overworld", screen: { width: 160, height: 144 }, overlap: 1, cells: [{ x: 0, y: 0, file: "town.png" }, { x: 1, y: 0, file: "Cave Entrance.png" }] }];
     expect((await json<{ maps: unknown[] }>(await fetch(`${base}/maps`, { method: "POST", body: JSON.stringify({ maps }) }))).maps).toEqual(maps);
     expect((await json<{ maps: unknown[] }>(await fetch(`${base}/maps`))).maps).toEqual(maps);
-    expect(readdirSync(join(root, "maps"))).toHaveLength(1);
-    expect(readdirSync(project)).not.toContain("maps");
+    expect(JSON.parse(readFileSync(join(project, "Cartographer/maps.json"), "utf8")).maps).toEqual(maps);
+    expect(readFileSync(join(project, "Cartographer/README.txt"), "utf8")).toContain("maps.json");
+    // Saving again backs up the previous layouts first.
+    await fetch(`${base}/maps`, { method: "POST", body: JSON.stringify({ maps: [{ ...maps[0], name: "World" }] }) });
+    expect(latestBackup("Cartographer/maps.json")).toBeTruthy();
     expect((await fetch(`${base}/maps`, { method: "POST", body: JSON.stringify({ maps: [{ id: "x", name: "bad", cells: [{ x: 0, y: 0, file: "../escape.png" }] }] }) })).status).toBe(400);
   });
 });

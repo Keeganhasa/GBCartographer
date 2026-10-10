@@ -1,6 +1,7 @@
 /**
  * The Map Room: grids of screens for Zelda-style maps. Each screen is an ordinary project background (160 × 144);
- * the layout is GB Cartographer's own, kept in its data folder (server/maps.ts), never in the GB Studio project.
+ * the layout is GB Cartographer's own, kept in the project's Cartographer/maps.json (server/maps.ts), which GB Studio
+ * doesn't read.
  * A new screen next to others can start with their edge tiles, so neighbouring screens line up; edges that differ
  * show in amber and can be copied across. Writes go through the same endpoints as the painter (backups first).
  */
@@ -177,7 +178,7 @@ export function MapRoom({ project, onClose, onOpen, onProjectChanged, onExport, 
           <nav className="gbp-backup-files" aria-label="Maps">
             {maps.map((item) => <button key={item.id} className={item.id === map?.id ? "selected" : ""} onClick={() => { setMapId(item.id); setSelected(null); setAdding(null); }}><b>{item.name}</b><small>{item.cells.length} screen{item.cells.length === 1 ? "" : "s"}</small></button>)}
             <button className="gbp-backup-older" onClick={() => void newMap()}><b><Plus size={12} /> New map</b><small>a grid of screens</small></button>
-            <p className="gbp-note">A map is a layout GB Cartographer keeps for itself; each screen stays a normal background PNG in the project.</p>
+            <p className="gbp-note">A map is GB Cartographer's own layout, saved in the project's Cartographer folder (GB Studio doesn't read it); each screen stays a normal background PNG.</p>
           </nav>
           <section className="gbp-maproom-grid">
             {!map ? <p className="gbp-note">Make a map to start: New map on the left.</p> : (

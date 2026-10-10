@@ -19,7 +19,8 @@ import { KEY_GREEN, assignSlots, closeShades, countUniqueTiles, quantize, sprite
 export const ASSET_KINDS = ["backgrounds", "sprites", "tilesets", "fonts", "emotes", "avatars", "ui", "stamps"] as const;
 /**
  * GB Cartographer's own folder inside a project, for what it needs and GB Studio doesn't (approved by the author
- * 2026-10-10): stamps (Cartographer/stamps/<name>.png, tile palettes in <name>.png.json). GB Studio reads only
+ * 2026-10-10): stamps (Cartographer/stamps/<name>.png, tile palettes in <name>.png.json) and the Map Room's
+ * layouts (Cartographer/maps.json, server/maps.ts). GB Studio reads only
  * its own folders (assets/, project/, plugins/), so it leaves this one alone.
  */
 export const OWN_FOLDER = "Cartographer";
@@ -645,11 +646,14 @@ export function createAsset(project: string, kind: AssetKind, name: string, byte
   return { file };
 }
 
-/** Says what the Cartographer folder is, the first time GB Cartographer makes it. */
-function ownFolderReadme(project: string) {
+const OWN_README = "This folder belongs to GB Cartographer (https://github.com/Keeganhasa/GBCartographer), not to GB Studio.\nIt keeps what GB Cartographer needs and GB Studio doesn't:\n- stamps/ holds saved stamps (a PNG each, and its tile palettes in a .json beside it);\n- maps.json holds the Map Room's layouts (which background sits where in each map).\nGB Studio ignores this folder; deleting it loses only these files.\n";
+
+/** Says what the Cartographer folder is (written when GB Cartographer first uses it, and kept up to date). */
+export function ownFolderReadme(project: string) {
   const readme = join(project, OWN_FOLDER, "README.txt");
-  if (existsSync(readme)) return;
-  writeFileSync(readme, "This folder belongs to GB Cartographer (https://github.com/Keeganhasa/GBCartographer), not to GB Studio.\nIt keeps what GB Cartographer needs and GB Studio doesn't: stamps/ holds saved stamps (a PNG each, and its\ntile palettes in a .json beside it). GB Studio ignores this folder; deleting it loses only these files.\n");
+  if (existsSync(readme) && readFileSync(readme, "utf8") === OWN_README) return;
+  mkdirSync(join(project, OWN_FOLDER), { recursive: true });
+  writeFileSync(readme, OWN_README);
 }
 
 /**
