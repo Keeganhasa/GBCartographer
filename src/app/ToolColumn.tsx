@@ -1,5 +1,5 @@
 /** The paint tools: one button per tool, the view and painting toggles, and the brush size for the tool in hand. */
-import { FlipHorizontal2, Grid2x2, Link2, Minus, Plus } from "lucide-react";
+import { FlipHorizontal, Grid2x2, Link2, Minus, Plus } from "lucide-react";
 import { PATTERNS, type Mirror, type Pattern } from "../paint";
 import { MIRRORS, MIRROR_LABEL, type ToolId } from "./model";
 import { TOOLS } from "./tools";
@@ -21,7 +21,7 @@ export function ToolColumn({ tool, onTool, seamless, onSeamless, linked, onLinke
       {TOOLS.map(([id, label, Icon, keys]) => <button key={id} className={`tool-button ${tool === id ? "active" : ""}`} aria-label={label} aria-pressed={tool === id} title={`${label} · ${keys}`} onClick={() => onTool(id)}><Icon size={17} /></button>)}
       <button className={`tool-button ${seamless ? "active" : ""}`} aria-label="Seamless view" aria-pressed={seamless} title="Seamless view: the tile under the pointer (or the selection) repeated 3 × 3 above the picture, to check it tiles cleanly" onClick={() => onSeamless(!seamless)}><Grid2x2 size={17} /></button>
       <button className={`tool-button ${linked ? "active" : ""}`} aria-label="Linked tiles" aria-pressed={linked} title="Linked tiles: painting a tile paints every identical copy of it too (one-color tiles are not linked) · K" onClick={() => onLinked(!linked)}><Link2 size={17} /></button>
-      <button className={`tool-button ${mirror !== "off" ? "active" : ""}`} aria-label={MIRROR_LABEL[mirror]} title={`${MIRROR_LABEL[mirror]}: paint both halves at once · Shift+M`} onClick={() => onMirror(MIRRORS[(MIRRORS.indexOf(mirror) + 1) % MIRRORS.length])}><FlipHorizontal2 size={17} /></button>
+      <button className={`tool-button ${mirror !== "off" ? "active" : ""}`} aria-label={MIRROR_LABEL[mirror]} title={`${MIRROR_LABEL[mirror]}: paint both halves at once · Shift+M`} onClick={() => onMirror(MIRRORS[(MIRRORS.indexOf(mirror) + 1) % MIRRORS.length])}><FlipHorizontal size={17} /></button>
       {(tool === "fill" || tool === "rectFill") && (
         <button className={`tool-button gbp-pattern ${pattern !== "solid" ? "active" : ""}`} aria-label={`Fill pattern: ${patternLabel}`} title={`Fill pattern: ${patternLabel} · D for the next`} onClick={onPattern}>
           <span className={`gbp-pattern-swatch ${pattern}`} />
