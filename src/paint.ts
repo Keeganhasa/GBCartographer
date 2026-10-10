@@ -649,3 +649,34 @@ export function closeShades(colors: readonly string[], sprite = false): { a: num
   }
   return found;
 }
+
+const toHsl = (hex: string): [number, number, number] => {
+  const [r, g, b] = hexRgb(hex).map((value) => value / 255);
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2;
+  if (max === min) return [0, 0, l];
+  const d = max - min, s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  const h = max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [h * 60, s, l];
+};
+const fromHsl = (h: number, s: number, l: number): string => {
+  const k = (n: number) => (n + h / 30) % 12, a = s * Math.min(l, 1 - l);
+  const f = (n: number) => l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1));
+  return `#${[f(0), f(8), f(4)].map((value) => Math.round(Math.max(0, Math.min(1, value)) * 255).toString(16).padStart(2, "0")).join("").toUpperCase()}`;
+};
+/** Moves hue `from` toward `to` by `amount` (0–1) the short way round. */
+const pullHue = (from: number, to: number, amount: number) => { const turn = ((to - from + 540) % 360) - 180; return (from + turn * amount + 360) % 360; };
+
+/**
+ * Day-to-night variants of a palette, as a starting point: D cooler and lilac, N dark and blue, S warm and
+ * saturated. Modeled on how the author's DWC set's D, N and S palettes differ from their base palettes.
+ */
+export function paletteVariant(colors: readonly string[], variant: "D" | "N" | "S"): string[] {
+  return colors.map((color, at) => {
+    const [h, s, l] = toHsl(color);
+    const darkest = at === colors.length - 1;
+    if (variant === "D") return darkest ? fromHsl(pullHue(h, 248, 0.7), Math.min(1, s * 0.9 + 0.1), l * 0.9 + 0.04) : fromHsl(at === 0 ? pullHue(h, 25, 0.3) : pullHue(h, 300, 0.45), s * 0.65, Math.min(0.95, l * 1.05));
+    // Night: lights go grey (the DWC night palettes keep color only in their darks), everything about half as light.
+    if (variant === "N") return fromHsl(pullHue(h, 240, 0.55), Math.min(1, s * (0.15 + 0.3 * at)), l * 0.5);
+    return fromHsl(pullHue(h, 15, 0.45), Math.min(0.95, s * 1.25 + 0.08), l * 0.8);
+  });
+}

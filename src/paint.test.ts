@@ -1,7 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, clipRect, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, hexRgb, closeShades, colorDistance, inPattern, linkGroups, syncLinked, mergeNearTiles, tileUsage, gbStudioShade, gbcCorrect, dropCells, flipFloat, lift, liftCells, linePoints, onTiles, replaceShade, rotateFloat, mirrorPoints, namedSlot, quantize, snapRect, toRgba } from "./paint";
+import { CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, clipRect, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, hexRgb, closeShades, colorDistance, paletteVariant, inPattern, linkGroups, syncLinked, mergeNearTiles, tileUsage, gbStudioShade, gbcCorrect, dropCells, flipFloat, lift, liftCells, linePoints, onTiles, replaceShade, rotateFloat, mirrorPoints, namedSlot, quantize, snapRect, toRgba } from "./paint";
 
 describe("GB Cartographer pixels", () => {
+  it("makes D, N and S variants of a palette: lilac, dark and blue, warm", () => {
+    const base = ["#EFBD7B", "#C5844A", "#732121", "#211029"];
+    const light = (hex: string) => hexRgb(hex).reduce((sum, value) => sum + value, 0);
+    const night = paletteVariant(base, "N"), sunset = paletteVariant(base, "S"), dusk = paletteVariant(base, "D");
+    for (const variant of [night, sunset, dusk]) expect(variant).toHaveLength(4);
+    night.forEach((color, at) => expect(light(color)).toBeLessThan(light(base[at])));
+    // Night pulls toward blue: more blue than red in the light colors.
+    expect(hexRgb(night[0])[2]).toBeGreaterThan(hexRgb(base[0])[2] * 0.4);
+    // Sunset is warmer: red leads in every color.
+    sunset.slice(0, 3).forEach((color) => { const [r, , b] = hexRgb(color); expect(r).toBeGreaterThan(b); });
+    expect(dusk.every((color) => /^#[0-9A-F]{6}$/.test(color))).toBe(true);
+  });
+
   it("fills with patterns anchored to the picture", () => {
     const pixels = new Uint8Array(16);
     floodFill(pixels, 4, 4, 0, 0, 3, "checker");

@@ -7,7 +7,7 @@
 import { ArrowDown, ArrowUp, Download, FolderTree, Gamepad2, Layers, Plus, Star, Trash2, Upload, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import library from "./palettes/library.json";
-import { closeShades, colorize, shadeLut, spriteShades, type Palette } from "./paint";
+import { closeShades, colorize, paletteVariant, shadeLut, spriteShades, type Palette } from "./paint";
 
 type Collection = "project" | "mine" | string;
 interface Picture { pixels: Uint8Array; width: number; height: number; sprite: boolean }
@@ -194,6 +194,18 @@ export default function PaletteManager({ projectName, projectPalettes, sceneSlot
     choose("mine", list.length - 1);
   }
 
+  /** D, N and S versions of the picked palette (lilac, dark blue, warm), added to Mine as a starting point. */
+  function makeVariants() {
+    if (!picked || !valid) return;
+    const four = colors.map((color) => normalize(color)!);
+    const base = (name.trim() || picked.name).replace(/ [DNS]$/, "");
+    const made = (["D", "N", "S"] as const).map((variant) => ({ name: `${base} ${variant}`, colors: paletteVariant(four, variant) }));
+    const list = [...mine, ...made];
+    saveMine(list);
+    choose("mine", mine.length);
+    setNote(`Made ${made.map((item) => item.name).join(", ")} in Mine: a starting point to tune.`);
+  }
+
   function copyToMine(asCopy = false) {
     if (!picked || !valid) return;
     const list = [...mine, { name: asCopy || collection === "mine" ? `${name} copy` : name, colors: colors.map((color) => normalize(color)!) }];
@@ -348,6 +360,7 @@ export default function PaletteManager({ projectName, projectPalettes, sceneSlot
               <div className="gbp-pm-title">
                 <input type="text" aria-label="Palette name" value={name} onChange={(event) => edit({ name: event.target.value })} />
                 <button className="quiet-button" title="A copy in Mine, to edit freely" onClick={() => copyToMine(true)}>Duplicate</button>
+                <button className="quiet-button" disabled={!valid} title="Make D, N and S versions of this palette in Mine (D lilac, N dark and blue, S warm), modeled on the DWC set: a starting point to tune" onClick={makeVariants}>D / N / S</button>
                 {collection !== "mine" && <button className="quiet-button" disabled={!valid} title="Keep this palette in Mine" onClick={() => copyToMine(false)}>Copy to Mine</button>}
               </div>
               <div className="gbp-pm-colors">
