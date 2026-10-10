@@ -13,7 +13,7 @@ import PaletteManager from "./PaletteManager";
 import BackupsWindow from "./BackupsWindow";
 import { attachMiddlePan, attachWheelZoom, nextStep } from "./ui/wheelZoom";
 import { CELL, CLEAR, GB_SHADES, KEY_GREEN, KEY_MAGENTA, assignSlots, spriteShades, cellsWide, clipRect, colorize, countUniqueTiles, drop, fillRect, PATTERNS, type Pattern, mergeNearTiles, tileUsage, type TileUsage, dropCells, flipFloat, gbcCorrect, LOOK_SHADES, type Look, lift, liftCells, onTiles, rotateFloat, namedSlot, quantize, shadeLut, toRgba, type Floating, type Mirror, type Palette } from "./paint";
-import { ASSET_URL, BUDGETS, BUDGET_KEY, BUILT_IN_TINTS, CUSTOM_TINT_KEY, FILE_MANAGER_LABEL, GRID_KEY, MIRRORS, NAMED_SLOTS_KEY, SCREENS_KEY, LOOK_KEY, PATTERN_KEY, PNG_TYPES, PROJECT_KIND_KEY, PROJECT_PANEL_KEY, PROJECT_URL, TINT_KEY, UI_SLOT, UNDO_BYTES, UNDO_LIMIT, ZOOMS, hasSlots, isKeyed, versionTime, type Asset, type AssetInfo, type AssetKind, type Doc, type FileHandle, type Opening, type PickerWindow, type Project, type ToolId } from "./app/model";
+import { ASSET_URL, BUDGETS, BUDGET_KEY, BUILT_IN_TINTS, CUSTOM_TINT_KEY, FILE_MANAGER_LABEL, GRID_KEY, MIRRORS, NAMED_SLOTS_KEY, SCREENS_KEY, LOOK_KEY, PATTERN_KEY, PNG_TYPES, PROJECT_KIND_KEY, PROJECT_PANEL_KEY, PROJECT_URL, TINT_KEY, UI_SLOT, UNDO_BYTES, UNDO_LIMIT, ZOOMS, hasSlots, isKeyed, versionTime, type Asset, type AssetInfo, type AssetKind, type Doc, type FileHandle, type Opening, type PickerWindow, type Point, type Project, type ToolId } from "./app/model";
 import { TOOLS } from "./app/tools";
 import { readStored, sessionStore, store } from "./app/storage";
 import { HelpWindow } from "./app/HelpWindow";
@@ -24,6 +24,10 @@ import { DialoguePreview } from "./app/DialoguePreview";
 import { MapRoom } from "./app/MapRoom";
 import { FitWindow } from "./app/FitWindow";
 import { PictureWizard } from "./app/PictureWizard";
+import { DnsWizard } from "./app/DnsWizard";
+import { BudgetFixer } from "./app/BudgetFixer";
+import { CheckupWizard } from "./app/CheckupWizard";
+import { NewBackgroundWizard, type NewBackground } from "./app/NewBackgroundWizard";
 import type { FitResult } from "./app/pictureFit";
 import { NewPictureWindow, ResizeWindow, type NewPicture } from "./app/NewPictureWindow";
 import { Button, Chip, IconButton, Kbd, Menu, MenuAt, TabList, Tabs, Tooltip, type MenuEntry } from "./ui/kit";
@@ -35,10 +39,12 @@ import { framesOf, saveFile } from "./app/files";
 import { ToolColumn } from "./app/ToolColumn";
 import { PicturePane } from "./app/PicturePane";
 import { usePainting } from "./app/usePainting";
-import { PhPiggyBank, PhSticker, PxGamepad, PxHeart, PxLightbulb, PxSnake } from "./ui/setIcons";
+import { PhPiggyBank, PhSticker, PxCloudMoon, PxGamepad, PxHeart, PxLightbulb, PxRobotHappy, PxSnake } from "./ui/setIcons";
 import { PalettesPane } from "./app/PalettesPane";
 import { FramesStrip } from "./app/FramesStrip";
 import { StampsStrip } from "./app/StampsStrip";
+import { TextStrip, type TextSettings } from "./app/TextStrip";
+import { readFontSheet, renderText, type FontSheet } from "./app/textTool";
 import { SaveStampDialog, type StampSave } from "./app/SaveStampDialog";
 
 /** A new picture's id: one above every open one (a counter would restart when the module reloads in development). */
@@ -90,6 +96,8 @@ export default function PaintApp() {
   const [showAbout, setShowAbout] = useState(false);
   const [showHealth, setShowHealth] = useState(false);
   const [showPictureWizard, setShowPictureWizard] = useState(false);
+  /** The wizard open (W2…W8 from the Wizards menu), if any. */
+  const [wizard, setWizard] = useState<"dns" | "paletteSet" | "newBackground" | "budget" | "checkup" | null>(null);
   const [stampSave, setStampSave] = useState<{ hint: string; resolve: (save: StampSave | null) => void } | null>(null);
   const [showDialogue, setShowDialogue] = useState(false);
   const [showMapRoom, setShowMapRoom] = useState(false);
@@ -117,6 +125,10 @@ export default function PaintApp() {
   /** The Export menu: a copy of the file, or an image to share (as shown or in greens, scaled). */
   const [exportMenu, setExportMenu] = useState<{ x: number; y: number } | null>(null);
   const [slotMenu, setSlotMenu] = useState<{ x: number; y: number; palette: number } | null>(null);
+  /** The text tool: font, words and look, and the floating text it made (while it floats). */
+  const [textSettings, setTextSettings] = useState<TextSettings>({ font: "", text: "Hello!", ink: 3, invert: false, box: false });
+  const textFloat = useRef<Floating | null>(null);
+  const fontSheets = useRef(new Map<string, FontSheet>());
   /** The selection's right-click menu: use or save it as a stamp, copy. */
   const [selectionMenu, setSelectionMenu] = useState<{ x: number; y: number } | null>(null);
   /** Palettes named like DWC-2-Computer D save as their base palette's slot (or the number in the name). */
@@ -171,6 +183,7 @@ export default function PaintApp() {
     wrapRef, scrollerRef, readoutRef, brushRef, spaceDown, paintTool,
     setShade, setActivePalette, setHoverCell, setToolState, say, pushUndo, touch, bump, floatSelection, dropFloat, moveFloat, clonePalettes, blank,
     onSelectionMenu: (x, y) => setSelectionMenu({ x, y }),
+    onPlaceText: (point) => void placeText(point),
   });
 
   function say(message: string) {
@@ -715,6 +728,64 @@ export default function PaintApp() {
   }
 
 
+  /** Puts palettes in slots 1…n of what a picture reads (a scene's palettes, or the project's defaults until a scene shows it). */
+  async function putInSlots(asset: Asset, ids: string[]) {
+    for (const [slot, paletteId] of ids.entries()) {
+      await fetch(`./__cartographer/gbstudio-palette-slot?${assetQuery(asset)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slot, paletteId }) }).catch(() => null);
+    }
+  }
+
+  /** W4: a blank background, and with a library set its palettes added and put in the default slots. */
+  async function createBackground({ name, width, height, palettes: set }: NewBackground): Promise<boolean> {
+    if (set?.length && !window.confirm(`Add the ${set.length} palettes to the project and put them in its default background slots 1–${set.length}?\n\nEvery scene without its own palettes uses the defaults (the old ones are backed up).`)) return false;
+    if (!await createPicture({ kind: "backgrounds", name, width, height })) return false;
+    if (!set?.length) return true;
+    if (!await okToWriteProjectJson()) return true;
+    const ids: string[] = [];
+    for (const palette of set) {
+      const existing = projectRef.current?.palettes.find((item) => item.name === palette.name && item.colors.join() === palette.colors.join());
+      const id = existing?.id ?? await writeProjectPalette(palette);
+      if (id) ids.push(id);
+    }
+    await loadProject();
+    const asset = projectRef.current?.assets.find((item) => item.kind === "backgrounds" && item.name === name);
+    if (asset) await putInSlots(asset, ids);
+    await rereadSlots();
+    setSlotsVersion((value) => value + 1);
+    say(`Made ${name} with ${ids.length} palettes in the default slots.`);
+    return true;
+  }
+
+  /** Takes a palette nothing uses out of the project (it moves to the backups). */
+  async function removeProjectPalette(id: string, name: string): Promise<boolean> {
+    if (!await okToWriteProjectJson()) return false;
+    const response = await fetch("./__cartographer/gbstudio-palette-remove", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) }).catch(() => null);
+    const result = response ? await response.json().catch(() => null) as { ok?: boolean; error?: string } | null : null;
+    if (!response?.ok || !result?.ok) { say(`${name} stays: ${result?.error ?? "no answer"}`); return false; }
+    await loadProject();
+    say(`${name} was taken out of the project (Backups… can put it back).`);
+    return true;
+  }
+
+  /** Opens a project picture by kind and file (Health, the check-up). */
+  async function openByFile(kind: string, file: string) {
+    const asset = projectRef.current?.assets.find((item) => item.kind === kind && item.file === file);
+    if (!asset) return false;
+    setProjectKind(asset.kind);
+    await openAsset(asset);
+    return true;
+  }
+
+  /** Adds palettes to the project (after the GB Studio check); returns how many were written. */
+  async function addPalettes(list: { name: string; colors: string[] }[]): Promise<number> {
+    if (!list.length || !await okToWriteProjectJson()) return 0;
+    let written = 0;
+    for (const palette of list) if (await writeProjectPalette(palette)) written += 1;
+    await loadProject();
+    setSlotsVersion((value) => value + 1);
+    return written;
+  }
+
   // ---- Picture to background (W1, 2026-10-10) ----------------------------------------------------------------------
 
   /** The wizard's result as an untitled picture here: its palettes are palettes of the file. */
@@ -759,10 +830,7 @@ export default function PaintApp() {
     setProjectKind("backgrounds");
     const asset = projectRef.current?.assets.find((item) => item.kind === "backgrounds" && item.file === made.file);
     if (!asset) { say(`Made assets/backgrounds/${made.file}, but it could not be opened.`); return true; }
-    // The palettes into the slots the new background reads (the project's defaults until a scene shows it).
-    for (const [slot, paletteId] of ids.entries()) {
-      await fetch(`./__cartographer/gbstudio-palette-slot?${assetQuery(asset)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slot, paletteId }) }).catch(() => null);
-    }
+    await putInSlots(asset, ids);
     await openAsset(asset);
     const target = docs.current.find((item) => item.asset?.kind === "backgrounds" && item.asset.file === made.file);
     if (target) {
@@ -775,6 +843,79 @@ export default function PaintApp() {
     setSlotsVersion((value) => value + 1);
     say(`Made assets/backgrounds/${made.file} with ${ids.length} palettes in slots 1–${ids.length}.${target?.dirty ? " Its tile palettes wait until GB Studio has read the project once: then Save it here again." : ""}`);
     return true;
+  }
+
+  // ---- the text tool (W5) ------------------------------------------------------------------------------------------
+
+  /** A project font sheet read for typing, cached by file and modification time. */
+  async function fontSheet(file: string): Promise<FontSheet | null> {
+    const asset = projectRef.current?.assets.find((item) => item.kind === "fonts" && item.file === file);
+    if (!asset) return null;
+    const key = `${file}|${asset.mtime}`;
+    const known = fontSheets.current.get(key);
+    if (known) return known;
+    try {
+      const blob = await fetch(`${ASSET_URL}?${assetQuery(asset)}`, { cache: "no-cache" }).then((response) => response.blob());
+      const bitmap = await createImageBitmap(blob, { colorSpaceConversion: "none", premultiplyAlpha: "none" });
+      const canvas = Object.assign(document.createElement("canvas"), { width: bitmap.width, height: bitmap.height });
+      const context = canvas.getContext("2d", { willReadFrequently: true })!;
+      context.drawImage(bitmap, 0, 0);
+      const sheet = readFontSheet(context.getImageData(0, 0, bitmap.width, bitmap.height).data, bitmap.width, bitmap.height);
+      fontSheets.current.set(key, sheet);
+      return sheet;
+    } catch {
+      say(`${asset.name} could not be read as a font sheet.`);
+      return null;
+    }
+  }
+
+  const textOptions = (settings: TextSettings) => ({ ink: settings.ink, invert: settings.invert, box: settings.box, leading: 0 });
+
+  /** The text floats at `point` (anything floating before lands first). */
+  async function placeText(point: Point) {
+    const target = doc;
+    if (!target) return;
+    const font = textSettings.font || projectRef.current?.assets.find((asset) => asset.kind === "fonts")?.file || "";
+    const sheet = await fontSheet(font);
+    if (!sheet) return say("The text tool needs one of the project's font sheets.");
+    dropFloat(target);
+    pushUndo(target);
+    target.float = renderText(sheet, textSettings.text || " ", textOptions(textSettings), point.x, point.y);
+    target.sel = { x: point.x, y: point.y, w: target.float.w, h: target.float.h };
+    textFloat.current = target.float;
+    bump();
+  }
+
+  /** The floating text follows the settings (words, font, ink…) where it is. */
+  async function updateText(settings: TextSettings) {
+    setTextSettings(settings);
+    const target = doc;
+    if (!target?.float || target.float !== textFloat.current) return;
+    const sheet = await fontSheet(settings.font);
+    if (!sheet || target.float !== textFloat.current) return;
+    const { x, y } = target.float;
+    target.float = renderText(sheet, settings.text || " ", textOptions(settings), x, y);
+    target.sel = { x, y, w: target.float.w, h: target.float.h };
+    textFloat.current = target.float;
+    bump();
+  }
+
+  function stampText() {
+    if (!doc?.float) return;
+    dropFloat(doc);
+    doc.sel = null;
+    textFloat.current = null;
+    touch(doc);
+  }
+
+  function cancelText() {
+    if (!doc?.float || doc.float !== textFloat.current) return;
+    // Nothing was lifted from the picture, so the text just goes, with the undo step its placing added.
+    doc.float = null;
+    doc.sel = null;
+    doc.undo.pop();
+    textFloat.current = null;
+    bump();
   }
 
   // ---- stamps (saved in the project's Cartographer/stamps/) --------------------------------------------------------
@@ -1658,6 +1799,18 @@ export default function PaintApp() {
     { separator: true },
     { label: "Show project folder", icon: <FolderTree />, onSelect: () => void fetch("./__cartographer/reveal", { method: "POST" }) },
   ] : [];
+  // The wizards (W1…W8, the author's picks 2026-10-10); the text tool (W5) is in the tool column.
+  const noProject = !project, sceneOpen = Boolean(doc?.asset?.slots?.length);
+  const wizardItems: MenuEntry[] = [
+    { heading: "Wizards" },
+    { label: "Picture to background…", icon: <ImagePlus />, disabled: noProject, title: "Any picture or photo, framed to screens and fitted to GB Studio's palettes and tile budget", onSelect: () => setShowPictureWizard(true) },
+    { label: "Day, sunset and night…", icon: <PxCloudMoon size={15} />, disabled: !sceneOpen, title: sceneOpen ? "Time-of-day versions of the open picture's slot palettes" : "Open a project background or sprite sheet first", onSelect: () => setWizard("dns") },
+    { label: "A palette set…", icon: <SwatchBook />, disabled: noProject, title: "Eight palettes from a Lospec palette, a picture or the library", onSelect: () => setWizard("paletteSet") },
+    { label: "New background…", icon: <FilePlus />, disabled: noProject, title: "A blank background in screens, with a palette set in its slots", onSelect: () => setWizard("newBackground") },
+    { label: "Tile budget fixer…", icon: <PhPiggyBank size={15} />, disabled: !doc, title: "Get the open picture under GB Studio's tile limit, one merge at a time", onSelect: () => setWizard("budget") },
+    { label: "New map…", icon: <MapIcon />, disabled: noProject, title: "A Zelda-style grid of screens, in the Map Room", onSelect: () => setShowMapRoom(true) },
+    { label: "Project check-up…", icon: <PxHeart size={15} />, disabled: noProject, title: "The health report one issue at a time, each with its fix", onSelect: () => setWizard("checkup") },
+  ];
   const lookName = look === "dmg" ? "Game Boy screen" : look === "pocket" ? "Pocket screen" : "GBC screen";
 
   return (
@@ -1676,6 +1829,7 @@ export default function PaintApp() {
           {served && !project && <Button icon={<FolderTree />} title="Open a GB Studio project folder" onClick={() => void chooseProject()}>Open project…</Button>}
           {project && <Button icon={<MapIcon />} title="Map Room: grids of screens (Zelda-style), each a background" onClick={() => setShowMapRoom(true)}>Maps</Button>}
           <Button icon={<SwatchBook />} title="Palette manager: the project's palettes, a library, and your own" onClick={() => setShowPalettes(true)}>Palettes</Button>
+          <Menu items={wizardItems} trigger={<Button icon={<PxRobotHappy size={15} />} title="Wizards: step-by-step helpers">Wizards</Button>} />
         </span>
         <IconButton label="Undo" keys="Ctrl+Z" disabled={!doc?.undo.length} onClick={() => stepHistory("undo")}><Undo2 /></IconButton>
         <IconButton label="Redo" keys="Ctrl+Shift+Z" disabled={!doc?.redo.length} onClick={() => stepHistory("redo")}><Redo2 /></IconButton>
@@ -1717,6 +1871,7 @@ export default function PaintApp() {
         )}
         <ToolColumn tool={tool} onTool={setTool} seamless={seamless} onSeamless={setSeamless} linked={linked} onLinked={setLinked} mirror={mirror} onMirror={setMirror} pattern={pattern} onPattern={cyclePattern} cellBrush={cellBrush} onCellBrush={setCellBrush} brush={brush} onBrush={setBrush} />
         <div className="k-panel app-stage gbp-scroller" ref={scrollerRef}>
+          {doc && tool === "text" && <TextStrip fonts={project?.assets.filter((asset) => asset.kind === "fonts") ?? []} settings={{ ...textSettings, font: textSettings.font || project?.assets.find((asset) => asset.kind === "fonts")?.file || "" }} onChange={(settings) => void updateText(settings)} shades={swatchColors} placed={Boolean(doc.float) && doc.float === textFloat.current} onStamp={stampText} onCancel={cancelText} />}
           {doc && tool === "stamp" && project && project.assets.some((asset) => asset.kind === "stamps") && <StampsStrip stamps={project.assets.filter((asset) => asset.kind === "stamps")} slotsVersion={slotsVersion} onUse={(asset) => void useSavedStamp(asset)} onOpen={(asset) => { setProjectKind("stamps"); void openAsset(asset); }} />}
           {doc && frames.length > 0 && <FramesStrip animations={animations} frame={frame} onFrame={setFrame} playing={playing} onPlaying={setPlaying} animSpeed={animSpeed} fps={fps} canvases={frameCanvases} onBackground={project?.assets.some((asset) => asset.kind === "backgrounds") ? () => setOnBackground(composeFrames()) : undefined} backgrounds={project?.assets.filter((asset) => asset.kind === "backgrounds") ?? []} />}
           {doc?.changedOnDisk && !doc.changedOnDisk.kept && (
@@ -1812,6 +1967,22 @@ export default function PaintApp() {
       {showMapRoom && project && <MapRoom project={project} onClose={() => setShowMapRoom(false)} onOpen={(asset) => { setProjectKind("backgrounds"); void openAsset(asset); }} onProjectChanged={async () => { await loadProject(); setSlotsVersion((value) => value + 1); }} onExport={(blob, name) => saveBlob(blob, name, PNG_TYPES)} say={say} />}
       {showDialogue && project && <DialoguePreview backgrounds={project.assets.filter((asset) => asset.kind === "backgrounds")} hasFrame={project.assets.some((asset) => asset.kind === "ui" && asset.file === "frame.png")} onClose={() => setShowDialogue(false)} />}
       {stampSave && <SaveStampDialog hint={stampSave.hint} known={[...new Set((project?.assets ?? []).flatMap((asset) => asset.tags ?? []))]} onClose={() => stampSave.resolve(null)} onSave={(save) => stampSave.resolve(save)} />}
+      {wizard === "dns" && doc && project && (
+        <DnsWizard slots={slotPalettes.map((index) => { const palette = index >= 0 ? docPalettes[index] : null; return palette?.id ? { id: palette.id, name: palette.name, colors: [...palette.colors] } : null; })} where={slotWhere} existing={project.palettes.map((palette) => palette.name)}
+          picture={{ pixels: doc.pixels, cells: doc.cells, width: doc.width, height: doc.height, palettes: doc.palettes }} onClose={() => setWizard(null)} onCreate={addPalettes} />
+      )}
+      {wizard === "newBackground" && project && <NewBackgroundWizard projectName={project.name} palettes={project.palettes} onClose={() => setWizard(null)} onCreate={createBackground} />}
+      {wizard === "budget" && doc && (
+        <BudgetFixer picture={{ name: doc.name, pixels: (() => { const flat = doc.pixels.slice(); if (doc.float) drop(flat, doc.width, doc.height, doc.float); return flat; })(), cells: doc.cells, width: doc.width, height: doc.height, palettes: doc.palettes }}
+          limit={budget.limit} flips={budget.flips} onClose={() => setWizard(null)} onApply={(pixels) => { dropFloat(doc); pushUndo(doc); doc.pixels.set(pixels); touch(doc); say(`${doc.name}: merged near tiles; ${countUniqueTiles(doc.pixels, doc.width, doc.height, budget.flips)} unique tiles now. Undo brings them back.`); }} />
+      )}
+      {wizard === "checkup" && project && (
+        <CheckupWizard projectName={project.name} onClose={() => setWizard(null)}
+          onFixPalette={async (palette) => { if (!await okToWriteProjectJson()) return false; const id = await writeProjectPalette(palette); await loadProject(); setSlotsVersion((value) => value + 1); return Boolean(id); }}
+          onRemovePalette={removeProjectPalette}
+          onOpen={(kind, file) => void openByFile(kind, file)}
+          onFixTiles={(kind, file) => void openByFile(kind, file).then((opened) => { if (opened) setWizard("budget"); })} />
+      )}
       {showPictureWizard && <PictureWizard projectName={project?.name ?? null} onClose={() => setShowPictureWizard(false)} onOpen={openFittedPicture} onSave={saveFittedBackground} />}
       {showHealth && project && <HealthWindow projectName={project.name} onClose={() => setShowHealth(false)} onOpen={(kind, file) => { const asset = project.assets.find((item) => item.kind === kind && item.file === file); if (asset) { setProjectKind(kind); void openAsset(asset); } }} />}
       {showNew && <NewPictureWindow projectName={project?.name ?? null} initialKind={projectKind} onClose={() => setShowNew(false)} onCreate={createPicture} />}
@@ -1828,15 +1999,7 @@ export default function PaintApp() {
           onClose={() => setShowPalettes(false)}
           onWriteProject={writeProjectPalette}
           onPick={(id) => { const index = docPalettes.findIndex((item) => item.id === id); if (index >= 0) { setActivePalette(index + 1); setTool("palette"); } }}
-          onRemoveProject={async (id, name) => {
-            if (!await okToWriteProjectJson()) return false;
-            const response = await fetch("./__cartographer/gbstudio-palette-remove", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) }).catch(() => null);
-            const result = response ? await response.json().catch(() => null) as { ok?: boolean; error?: string } | null : null;
-            if (!response?.ok || !result?.ok) { say(`${name} stays: ${result?.error ?? "no answer"}`); return false; }
-            await loadProject();
-            say(`${name} was taken out of the project (Backups… can put it back).`);
-            return true;
-          }}
+          onRemoveProject={removeProjectPalette}
           onSlotMenu={doc?.asset?.slots?.length ? (id, x, y) => { const index = docPalettes.findIndex((item) => item.id === id); if (index >= 0) setSlotMenu({ x, y, palette: index + 1 }); else say("Open a picture of this project to put its palettes in slots."); } : undefined}
         />
       )}

@@ -1,0 +1,43 @@
+/* Project check-up (src/app/CheckupWizard.tsx): a strip of issues, one issue card, its fixes with old → new on them. */
+
+/* The strip: one pill an issue (✓ when fixed), the one on screen lit, a Done pill at the end. */
+.cw-steps { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: var(--k-4); }
+.cw-step { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 5px; border-radius: 999px; color: var(--k-ink-3); background: var(--k-sunk); border: 1px solid var(--k-edge); font: 600 var(--k-text-xs) var(--k-font); white-space: nowrap; cursor: pointer; }
+.cw-step:hover { border-color: var(--k-hover-edge); }
+.cw-step b { display: grid; place-items: center; min-width: 16px; height: 16px; padding: 0 3px; border-radius: 999px; background: #2a2e35; color: var(--k-ink-2); font-size: 10px; }
+.cw-step--problem b { box-shadow: 0 0 0 1px var(--k-bad); }
+.cw-step--warning b { box-shadow: 0 0 0 1px var(--k-warn); }
+.cw-step--end { padding-right: 10px; }
+.cw-step.is-passed { opacity: .6; }
+.cw-step.is-done { color: var(--k-acc-text); } .cw-step.is-done b { background: var(--k-acc-lo); color: var(--k-on-acc); box-shadow: none; }
+.cw-step.is-now { color: var(--k-on-acc); background: linear-gradient(var(--k-acc-hi), var(--k-acc-lo)); border-color: var(--k-acc-hi); opacity: 1; }
+.cw-step.is-now b { background: var(--k-on-acc); color: var(--k-acc-text); box-shadow: none; }
+
+/* The issue card, a bar on the left in its level's color. */
+.cw-issue { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border-left: 3px solid var(--k-edge-2); }
+.cw-issue--problem { border-left-color: var(--k-bad); } .cw-issue--warning { border-left-color: var(--k-warn); }
+.cw-issue-head { min-height: 22px; }
+.cw-level { color: var(--k-ink-3); font: 600 var(--k-text-xs) var(--k-font); letter-spacing: .1em; text-transform: uppercase; }
+.cw-title { font-size: var(--k-text-lg); font-weight: 600; }
+.cw-detail { margin: 0 0 var(--k-2); color: var(--k-ink-2); font-size: var(--k-text-sm); line-height: 1.45; }
+.cw-say { margin: 0; color: var(--k-ink-2); font-size: var(--k-text-sm); line-height: 1.5; max-width: 640px; }
+.cw-failed { margin: var(--k-2) 0 0; color: #f08aa0; font-size: var(--k-text-sm); }
+
+/* Palettes: name and four swatches; a changed color gets a light ring. */
+.cw-palettes { display: flex; flex-direction: column; gap: 6px; }
+.cw-palette { display: flex; align-items: center; gap: var(--k-3); font-size: var(--k-text-sm); }
+.cw-palette b { min-width: 140px; font-weight: 500; }
+.cw-swatches { display: inline-flex; gap: 2px; padding: 2px; border-radius: 5px; background: rgba(0, 0, 0, .35); }
+.cw-swatches i { display: block; width: 14px; height: 14px; border-radius: 3px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12); }
+.cw-swatches i.is-changed { box-shadow: 0 0 0 2px #fff; }
+
+/* A fix: the button with its preview on it, and what exactly changes under it. */
+.cw-fix { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-top: var(--k-1); }
+.cw-fix .k-btn { height: 36px; }
+.cw-ba { display: inline-flex; align-items: center; gap: 6px; margin-left: var(--k-1); padding-left: var(--k-3); border-left: 1px solid rgba(0, 0, 0, .25); font-weight: 600; font-variant-numeric: tabular-nums; }
+.k-btn .cw-ba svg { width: 13px; height: 13px; }
+.cw-fix-hint { color: var(--k-ink-3); font-size: var(--k-text-xs); line-height: 1.5; }
+
+/* The end page. */
+.cw-end { display: flex; flex-direction: column; align-items: flex-start; gap: var(--k-2); padding: var(--k-5); }
+.cw-end-mark { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 999px; background: var(--k-acc); color: var(--k-on-acc); }

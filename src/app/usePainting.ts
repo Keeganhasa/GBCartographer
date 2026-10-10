@@ -43,6 +43,8 @@ interface Painting {
   blank: (target: Doc) => number;
   /** A right-click inside the selection: its menu (use or save as a stamp, copy). */
   onSelectionMenu: (x: number, y: number) => void;
+  /** The text tool clicked outside the floating text: place the text there. */
+  onPlaceText: (point: Point) => void;
 }
 
 export function usePainting(app: Painting) {
@@ -160,7 +162,7 @@ export function usePainting(app: Painting) {
       const cellH = tall ? 2 * CELL : CELL, cellOffset = Math.floor((cellBrush - 1) / 2);
       const size = cells ? CELL * cellBrush : brush, offset = cells ? 0 : Math.floor((brush - 1) / 2);
       const [x, y] = cells ? [(point.x & ~7) - cellOffset * CELL, (tall ? point.y & ~15 : point.y & ~7) - cellOffset * cellH] : [point.x - offset, point.y - offset];
-      const visible = inside(doc, point) && tool !== "hand" && tool !== "select" && tool !== "move";
+      const visible = inside(doc, point) && tool !== "hand" && tool !== "select" && tool !== "move" && tool !== "text";
       Object.assign(outline.style, { display: visible ? "block" : "none", left: `${x * doc.zoom}px`, top: `${y * doc.zoom}px`, width: `${size * doc.zoom}px`, height: `${(cells ? cellH * cellBrush : size) * doc.zoom}px` });
     }
   }
@@ -199,6 +201,13 @@ export function usePainting(app: Painting) {
       return;
     }
     const value = tool === "eraser" || tool === "fillErase" || (shade === CLEAR && !doc.hasAlpha) ? app.blank(doc) : shade;
+    if (tool === "text") {
+      // Inside the floating text: drag it; elsewhere: the text goes there.
+      const float = doc.float;
+      if (float && point.x >= float.x && point.y >= float.y && point.x < float.x + float.w && point.y < float.y + float.h) drag.current = { kind: "move", start: point, ox: float.x, oy: float.y };
+      else app.onPlaceText(point);
+      return;
+    }
     linkStroke.current = linked && !["eyedropper", "select", "move", "palette", "hand"].includes(tool) ? { link: linkGroups(doc.pixels, doc.width, doc.height), base: doc.pixels.slice(), previous: doc.pixels.slice() } : null;
     if (tool === "eyedropper") {
       // Came here from the palette brush: pick the tile's palette instead of a shade.
