@@ -1,5 +1,5 @@
 /** The paint tools (with their icons and help) and the asset kinds' icons. */
-import { BoxSelect, Circle, DropletOff, Eraser, Ghost, Hand, Image, LayoutGrid, Move, PanelTop, Smile, UserRound, PaintBucket, Palette as PaletteIcon, Pencil, Pipette, RectangleHorizontal, Slash, SprayCan, Square, Type } from "lucide-react";
+import { ArrowUpFromLine, BoxSelect, Circle, DropletOff, Eraser, Ghost, Hand, Image, LayoutGrid, Move, PanelTop, Smile, UserRound, PaintBucket, Palette as PaletteIcon, Pencil, Pipette, RectangleHorizontal, Slash, SprayCan, Square, Type } from "lucide-react";
 
 /** id, label, icon, key, one-clause hint (status bar), the longer explanation (the ? help). */
 export const TOOLS = [
@@ -17,5 +17,6 @@ export const TOOLS = [
   ["select", "Select", BoxSelect, "M", "drag a box · drag inside to move · Alt copies · F flip · T turn", "Drag a box to select. Drag inside it to move the selection (Alt copies). Arrow keys nudge, Delete clears, Esc drops it. F flips it left-right, Shift+F top-bottom, T turns it clockwise. A selection on tile edges (Snap helps) takes its tiles' palettes along, also when copied into another picture."],
   ["move", "Move", Move, "V", "drag the selection or the whole picture", "Drag the selection, or the whole picture when nothing is selected (Alt copies)."],
   ["hand", "Pan", Hand, "H", "drag to pan · Space or middle button with any tool", "Drag to pan. Space or the middle mouse button pans with any tool."],
+  ["priority", "Priority brush", ArrowUpFromLine, "U", "drag over tiles to draw them over sprites · Alt or right-drag clears", "On a background or tileset, drag over tiles to mark them as drawn over sprites (GB Studio's priority flag; marked tiles show hatched). Alt-drag or right-drag clears the mark. Save writes the flag into the tile colors."],
 ] as const;
 export const KIND_ICONS = { backgrounds: Image, sprites: Ghost, tilesets: LayoutGrid, fonts: Type, emotes: Smile, avatars: UserRound, ui: PanelTop } as const;

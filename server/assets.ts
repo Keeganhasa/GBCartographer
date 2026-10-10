@@ -571,7 +571,7 @@ export class AssetWriteError extends Error {
  * every other field of the sidecar are kept; the file is written back as GB Studio writes it (two-space JSON, no
  * trailing newline). The old sidecar is copied to the backup folder first. Returns whether anything changed.
  */
-export function writeTileColors(path: string, slots: readonly (number | null)[], backup: Backup, expectedMtime: number | null, force: boolean, kind: "backgrounds" | "tilesets" = "backgrounds"): { mtime: number; changed: boolean; cells: number } {
+export function writeTileColors(path: string, slots: readonly (number | null)[], backup: Backup, expectedMtime: number | null, force: boolean, kind: "backgrounds" | "tilesets" = "backgrounds", priority: readonly (boolean | null)[] = []): { mtime: number; changed: boolean; cells: number } {
   const { sidecar, meta, mtime } = openSidecar(path, kind === "tilesets" ? "tileset" : "background", expectedMtime, force);
   const size = pngSizeOfFile(path) ?? { width: 0, height: 0 };
   const count = Math.ceil(size.width / 8) * Math.ceil(size.height / 8);
@@ -581,6 +581,13 @@ export function writeTileColors(path: string, slots: readonly (number | null)[],
   slots.slice(0, count).forEach((slot, cell) => {
     if (slot === null || slot === undefined) return;
     const next = (values[cell] & ~7) | (slot & 7);
+    if (next !== values[cell]) cells += 1;
+    values[cell] = next;
+  });
+  // Bit 7: the tile draws over sprites (GB Studio's priority flag). null leaves it as it is.
+  priority.slice(0, count).forEach((on, cell) => {
+    if (on === null || on === undefined) return;
+    const next = on ? values[cell] | 0x80 : values[cell] & ~0x80;
     if (next !== values[cell]) cells += 1;
     values[cell] = next;
   });

@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { deflateSync } from "node:zlib";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { decodeTileColors } from "../src/gb/gbstudio";
 import { encodePng } from "../src/gb/png";
 import { handleCartographerRequest } from "./endpoints";
 import { KEEP, listBackups, projectBackupDir } from "./backups";
@@ -210,6 +211,13 @@ describe("tile palettes", () => {
     expect((await post({ slots: [0] }, `&metaMtime=${metaMtime}&force=1`)).status).toBe(200);
     expect((await fetch(`${base}/gbstudio-tile-colors?kind=fonts&file=props.png`, { method: "POST", body: "{}" })).status).toBe(404);
     // A tileset's tile colors are written the same way, backed up under tilesets.
+    // The priority bit (draw over sprites): set and cleared on its own, the slot kept.
+    const before = JSON.parse(readFileSync(sidecar, "utf8")).tileColors as string;
+    const flagged = await json<{ changed: boolean }>(await fetch(`${base}/gbstudio-tile-colors?kind=backgrounds&file=town.png&force=1`, { method: "POST", body: JSON.stringify({ slots: [], priority: [false, true] }) }));
+    expect(flagged.changed).toBe(true);
+    const flags = decodeTileColors(JSON.parse(readFileSync(sidecar, "utf8")).tileColors);
+    expect([flags[0] & 0x87, flags[1] & 0x87]).toEqual([decodeTileColors(before)[0] & 7, 0x80 | (decodeTileColors(before)[1] & 7)]);
+    expect((await fetch(`${base}/gbstudio-tile-colors?kind=backgrounds&file=town.png&force=1`, { method: "POST", body: JSON.stringify({ slots: [], priority: ["yes"] }) })).status).toBe(400);
     const ts = await json<{ changed: boolean }>(await fetch(`${base}/gbstudio-tile-colors?kind=tilesets&file=props.png`, { method: "POST", body: JSON.stringify({ slots: [5] }) }));
     expect(ts.changed).toBe(true);
     expect(JSON.parse(readFileSync(join(project, "assets/tilesets/props.png.gbsres"), "utf8")).tileColors).toBe("05!");

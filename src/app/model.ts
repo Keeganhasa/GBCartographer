@@ -4,7 +4,7 @@
  */
 import { GB_SHADES, type Floating, type Mirror, type Palette, type Rect } from "../paint";
 
-export type ToolId = "pencil" | "eraser" | "spray" | "line" | "rect" | "rectFill" | "ellipse" | "fill" | "fillErase" | "eyedropper" | "palette" | "select" | "move" | "hand";
+export type ToolId = "pencil" | "eraser" | "spray" | "line" | "rect" | "rectFill" | "ellipse" | "fill" | "fillErase" | "eyedropper" | "palette" | "select" | "move" | "hand" | "priority";
 
 export const MIRRORS: Mirror[] = ["off", "x", "y", "xy"];
 export const MIRROR_LABEL = { off: "Mirror off", x: "Mirror ↔", y: "Mirror ↕", xy: "Mirror ↔↕" } as const;
@@ -70,7 +70,7 @@ export interface AssetInfo { mtime: number; tileColors: number[]; slots: string[
 /** A file to open; `replace` names an open picture (by id) that it reloads in place (same tab, same zoom). */
 export interface Opening { file: File; handle?: FileHandle; asset?: Asset; info?: AssetInfo; replace?: number }
 
-export interface Snapshot { pixels: Uint8Array; cells: Uint8Array; /** The picture's palettes (colors are editable, so undo brings them back). */ palettes?: Palette[] }
+export interface Snapshot { pixels: Uint8Array; cells: Uint8Array; /** Per tile: draws over sprites (GB Studio's priority flag). */ priority?: Uint8Array; /** The picture's palettes (colors are editable, so undo brings them back). */ palettes?: Palette[] }
 export interface Doc extends Snapshot {
   id: number;
   name: string;
@@ -88,9 +88,11 @@ export interface Doc extends Snapshot {
    * A background or sprite sheet also carries its eight palette slot ids and its sidecar's time: Save writes each
    * tile's palette into the sidecar (a background's tileColors, a sprite's slices' paletteIndex) as a slot.
    */
-  asset?: { kind: AssetKind; file: string; name: string; mtime: number; slots?: string[]; /** The scene whose palette list the slots are; null: the project's default palettes. */ slotScene?: string | null; metaMtime?: number | null; /** Each cell's slot when the picture was opened (-1 unknown): only cells moved off it are written back. */ opened?: number[]; /** A sprite sheet's animations, for the frames strip. */ animations?: SpriteAnimation[]; /** GB Studio's animSpeed for the sheet. */ animSpeed?: number | null; /** The project folder it came from: Save refuses to write it into another project. */ project?: string; /** GB Studio's Automatic color is on (Save asks first). */ autoColor?: boolean };
+  asset?: { kind: AssetKind; file: string; name: string; mtime: number; slots?: string[]; /** The scene whose palette list the slots are; null: the project's default palettes. */ slotScene?: string | null; metaMtime?: number | null; /** Each cell's slot when the picture was opened (-1 unknown): only cells moved off it are written back. */ opened?: number[]; /** Each cell's priority flag when opened. */ openedPriority?: number[]; /** A sprite sheet's animations, for the frames strip. */ animations?: SpriteAnimation[]; /** GB Studio's animSpeed for the sheet. */ animSpeed?: number | null; /** The project folder it came from: Save refuses to write it into another project. */ project?: string; /** GB Studio's Automatic color is on (Save asks first). */ autoColor?: boolean };
   /** The file changed on disk while this picture had unsaved changes: the times seen, until Reload or Keep mine. */
   changedOnDisk?: { mtime: number; metaMtime: number | null; /** Keep mine: the bar hides; Save still asks before replacing. */ kept?: boolean };
+  /** Per tile (backgrounds and tilesets): 1 when it draws over sprites (bit 7 of GB Studio's tileColors). */
+  priority?: Uint8Array;
   /** Resized since it was opened or saved: Save writes the new size (a project asset's size is otherwise fixed). */
   resized?: boolean;
   /** A sprite sheet: see-through pixels are GB Studio's key green in the file. */
@@ -102,6 +104,7 @@ export interface Doc extends Snapshot {
 export type Point = { x: number; y: number };
 export type Drag =
   | { kind: "stroke" | "spray" | "cells"; last: Point }
+  | { kind: "priority"; last: Point; on: boolean }
   | { kind: "shape"; start: Point; base: Uint8Array }
   | { kind: "marquee"; start: Point }
   | { kind: "move"; start: Point; ox: number; oy: number }

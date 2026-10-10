@@ -63,6 +63,7 @@ export default function PaintApp() {
   const linkStroke = useRef<{ link: ReturnType<typeof linkGroups>; base: Uint8Array; previous: Uint8Array } | null>(null);
   const [usage, setUsage] = useState<{ key: string; usage: TileUsage } | null>(null);
   const usageCanvas = useRef<HTMLCanvasElement>(null);
+  const priorityCanvas = useRef<HTMLCanvasElement>(null);
   const [palettes, setPalettes] = useState<Palette[]>([]);
   const [activePalette, setActivePalette] = useState(0);
   const [tint, setTint] = useState(() => readStored(TINT_KEY, "GB greens"));
@@ -189,7 +190,7 @@ export default function PaintApp() {
   // ---- undo and the floating selection ---------------------------------------------------------------------------
 
   function pushUndo(target: Doc) {
-    target.undo.push({ pixels: target.pixels.slice(), cells: target.cells.slice(), palettes: clonePalettes(target.palettes) });
+    target.undo.push({ pixels: target.pixels.slice(), cells: target.cells.slice(), palettes: clonePalettes(target.palettes), ...(target.priority ? { priority: target.priority.slice() } : {}) });
     while (target.undo.length > UNDO_LIMIT || (target.undo.length > 1 && target.undo.length * target.pixels.length > UNDO_BYTES)) target.undo.shift();
     target.redo = [];
   }
@@ -205,7 +206,7 @@ export default function PaintApp() {
   function stepHistory(from: "undo" | "redo") {
     if (!doc || !doc[from].length) return;
     dropFloat(doc);
-    doc[from === "undo" ? "redo" : "undo"].push({ pixels: doc.pixels, cells: doc.cells, palettes: clonePalettes(doc.palettes) });
+    doc[from === "undo" ? "redo" : "undo"].push({ pixels: doc.pixels, cells: doc.cells, palettes: clonePalettes(doc.palettes), ...(doc.priority ? { priority: doc.priority } : {}) });
     const { palettes, ...rest } = doc[from].pop()!;
     Object.assign(doc, rest);
     // Palette colors come back too; a restored list that predates a palette added since keeps the newer ones.
@@ -305,7 +306,9 @@ export default function PaintApp() {
         const old = replace !== undefined ? docs.current.findIndex((item) => item.id === replace) : -1;
         const id = old >= 0 ? replace! : newDocId(docs.current);
         if (old < 0) last = id;
-        const opened: Doc = { id, name: asset?.name ?? file.name, width: bitmap.width, height: bitmap.height, pixels: picture.pixels, cells: picture.cells, hasAlpha: picture.hasAlpha || keyGreen, palettes: picture.palettes, undo: [], redo: [], dirty: false, handle, asset: asset && info ? { kind: asset.kind, file: asset.file, name: asset.name, mtime: info.mtime, ...(hasSlots(asset.kind) ? { slots: info.slots, slotScene: info.slotScene ?? null, metaMtime: info.metaMtime, opened: info.tileColors.map((value) => value < 0 ? -1 : value & 7) } : {}), ...(asset.kind === "sprites" && info.animations?.length ? { animations: info.animations, animSpeed: info.animSpeed ?? null } : {}), project: projectRef.current?.path, ...(info.autoColor ? { autoColor: true } : {}) } : undefined, keyGreen: keyGreen || undefined, zoom: old >= 0 ? docs.current[old].zoom : fitZoom(bitmap.width, bitmap.height), sel: null, float: null };
+        // Backgrounds and tilesets: each tile's priority flag (bit 7: draws over sprites).
+        const flags = asset && info && (asset.kind === "backgrounds" || asset.kind === "tilesets") ? Array.from({ length: picture.cells.length }, (_, cell) => (info.tileColors[cell] ?? 0) >= 0 && (info.tileColors[cell] ?? 0) & 0x80 ? 1 : 0) : null;
+        const opened: Doc = { id, name: asset?.name ?? file.name, width: bitmap.width, height: bitmap.height, pixels: picture.pixels, cells: picture.cells, ...(flags ? { priority: Uint8Array.from(flags) } : {}), hasAlpha: picture.hasAlpha || keyGreen, palettes: picture.palettes, undo: [], redo: [], dirty: false, handle, asset: asset && info ? { kind: asset.kind, file: asset.file, name: asset.name, mtime: info.mtime, ...(hasSlots(asset.kind) ? { slots: info.slots, slotScene: info.slotScene ?? null, metaMtime: info.metaMtime, opened: info.tileColors.map((value) => value < 0 ? -1 : value & 7), ...(flags ? { openedPriority: flags } : {}) } : {}), ...(asset.kind === "sprites" && info.animations?.length ? { animations: info.animations, animSpeed: info.animSpeed ?? null } : {}), project: projectRef.current?.path, ...(info.autoColor ? { autoColor: true } : {}) } : undefined, keyGreen: keyGreen || undefined, zoom: old >= 0 ? docs.current[old].zoom : fitZoom(bitmap.width, bitmap.height), sel: null, float: null };
         if (old >= 0) docs.current[old] = opened;
         else docs.current.push(opened);
         if (old >= 0) continue;
@@ -693,8 +696,11 @@ export default function PaintApp() {
       if (slot === undefined) outside += 1;
       return slot === undefined || slot === asset.opened?.[cell] ? null : slot;
     });
+    // Priority flags that changed since opening (backgrounds and tilesets).
+    const priority = target.priority ? Array.from(target.priority, (on, cell) => on === (asset.openedPriority?.[cell] ?? 0) ? null : on === 1) : [];
+    const flagged = priority.filter((value) => value !== null).length;
     if (!await okToWriteProjectJson()) return ["Tile palettes not written"];
-    const post = (force: boolean) => fetch(`./__cartographer/gbstudio-tile-colors?${new URLSearchParams({ kind: asset.kind, file: asset.file })}${asset.metaMtime != null ? `&metaMtime=${asset.metaMtime}` : ""}${force ? "&force=1" : ""}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slots }) });
+    const post = (force: boolean) => fetch(`./__cartographer/gbstudio-tile-colors?${new URLSearchParams({ kind: asset.kind, file: asset.file })}${asset.metaMtime != null ? `&metaMtime=${asset.metaMtime}` : ""}${force ? "&force=1" : ""}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slots, ...(flagged ? { priority } : {}) }) });
     let response = await post(false);
     if (response.status === 409) {
       if (!window.confirm(`The palettes of ${asset.name} changed in GB Studio since you opened it. Replace them with this picture's?`)) return ["Tile palettes not written"];
@@ -702,9 +708,10 @@ export default function PaintApp() {
     }
     const result = await response.json() as { ok?: boolean; error?: string; mtime?: number; changed?: boolean; cells?: number };
     if (!response.ok || !result.ok) return [`Tile palettes not written: ${result.error ?? response.statusText}`];
+    if (target.priority) asset.openedPriority = Array.from(target.priority);
     asset.metaMtime = result.mtime ?? asset.metaMtime;
     const notes: string[] = [];
-    if (result.changed) notes.push(`${result.cells} tile palette${result.cells === 1 ? "" : "s"} written to GB Studio`);
+    if (result.changed) notes.push(flagged ? `${result.cells} tile${result.cells === 1 ? "" : "s"} written to GB Studio (palettes and draw-over-sprites flags)` : `${result.cells} tile palette${result.cells === 1 ? "" : "s"} written to GB Studio`);
     if (outside) notes.push(`${outside} tile${outside === 1 ? "" : "s"} wear palettes outside the eight slots and keep their slot`);
     return notes;
   }
@@ -723,6 +730,12 @@ export default function PaintApp() {
       const info = await fetch(`${ASSET_URL}-info?${assetQuery(asset)}`, { cache: "no-cache" }).then((response) => response.ok ? response.json() as Promise<AssetInfo> : null).catch(() => null);
       if (!info) return;
       if (!asset.slots) Object.assign(asset, { metaMtime: info.metaMtime, opened: info.tileColors.map((value) => value < 0 ? -1 : value & 7), project: path });
+      // Pictures from an older session learn their tiles' priority flags too.
+      if (!item.priority && (asset.kind === "backgrounds" || asset.kind === "tilesets")) {
+        const flags = Array.from({ length: item.cells.length }, (_, cell) => (info.tileColors[cell] ?? 0) >= 0 && (info.tileColors[cell] ?? 0) & 0x80 ? 1 : 0);
+        item.priority = Uint8Array.from(flags);
+        asset.openedPriority = flags;
+      }
       Object.assign(asset, { slots: info.slots, slotScene: info.slotScene ?? null, ...(asset.kind === "sprites" ? { animSpeed: info.animSpeed ?? null } : {}) });
     }));
     if (ours.length) bump();
@@ -1051,6 +1064,16 @@ export default function PaintApp() {
     }
   }
 
+  /** Marks (or clears) the priority flag of the tiles under the palette brush's size. */
+  function setPriority(target: Doc, point: Point, on: boolean) {
+    if (!target.priority || !inside(target, point)) return;
+    const cw = cellsWide(target.width), ch = Math.ceil(target.height / CELL), offset = Math.floor((cellBrush - 1) / 2);
+    for (let by = 0; by < cellBrush; by += 1) for (let bx = 0; bx < cellBrush; bx += 1) {
+      const cx = (point.x >> 3) - offset + bx, cy = (point.y >> 3) - offset + by;
+      if (cx >= 0 && cy >= 0 && cx < cw && cy < ch) target.priority[cy * cw + cx] = on ? 1 : 0;
+    }
+  }
+
   function drawShape(target: Doc, a: Point, b: Point, value: number) {
     if (tool === "rectFill") return fillRect(target.pixels, target.width, target.height, rectFrom(a.x, a.y, b.x, b.y), value, pattern);
     const points = tool === "line" ? linePoints(a.x, a.y, b.x, b.y)
@@ -1075,6 +1098,12 @@ export default function PaintApp() {
       return;
     }
     const point = pointAt(event);
+    if (event.button === 2 && tool === "priority" && doc.priority) {
+      pushUndo(doc);
+      setPriority(doc, point, false);
+      drag.current = { kind: "priority", last: point, on: false };
+      return touch(doc);
+    }
     if (event.button === 2) {
       if (tool === "palette" && inside(doc, point)) setActivePalette(doc.cells[(point.y >> 3) * cellsWide(doc.width) + (point.x >> 3)]);
       else pickShade(doc, point);
@@ -1097,6 +1126,12 @@ export default function PaintApp() {
         doc.sel = null;
         drag.current = { kind: "marquee", start: point };
       }
+    } else if (tool === "priority") {
+      if (!doc.priority) { say("The priority brush is for project backgrounds and tilesets (GB Studio's draw-over-sprites flag)."); return; }
+      pushUndo(doc);
+      const on = !event.altKey;
+      setPriority(doc, point, on);
+      drag.current = { kind: "priority", last: point, on };
     } else if (tool === "palette") {
       pushUndo(doc);
       for (const [x, y] of event.shiftKey && lastPoint.current ? linePoints(lastPoint.current.x, lastPoint.current.y, point.x, point.y) : [[point.x, point.y]]) setCell(doc, { x, y });
@@ -1139,7 +1174,7 @@ export default function PaintApp() {
     if (readoutRef.current) readoutRef.current.textContent = inside(doc, point) ? `${point.x}, ${point.y} · tile ${point.x >> 3}, ${point.y >> 3}` : "";
     const outline = brushRef.current;
     if (outline) {
-      const cells = tool === "palette", tall = cells && doc.keyGreen;
+      const cells = tool === "palette" || tool === "priority", tall = tool === "palette" && doc.keyGreen;
       const cellH = tall ? 2 * CELL : CELL, cellOffset = Math.floor((cellBrush - 1) / 2);
       const size = cells ? CELL * cellBrush : brush, offset = cells ? 0 : Math.floor((brush - 1) / 2);
       const [x, y] = cells ? [(point.x & ~7) - cellOffset * CELL, (tall ? point.y & ~15 : point.y & ~7) - cellOffset * cellH] : [point.x - offset, point.y - offset];
@@ -1164,6 +1199,9 @@ export default function PaintApp() {
     } else if (state.kind === "cells") {
       for (const [x, y] of linePoints(state.last.x, state.last.y, point.x, point.y)) setCell(doc, { x, y });
       state.last = lastPoint.current = point;
+    } else if (state.kind === "priority") {
+      for (const [x, y] of linePoints(state.last.x, state.last.y, point.x, point.y)) setPriority(doc, { x, y }, state.on);
+      state.last = point;
     } else if (state.kind === "shape") {
       doc.pixels.set(state.base);
       drawShape(doc, state.start, point, value);
@@ -1241,8 +1279,8 @@ export default function PaintApp() {
     if (key === "f" || (key === "t" && doc?.sel)) return transformSelection(key === "t" ? "turn" : event.shiftKey ? "y" : "x");
     if (key >= "1" && key <= "4") return setShade(Number(key) - 1);
     if (key === "0" && doc?.hasAlpha) return setShade(CLEAR);
-    if (key === "[") return tool === "palette" ? setCellBrush(Math.max(1, cellBrush - 1)) : setBrush(Math.max(1, brush - 1));
-    if (key === "]") return tool === "palette" ? setCellBrush(Math.min(3, cellBrush + 1)) : setBrush(Math.min(16, brush + 1));
+    if (key === "[") return tool === "palette" || tool === "priority" ? setCellBrush(Math.max(1, cellBrush - 1)) : setBrush(Math.max(1, brush - 1));
+    if (key === "]") return tool === "palette" || tool === "priority" ? setCellBrush(Math.min(3, cellBrush + 1)) : setBrush(Math.min(16, brush + 1));
     if (!doc) return;
     if (key === "Escape") {
       dropFloat(doc);
@@ -1356,6 +1394,18 @@ export default function PaintApp() {
 
   // Seamless view: what repeats, drawn from the canvas as shown (palettes and screen look included).
   const seamlessArea = doc && seamless ? (doc.sel && doc.sel.w > 0 && doc.sel.h > 0 ? doc.sel : hoverCell ? { x: hoverCell.x * CELL, y: hoverCell.y * CELL, w: Math.min(CELL, doc.width - hoverCell.x * CELL), h: Math.min(CELL, doc.height - hoverCell.y * CELL) } : null) : null;
+
+  // The priority brush's overlay: tiles that draw over sprites, one canvas pixel per tile.
+  useLayoutEffect(() => {
+    const canvas = priorityCanvas.current;
+    if (!canvas || !doc?.priority) return;
+    const cw = cellsWide(doc.width), ch = Math.ceil(doc.height / CELL);
+    Object.assign(canvas, { width: cw, height: ch });
+    const context = canvas.getContext("2d")!;
+    context.clearRect(0, 0, cw, ch);
+    context.fillStyle = "rgba(90, 170, 255, .55)";
+    doc.priority.forEach((on, cell) => { if (on) context.fillRect(cell % cw, Math.floor(cell / cw), 1, 1); });
+  });
 
   function mergeNear() {
     if (!doc || !shownUsage || !nearCount) return;
@@ -1563,7 +1613,7 @@ export default function PaintApp() {
               <span className={`gbp-pattern-swatch ${pattern}`} />
             </button>
           )}
-          {tool === "palette" ? (
+          {tool === "palette" || tool === "priority" ? (
             <span className="gbp-brush" role="group" aria-label="Palette brush size" title="Palette brush: 1, 2 × 2 or 3 × 3 tiles · [ smaller, ] bigger">
               <button className="tool-button" aria-label="Smaller palette brush" disabled={cellBrush <= 1} onClick={() => setCellBrush(cellBrush - 1)}><Minus size={12} /></button>
               <b>{cellBrush}×{cellBrush}</b>
@@ -1624,6 +1674,7 @@ export default function PaintApp() {
                 <canvas ref={canvasRef} />
                 {gridLines && <div className="gbp-grid" style={{ backgroundSize: `${gridLines} ${gridLines}` }} />}
                 {budgetView && <canvas ref={usageCanvas} className="gbp-usage" />}
+                {tool === "priority" && doc.priority && <canvas ref={priorityCanvas} className="gbp-usage gbp-priority" />}
                 {screens && <div className="gbp-screens" style={{ backgroundSize: `${160 * doc.zoom}px ${144 * doc.zoom}px` }} />}
                 {current && current.tiles.map((tile, index) => <div key={index} className="gbp-frame-slice" style={{ left: tile.sliceX * doc.zoom, top: tile.sliceY * doc.zoom, width: 8 * doc.zoom, height: 16 * doc.zoom }} />)}
                 {doc.sel && <div className={`gbp-selection ${doc.float ? "floating" : ""}`} style={{ left: doc.sel.x * doc.zoom, top: doc.sel.y * doc.zoom, width: doc.sel.w * doc.zoom, height: doc.sel.h * doc.zoom }} />}

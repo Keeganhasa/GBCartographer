@@ -308,15 +308,19 @@ export async function handleCartographerRequest(req: IncomingMessage, res: Serve
         reply(res, 404, { error: "No such background or sprite sheet" });
         return true;
       }
-      const body = JSON.parse((await readBody(req)).toString("utf8")) as { slots?: unknown };
+      const body = JSON.parse((await readBody(req)).toString("utf8")) as { slots?: unknown; priority?: unknown };
       if (!Array.isArray(body.slots) || !body.slots.every((slot) => slot === null || (Number.isInteger(slot) && slot >= 0 && slot <= 7))) {
         reply(res, 400, { error: "slots must be an array of 0–7 or null" });
+        return true;
+      }
+      if (body.priority !== undefined && (!Array.isArray(body.priority) || !body.priority.every((on) => on === null || typeof on === "boolean"))) {
+        reply(res, 400, { error: "priority must be an array of true, false or null" });
         return true;
       }
       const expected = url.searchParams.get("metaMtime");
       try {
         const slots = body.slots as (number | null)[], expectedMtime = expected === null ? null : Number(expected), force = url.searchParams.get("force") === "1";
-        const written = kind === "sprites" ? writeSpritePalettes(path, slots, backup, expectedMtime, force) : writeTileColors(path, slots, backup, expectedMtime, force, kind as "backgrounds" | "tilesets");
+        const written = kind === "sprites" ? writeSpritePalettes(path, slots, backup, expectedMtime, force) : writeTileColors(path, slots, backup, expectedMtime, force, kind as "backgrounds" | "tilesets", (body.priority as (boolean | null)[] | undefined) ?? []);
         reply(res, 200, { ok: true, ...written });
       } catch (error) {
         if (error instanceof AssetWriteError) reply(res, error.status, { error: error.message, mtime: error.mtime });
