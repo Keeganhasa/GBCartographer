@@ -1,10 +1,11 @@
 /**
- * The Map Room: grids of screens for Zelda-style maps. Each screen is an ordinary project background (160 × 144);
+ * The Map Room: grids of screens for adventure-style maps. Each screen is an ordinary project background (160 × 144);
  * the layout is GB Cartographer's own, kept in the project's Cartographer/maps.json (server/maps.ts), which GB Studio
  * doesn't read.
  * A new screen next to others can start with their edge tiles, so neighbouring screens line up; edges that differ
  * show in amber and can be copied across. Writes go through the same endpoints as the painter (backups first).
  * The window is a kit Dialog: the maps on the left, the grid in the middle, the selected screen on the right.
+ * New map opens the New map wizard (MapWizard.tsx) over it; this file writes what the wizard plans.
  */
 import { Download, Map as MapIcon, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -12,6 +13,7 @@ import { countUniqueTiles, gbStudioShade } from "../paint";
 import { Button, Checkbox, Chip, Dialog, Field, Meter, Segmented, Select } from "../ui/kit";
 import { PxSnake } from "../ui/setIcons";
 import { copyEdge, edgeMatch, OFFSET, OPPOSITE, SIDES, type Picture, type Side } from "./mapEdges";
+import { MapWizard, type MapPlan } from "./MapWizard";
 import type { Asset, Project } from "./model";
 import "./MapRoom.css";
 
@@ -63,8 +65,8 @@ export function MapRoom({ project, onClose, onOpen, onProjectChanged, onExport, 
   const [mapId, setMapId] = useState("");
   const [selected, setSelected] = useState<{ x: number; y: number } | null>(null);
   const [adding, setAdding] = useState<{ x: number; y: number } | null>(null);
-  // The new map's name while it's being typed (null: not making one).
-  const [naming, setNaming] = useState<string | null>(null);
+  // The New map wizard is open.
+  const [making, setMaking] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [loaded, setLoaded] = useState(new Map<string, Loaded>());
   const [busy, setBusy] = useState(false);
@@ -93,23 +95,45 @@ export function MapRoom({ project, onClose, onOpen, onProjectChanged, onExport, 
   }, [map, backgrounds]);
   const pictureOf = (file: string) => loaded.get(keyOf(file));
 
-  async function save(next: MapLayout[]) {
+  async function save(next: MapLayout[]): Promise<boolean> {
     const response = await fetch("./__cartographer/maps", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ maps: next }) });
     const result = await response.json() as { ok?: boolean; error?: string; maps?: MapLayout[] };
-    if (!response.ok || !result.maps) return say(`Could not keep the map: ${result.error ?? response.statusText}`);
+    if (!response.ok || !result.maps) { say(`Could not keep the map: ${result.error ?? response.statusText}`); return false; }
     setMaps(result.maps);
+    return true;
   }
   const updateMap = (change: (layout: MapLayout) => MapLayout) => map && maps && void save(maps.map((item) => item.id === map.id ? change(item) : item));
 
-  /** Makes the map named in the list (typed there: the desktop app has no window.prompt) and starts its first screen. */
-  async function newMap(name: string) {
-    if (!name.trim() || !maps) return;
+  /**
+   * Makes the map the wizard planned: each new screen as a new PNG (one at a time, never replacing a file), then the
+   * layout. If a PNG can't be made, the layout keeps the screens made before it, so no new file is left off the map.
+   */
+  async function newMap(plan: MapPlan, progress: (done: number, of: number) => void) {
+    if (!maps) return;
+    const cells: MapCell[] = [];
+    const fresh = plan.cells.filter((cell) => !cell.existing).length;
+    let failed = "", made = 0;
+    for (const cell of plan.cells) {
+      if (cell.existing) { cells.push({ x: cell.x, y: cell.y, file: cell.existing }); continue; }
+      const response = await fetch(`./__cartographer/gbstudio-new-asset?${new URLSearchParams({ kind: "backgrounds", name: cell.name! })}`, { method: "POST", body: await toBlob(cell.picture ?? blankScreen()) });
+      const result = await response.json().catch(() => ({})) as { ok?: boolean; error?: string; file?: string };
+      if (!response.ok || !result.file) { failed = `Could not make ${cell.name}.png: ${result.error ?? response.statusText}.`; break; }
+      cells.push({ x: cell.x, y: cell.y, file: result.file });
+      progress(made += 1, fresh);
+    }
+    // No PNG written: stay in the wizard so the names can be changed.
+    if (failed && !made) return say(failed);
     const id = `map-${Date.now().toString(36)}`;
-    await save([...maps, { id, name: name.trim(), screen: { width: W, height: H }, overlap: 1, cells: [] }]);
-    setNaming(null);
+    const kept = await save([...maps, { id, name: plan.name, screen: { width: W, height: H }, overlap: plan.overlap, cells }]);
+    if (made) await onProjectChanged();
+    setMaking(false);
+    if (!kept) return;
     setMapId(id);
     setSelected(null);
-    setAdding({ x: 0, y: 0 });
+    // An empty map starts its first screen, as before.
+    setAdding(cells.length ? null : { x: 0, y: 0 });
+    say(failed ? `${failed} The map ${plan.name} keeps the ${plural(cells.length, "screen")} made before it.`
+      : `Made the map ${plan.name}: ${plural(cells.length, "screen")}${made ? `, ${made} new in assets/backgrounds/` : ""}.`);
   }
 
   /** Writes a screen's picture over its file (backup first; a file changed on disk asks first). */
@@ -205,16 +229,9 @@ export function MapRoom({ project, onClose, onOpen, onProjectChanged, onExport, 
                 <b>{item.name}</b><span className="k-muted k-xs">{plural(item.cells.length, "screen")}</span>
               </button>
             ))}
-            {naming === null ? (
-              <button type="button" className="mr-row mr-row--new" onClick={() => setNaming(maps.length ? `Map ${maps.length + 1}` : "Overworld")}>
-                <b><Plus size={12} /> New map</b><span className="k-muted k-xs">a grid of screens</span>
-              </button>
-            ) : (
-              <form className="k-well mr-new" onSubmit={(event) => { event.preventDefault(); void newMap(naming); }}>
-                <Field label="Name of the new map"><input className="k-input" autoFocus value={naming} placeholder="e.g. Overworld" onChange={(event) => setNaming(event.target.value)} /></Field>
-                <div className="k-row"><span className="k-spacer" /><Button size="sm" onClick={() => setNaming(null)}>Cancel</Button><Button size="sm" variant="primary" type="submit" disabled={!naming.trim()}>Create</Button></div>
-              </form>
-            )}
+            <button type="button" className="mr-row mr-row--new" aria-pressed={making} onClick={() => setMaking(true)}>
+              <b><Plus size={12} /> New map</b><span className="k-muted k-xs">a grid of screens</span>
+            </button>
           </div>
           <p className="k-muted k-xs mr-maps-note">A map is GB Cartographer's own layout, saved in the project's Cartographer folder (GB Studio doesn't read it); each screen stays a normal background PNG.</p>
         </nav>
@@ -310,6 +327,8 @@ export function MapRoom({ project, onClose, onOpen, onProjectChanged, onExport, 
           ) : null}
         </aside>
       </div>
+      {/* Rendered inside the Map Room's dialog so it stacks over it (a nested Radix dialog: Esc closes only it). */}
+      {making && <MapWizard suggestedName={maps.length ? `Map ${maps.length + 1}` : "Overworld"} backgrounds={backgrounds} onCancel={() => setMaking(false)} onCreate={newMap} />}
     </Dialog>
   );
 }
