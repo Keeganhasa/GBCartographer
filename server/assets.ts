@@ -715,3 +715,20 @@ export function projectHealth(project: string): { colorMode: string; issues: Hea
   issues.sort((a, b) => order[a.level] - order[b.level]);
   return { colorMode, issues };
 }
+
+/**
+ * What a dialogue preview needs from the project: the color mode, the UI palette (background slot 8 of the
+ * defaults) and the default font, with every font's id. Read only.
+ */
+export function dialogueSettings(project: string): { colorMode: string; uiPalette: string[] | null; defaultFont: string | null; fonts: { file: string; name: string; id: string | null }[] } {
+  const settings = readJson(join(project, "project/settings.gbsres")) ?? {};
+  const colorMode = typeof settings.colorMode === "string" ? settings.colorMode : "mono";
+  const ui = idList(settings.defaultBackgroundPaletteIds)[7];
+  const uiPalette = colorMode !== "mono" && ui ? listPalettes(project).find((palette) => palette.id === ui)?.colors ?? null : null;
+  const fonts = listAssets(project).filter((asset) => asset.kind === "fonts").map((asset) => {
+    const id = readJson(join(project, "assets", "fonts", `${asset.file}.gbsres`))?.id;
+    return { file: asset.file, name: asset.name, id: typeof id === "string" ? id : null };
+  });
+  const defaultFont = fonts.find((font) => font.id && font.id === settings.defaultFontId)?.file ?? fonts[0]?.file ?? null;
+  return { colorMode, uiPalette, defaultFont, fonts };
+}

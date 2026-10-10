@@ -570,3 +570,7 @@
 .gbp-sprite-bg-stage canvas { image-rendering: pixelated; cursor: grab; box-shadow: 0 0 0 1px var(--b-edge, var(--line)); }
 .gbp-sprite-bg-foot { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-top: 1px solid var(--b-edge, var(--line)); color: var(--muted); font-size: var(--fs-sm); }
 .gbp-priority { mix-blend-mode: normal; }
+
+/* Dialogue box preview. */
+.gbp-dialogue-stage { display: flex; flex-direction: column; gap: 12px; }
+.gbp-dialogue-stage textarea { width: 480px; box-sizing: border-box; font: 13px var(--mono); color: var(--ink); background: var(--b-ctl, #181b20); border: 1px solid var(--b-edge, var(--line)); border-radius: 8px; padding: 8px; resize: vertical; }

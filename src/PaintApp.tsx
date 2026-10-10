@@ -21,6 +21,7 @@ import { HelpWindow } from "./app/HelpWindow";
 import { AboutWindow } from "./app/AboutWindow";
 import { HealthWindow } from "./app/HealthWindow";
 import { SpriteOnBackground } from "./app/SpriteOnBackground";
+import { DialoguePreview } from "./app/DialoguePreview";
 import { NewPictureWindow, ResizeWindow, type NewPicture } from "./app/NewPictureWindow";
 import { Menu } from "./app/Menu";
 import { StartScreen } from "./app/StartScreen";
@@ -77,6 +78,7 @@ export default function PaintApp() {
   const [showHelp, setShowHelp] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const [showHealth, setShowHealth] = useState(false);
+  const [showDialogue, setShowDialogue] = useState(false);
   /** Try the sprite sheet's animation on one of the project's backgrounds: its frames, drawn when opened. */
   const [onBackground, setOnBackground] = useState<HTMLCanvasElement[] | null>(null);
   const [showNew, setShowNew] = useState(false);
@@ -1892,6 +1894,7 @@ export default function PaintApp() {
               <hr />
               <button role="menuitem" onClick={() => { setProjectMenu(null); void fetch("./__cartographer/reveal", { method: "POST" }); }}>{FILE_MANAGER_LABEL}</button>
               <button role="menuitem" onClick={() => { setProjectMenu(null); setShowHealth(true); }}>Project health…</button>
+              <button role="menuitem" onClick={() => { setProjectMenu(null); setShowDialogue(true); }}>Dialogue box…</button>
               <button role="menuitem" onClick={() => { setProjectMenu(null); setBackups({}); }}>Backups…</button>
               <button role="menuitem" onClick={() => { setProjectMenu(null); void fetch("./__cartographer/reveal?backups=1", { method: "POST" }); }}>Show backups folder</button>
               <hr />
@@ -1946,6 +1949,7 @@ export default function PaintApp() {
       {showHelp && <HelpWindow onClose={() => setShowHelp(false)} onAbout={() => { setShowHelp(false); setShowAbout(true); }} />}
       {showAbout && <AboutWindow onClose={() => setShowAbout(false)} />}
       {onBackground && project && <SpriteOnBackground backgrounds={project.assets.filter((asset) => asset.kind === "backgrounds")} frames={onBackground} fps={fps} onClose={() => setOnBackground(null)} />}
+      {showDialogue && project && <DialoguePreview backgrounds={project.assets.filter((asset) => asset.kind === "backgrounds")} hasFrame={project.assets.some((asset) => asset.kind === "ui" && asset.file === "frame.png")} onClose={() => setShowDialogue(false)} />}
       {showHealth && project && <HealthWindow projectName={project.name} onClose={() => setShowHealth(false)} onOpen={(kind, file) => { const asset = project.assets.find((item) => item.kind === kind && item.file === file); if (asset) { setProjectKind(kind); void openAsset(asset); } }} />}
       {showNew && <NewPictureWindow projectName={project?.name ?? null} initialKind={projectKind} onClose={() => setShowNew(false)} onCreate={createPicture} />}
       {showResize && doc && <ResizeWindow width={doc.width} height={doc.height} sprite={doc.asset?.kind === "sprites"} inProject={Boolean(doc.asset)} onClose={() => setShowResize(false)} onResize={resizePicture} />}
