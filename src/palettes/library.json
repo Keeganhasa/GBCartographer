@@ -2106,6 +2106,74 @@
      ]
     }
    ]
+  },
+  {
+   "name": "Overworld",
+   "palettes": [
+    {
+     "name": "OW-1-Grass",
+     "colors": [
+      "#C4E27C",
+      "#8CC25A",
+      "#4E8A5C",
+      "#08193A"
+     ]
+    },
+    {
+     "name": "OW-2-Forest",
+     "colors": [
+      "#C4E27C",
+      "#66A85E",
+      "#2E6E66",
+      "#08193A"
+     ]
+    },
+    {
+     "name": "OW-3-Mountain",
+     "colors": [
+      "#C4E27C",
+      "#DDBB8E",
+      "#9A6478",
+      "#301850"
+     ]
+    },
+    {
+     "name": "OW-4-Water",
+     "colors": [
+      "#DDF2EE",
+      "#62B4E0",
+      "#3170BC",
+      "#1A1650"
+     ]
+    },
+    {
+     "name": "OW-5-Shore",
+     "colors": [
+      "#F4DA9C",
+      "#D3A66C",
+      "#4A9AD0",
+      "#1A1650"
+     ]
+    },
+    {
+     "name": "OW-6-Road",
+     "colors": [
+      "#C4E27C",
+      "#DCB580",
+      "#9C7352",
+      "#301850"
+     ]
+    },
+    {
+     "name": "OW-7-Town",
+     "colors": [
+      "#C4E27C",
+      "#F6E8CE",
+      "#C9524C",
+      "#301850"
+     ]
+    }
+   ]
   }
  ]
 }

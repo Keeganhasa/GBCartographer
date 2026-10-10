@@ -34,7 +34,7 @@ import type { Generated } from "./app/generators";
 import type { FitResult } from "./app/pictureFit";
 
 /** A finished picture from a wizard: shades, each tile's palette (1-based, 0 none) and those palettes. */
-type FittedPicture = Pick<FitResult, "width" | "height" | "pixels" | "cells" | "palettes">;
+type FittedPicture = Pick<FitResult, "width" | "height" | "pixels" | "cells" | "palettes"> & { /** The palettes' own names (else "<name> 1"…). */ names?: string[] };
 import { NewPictureWindow, ResizeWindow, type NewPicture } from "./app/NewPictureWindow";
 import { Button, Chip, IconButton, Kbd, Menu, MenuAt, TabList, Tabs, Tooltip, type MenuEntry } from "./ui/kit";
 import "./app/shell.css";
@@ -828,7 +828,7 @@ export default function PaintApp() {
     const id = newDocId(docs.current);
     const palettes = clonePalettes(palettesRef.current);
     const first = palettes.length;
-    result.palettes.forEach((colors, index) => palettes.push({ name: `${name} ${index + 1}`, colors: [...colors] }));
+    result.palettes.forEach((colors, index) => palettes.push({ name: result.names?.[index] ?? `${name} ${index + 1}`, colors: [...colors] }));
     docs.current.push({ id, name: `${name.replace(/\.png$/i, "")}.png`, width: result.width, height: result.height, pixels: result.pixels.slice(), cells: Uint8Array.from(result.cells, (wear) => wear ? first + wear : 0), hasAlpha: false, palettes, undo: [], redo: [], dirty: true, zoom: fitZoom(result.width, result.height), sel: null, float: null });
     setActiveId(id);
     setShowPictureWizard(false);
@@ -849,7 +849,9 @@ export default function PaintApp() {
     if (count && !await okToWriteProjectJson()) return false;
     const ids: string[] = [];
     for (const [index, colors] of result.palettes.entries()) {
-      const id = await writeProjectPalette({ name: `${name} ${index + 1}`, colors: [...colors] });
+      // A named palette the project already has (same name and colors) is used as it is.
+      const own = result.names?.[index] ?? `${name} ${index + 1}`;
+      const id = projectRef.current?.palettes.find((item) => item.name === own && item.colors.join() === colors.join())?.id ?? await writeProjectPalette({ name: own, colors: [...colors] });
       if (!id) { say("Not every palette could be added to the project; nothing else changed."); return false; }
       ids.push(id);
     }
@@ -880,8 +882,8 @@ export default function PaintApp() {
     return true;
   }
 
-  /** A generated map as a fitted picture: no palettes, every tile in the greens. */
-  const generatedPicture = (picture: Generated): FittedPicture => ({ ...picture, cells: new Uint8Array(cellsWide(picture.width) * Math.ceil(picture.height / CELL)), palettes: [] });
+  /** A generated map as a fitted picture: its tiles' palettes when it has them, else every tile in the greens. */
+  const generatedPicture = ({ width, height, pixels, cells, palettes }: Generated): FittedPicture => ({ width, height, pixels, cells: cells ?? new Uint8Array(cellsWide(width) * Math.ceil(height / CELL)), palettes: palettes?.map((palette) => palette.colors) ?? [], names: palettes?.map((palette) => palette.name) });
 
   // ---- the text tool (W5) ------------------------------------------------------------------------------------------
 

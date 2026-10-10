@@ -52,8 +52,8 @@ export function GeneratorWizard({ mode, projectName, limit, onClose, onOpen, onS
   useEffect(() => {
     if (!target) return;
     Object.assign(target, { width: picture.width, height: picture.height });
-    const cells = new Uint8Array(Math.ceil(picture.width / 8) * Math.ceil(picture.height / 8));
-    target.getContext("2d")!.putImageData(new ImageData(toRgba(picture.pixels, cells, picture.width, []), picture.width, picture.height), 0, 0);
+    const cells = picture.cells ?? new Uint8Array(Math.ceil(picture.width / 8) * Math.ceil(picture.height / 8));
+    target.getContext("2d")!.putImageData(new ImageData(toRgba(picture.pixels, cells, picture.width, picture.palettes ?? []), picture.width, picture.height), 0, 0);
   }, [picture, target]);
 
   const valid = /^[\w ()\-.]+$/.test(name.trim());
@@ -103,6 +103,7 @@ export function GeneratorWizard({ mode, projectName, limit, onClose, onOpen, onS
             <Setting label="Feature size" value={world.scale} min={2} max={12} onChange={(scale) => setW({ scale })} title="Bigger: broader land and seas" />
             <Switch checked={world.island} onChange={(island) => setW({ island })}>Island (water all round)</Switch>
             <Switch checked={world.roads} onChange={(roads) => setW({ roads })}>Roads between towns</Switch>
+            <span title="The library's Overworld set, one palette per terrain (added to the project with Make background)"><Switch checked={world.colors} onChange={(colors) => setW({ colors })}>Overworld palettes</Switch></span>
           </>}
           <span className="k-row"><span className="k-label">Layout</span><span className="k-mono k-small k-muted">#{mode === "cave" ? cave.seed : world.seed}</span><span className="k-spacer" />{reroll}</span>
         </div>

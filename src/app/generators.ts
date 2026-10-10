@@ -5,6 +5,8 @@
  * (0 lightest … 3 darkest): placeholder art to paint over. Few distinct cells, so the tile count stays low.
  */
 
+import library from "../palettes/library.json";
+
 /** A small seeded random generator (mulberry32): numbers in [0, 1). */
 export function seeded(seed: number): () => number {
   let state = seed >>> 0;
@@ -17,8 +19,8 @@ export function seeded(seed: number): () => number {
   };
 }
 
-/** A picture in GB shades, one byte per pixel. */
-export interface Generated { width: number; height: number; pixels: Uint8Array }
+/** A picture in GB shades, one byte per pixel; with colors, each 8 × 8 tile's palette (1-based, 0 the greens) and those palettes. */
+export interface Generated { width: number; height: number; pixels: Uint8Array; cells?: Uint8Array; palettes?: { name: string; colors: string[] }[] }
 
 const SCREEN_W = 160, SCREEN_H = 144;
 const SIDES: [number, number][] = [[0, -1], [1, 0], [0, 1], [-1, 0]];
@@ -234,11 +236,21 @@ export interface WorldSettings {
   island: boolean;
   /** Roads joining the towns (round water and mountains). */
   roads: boolean;
+  /** Each terrain in its own palette from the library's Overworld set (else the GB greens). */
+  colors: boolean;
 }
 
-export const WORLD_DEFAULTS: WorldSettings = { columns: 3, rows: 3, seed: 1, water: 35, mountains: 18, forest: 35, towns: 3, scale: 5, island: true, roads: true };
+export const WORLD_DEFAULTS: WorldSettings = { columns: 3, rows: 3, seed: 1, water: 35, mountains: 18, forest: 35, towns: 3, scale: 5, island: true, roads: true, colors: true };
 
 export const WATER = 0, SHORE = 1, GRASS = 2, FOREST = 3, MOUNTAIN = 4, TOWN = 5, ROAD = 6;
+
+/**
+ * The Overworld palettes (the author's set in the library, 2026-10-10: Chorbi's warm sands and deep navy-purple
+ * darks, hue-shifted ramps), one per terrain. Every terrain on grass keeps the same shade 0, so cells meet cleanly.
+ */
+export const OVERWORLD_PALETTES: { name: string; colors: string[] }[] = (library.collections.find((group) => group.name === "Overworld")?.palettes ?? []).map(({ name, colors }) => ({ name, colors: [...colors] }));
+/** Each terrain's palette in that set (1-based): grass 1, forest 2, mountain 3, water 4, shore 5, road 6, town 7. */
+const TERRAIN_PALETTE: Record<number, number> = { [GRASS]: 1, [FOREST]: 2, [MOUNTAIN]: 3, [WATER]: 4, [SHORE]: 5, [ROAD]: 6, [TOWN]: 7 };
 
 /** Smooth noise: random values on a lattice, blended (smoothstep) between them, a few octaves summed. */
 function valueNoise(w: number, h: number, period: number, random: () => number): Float32Array {
@@ -340,6 +352,13 @@ function placeTowns(grid: Uint8Array, w: number, h: number, settings: WorldSetti
 export function drawWorld(settings: WorldSettings): Generated {
   const { w, h, grid } = worldGrid(settings);
   const out: Generated = { width: w * 16, height: h * 16, pixels: new Uint8Array(w * 16 * h * 16) };
+  if (settings.colors && OVERWORLD_PALETTES.length === 7) {
+    // Each 16-pixel cell is 2 × 2 tiles, all in its terrain's palette.
+    const tilesWide = w * 2;
+    out.cells = new Uint8Array(tilesWide * h * 2);
+    for (let at = 0; at < out.cells.length; at += 1) out.cells[at] = TERRAIN_PALETTE[grid[Math.floor(Math.floor(at / tilesWide) / 2) * w + Math.floor((at % tilesWide) / 2)]];
+    out.palettes = OVERWORLD_PALETTES.map(({ name, colors }) => ({ name, colors: [...colors] }));
+  }
   const at = (x: number, y: number) => x < 0 || y < 0 || x >= w || y >= h ? -1 : grid[y * w + x];
   for (let y = 0; y < h; y += 1) for (let x = 0; x < w; x += 1) {
     const pen = new Pen(out, x * 16, y * 16, 16);
@@ -366,10 +385,10 @@ export function drawWorld(settings: WorldSettings): Generated {
       pen.rect(5, 3, 6, 7, 1); pen.rect(4, 4, 8, 5, 1);
       pen.rect(7, 11, 2, 3, 3); pen.rect(5, 14, 6, 1, 2);
     } else if (cell === MOUNTAIN) {
-      // A peak: a triangle outline, its right side in shadow.
+      // A peak: a triangle outline, its lit side in rock (shade 1), its right side in shadow.
       for (let row = 0; row < 12; row += 1) {
         const half = Math.round(row * 7 / 11), y0 = 2 + row;
-        pen.rect(8 - half, y0, half, 1, 0); pen.rect(8, y0, half, 1, 2);
+        pen.rect(8 - half, y0, half, 1, 1); pen.rect(8, y0, half, 1, 2);
         pen.dot(7 - half, y0, 3); pen.dot(8 + half, y0, 3);
       }
       pen.rect(1, 14, 15, 1, 3);

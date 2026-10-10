@@ -31,7 +31,7 @@ palettes straight back into the project.
   the eight slots: the scene's palette list, or the project's default palettes. An optional named-slots rule lets
   day / night / sunset variants (`Forest-2-Trees N`) save as their base palette's slot.
 - **A palette manager.** The project's palettes, a bundled library (Game Boy classics and the author's own CC0
-  set) and your own, with a live preview of the open picture; add palettes to the project or edit its own, and
+  sets) and your own, with a live preview of the open picture; add palettes to the project or edit its own, and
   see which scenes use each one (unused and duplicate palettes are marked, and an unused one can be taken out);
   import palettes from Lospec `.hex` or GIMP `.gpl` files and export your own as JSON.
 - **Palettes edited in place.** Click a shade square again to change that color; Save writes the recolored

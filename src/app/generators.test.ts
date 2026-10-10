@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { countUniqueTiles } from "../paint";
-import { TOWN, CAVE_DEFAULTS, MOUNTAIN, ROAD, WATER, WORLD_DEFAULTS, caveGrid, drawCave, drawWorld, worldGrid } from "./generators";
+import { OVERWORLD_PALETTES, TOWN, CAVE_DEFAULTS, MOUNTAIN, ROAD, WATER, WORLD_DEFAULTS, caveGrid, drawCave, drawWorld, worldGrid } from "./generators";
 
 /** Floor cells reachable from the first one, by sides. */
 function reachable(grid: Uint8Array, w: number, open: (cell: number) => boolean) {
@@ -52,5 +52,19 @@ describe("map generators", () => {
     expect(grid.some((cell) => cell === MOUNTAIN)).toBe(true);
     const none = worldGrid({ ...WORLD_DEFAULTS, water: 0, mountains: 0, island: false, towns: 0 }).grid;
     expect(none.some((cell) => cell === WATER || cell === MOUNTAIN || cell === TOWN)).toBe(false);
+  });
+
+  it("colors each overworld cell's four tiles in its terrain's Overworld palette", () => {
+    expect(OVERWORLD_PALETTES.map((palette) => palette.name)).toEqual(["OW-1-Grass", "OW-2-Forest", "OW-3-Mountain", "OW-4-Water", "OW-5-Shore", "OW-6-Road", "OW-7-Town"]);
+    const { w, grid } = worldGrid(WORLD_DEFAULTS);
+    const world = drawWorld(WORLD_DEFAULTS);
+    expect(world.palettes?.length).toBe(7);
+    const water = grid.indexOf(WATER), town = grid.indexOf(TOWN), tilesWide = w * 2;
+    const tileOf = (cell: number) => Math.floor(cell / w) * 2 * tilesWide + (cell % w) * 2;
+    for (const offset of [0, 1, tilesWide, tilesWide + 1]) {
+      expect(world.cells?.[tileOf(water) + offset]).toBe(4);
+      expect(world.cells?.[tileOf(town) + offset]).toBe(7);
+    }
+    expect(drawWorld({ ...WORLD_DEFAULTS, colors: false }).cells).toBeUndefined();
   });
 });
