@@ -4,7 +4,6 @@
 .ss-title { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
 .ss-title h1 { display: inline-flex; align-items: center; gap: var(--k-2); margin: 0; font-size: 22px; font-weight: 700; }
 .ss-title p { margin: 0; }
-.ss-alpha { max-width: 520px; line-height: 1.45; }
 .ss-cards { display: grid; grid-template-columns: repeat(3, 220px); gap: var(--k-3); }
 .ss-card { display: flex; flex-direction: column; gap: var(--k-2); padding: var(--k-4); min-height: 150px; }
 .ss-card--main { background: rgba(var(--k-acc-rgb), .14); border-color: rgba(var(--k-acc-rgb), .7); box-shadow: 0 0 0 1px rgba(var(--k-acc-rgb), .35), 0 4px 16px rgba(var(--k-acc-rgb), .18); }
@@ -22,3 +21,7 @@
 .ss-row span { max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ss-foot { max-width: 520px; margin: 0; text-align: center; line-height: 1.45; }
 @media (max-width: 760px) { .ss-cards { grid-template-columns: 1fr; width: min(320px, 100%); } }
+
+/* The alpha warning: a soft amber box, so it reads as a warning without shouting. */
+.ss-alpha { display: flex; align-items: flex-start; gap: 8px; max-width: 560px; margin: 12px auto 0; padding: 10px 14px; text-align: left; font-size: var(--k-text-sm); color: var(--k-ink); background: rgba(240, 180, 80, .1); border: 1px solid rgba(240, 180, 80, .45); border-radius: 12px; }
+.ss-alpha svg { flex: none; margin-top: 2px; color: #f0b450; }

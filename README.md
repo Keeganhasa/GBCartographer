@@ -4,9 +4,12 @@
 Paint backgrounds, sprite sheets, tilesets and fonts, give each tile its palette, and save the PNGs and per-tile
 palettes straight back into the project.
 
-> **Alpha release.** GB Cartographer is early software: features and file handling are still changing, and there
-> will be bugs. It writes into your GB Studio project when you save, so keep the project backed up or in version
-> control, and close GB Studio while you work. Please report problems in the repository's issues.
+> [!WARNING]
+> **Experimental alpha.** Only use GB Cartographer on GB Studio projects you have backed up (a copy, or version
+> control). It writes into your project when you save, features and file handling are still changing, and there
+> will be bugs. Close GB Studio while you work, and please report problems in the repository's issues.
+>
+> GB Cartographer is free during the alpha, and maybe forever.
 
 Screenshots will come back once the artists whose work they show have said yes.
 
@@ -28,25 +31,36 @@ Screenshots will come back once the artists whose work they show have said yes.
   sets) and your own, with a live preview of the open picture; add palettes to the project or edit its own, and
   see which scenes use each one (unused and duplicate palettes are marked, and an unused one can be taken out);
   import palettes from Lospec `.hex` or GIMP `.gpl` files and export your own as JSON.
-- **A store.** Credited palette sets to take into a project, a whole set or one palette at a time: the author's
+- **Graphics.** Credited palette sets to take into a project, a whole set or one palette at a time: the author's
   Chorbi and Overworld sets (CC0), Game Boy screens, and SpicyGame's public-domain palettes, each with its license
-  and source.
-- **Wizards and generators.** A picture to a background, day/sunset/night palettes, a palette set from Lospec or a
-  picture, a tile budget fixer, a project check-up, and live cave/dungeon and overworld generators in placeholder
-  art to paint over.
+  and source, plus links to Game Boy art on itch.io and OpenGameArt.
+- **Wizards and generators.** A picture to a background, day / sunset / night versions of a scene's palettes, a
+  palette set from Lospec, any picture or the library, a new background with its palettes, a tile budget fixer, a
+  project check-up, and live cave / dungeon and overworld generators that paint placeholder maps in your choice of
+  palettes.
+- **The Map Room.** Lay backgrounds out as an adventure-style grid of screens, see whether neighbouring edges
+  match, add a screen next to another, and export the whole map as one picture.
 - **Palettes edited in place.** Click a shade square again to change that color; Save writes the recolored
   palette back into the project, and undo brings old colors back.
 - **The usual tools.** Pencil, eraser, spray, line, rectangle, ellipse, fill (Alt-click replaces a shade
-  everywhere), eyedropper, select and move, flip and turn, mirror painting, brush sizes, undo, tabs, drag-and-drop,
-  paste from the clipboard. Selections on tile edges take their tiles' palettes with them, even into another
-  picture.
+  everywhere) with fill patterns, eyedropper, select and move, flip and turn, mirror painting, brush sizes, undo,
+  tabs, drag-and-drop, paste from the clipboard. Selections on tile edges take their tiles' palettes with them,
+  even into another picture.
+- **Tile tools.** Linked tiles (paint one tile and every identical copy follows), a seamless view that repeats the
+  tile under the pointer 3 × 3, a priority brush for tiles drawn over sprites, saved stamps with their palettes,
+  and a text tool that types with the project's own font sheets.
 - **New pictures and resizing.** Make a new background, sprite sheet or tileset in the project, or resize one in
   whole tiles.
-- **GB Studio's limits in view.** A tile counter shows unique 8 × 8 tiles against the 192 / 384 budget, and an
-  overlay shows where each 160 × 144 screen falls.
-- **Sprite frames and font samples.** A sprite sheet shows its animations' frames above it (and plays them at GB Studio's speed); a font
-  sheet shows a sample sentence set in its own glyphs.
-- **Export to share.** Any picture as shown, in its palettes, or in the greens, scaled up 2× to 8× with crisp pixels.
+- **GB Studio's limits in view.** A tile counter shows unique 8 × 8 tiles against the 192 / 384 budget (with a view
+  of which tiles repeat), an overlay shows where each 160 × 144 screen falls, and Project health lists what GB
+  Studio will trip on (sizes, tile budgets, missing sidecars, palettes) with a click to each one.
+- **Screen looks.** See a picture as it shows on a Game Boy, a Game Boy Pocket or a Game Boy Color screen; the file
+  stays as it is.
+- **Sprite frames and font samples.** A sprite sheet shows its animations' frames above it (and plays them at GB
+  Studio's speed, or walking over one of the project's backgrounds); a font sheet shows a sample sentence set in
+  its own glyphs.
+- **Export to share.** Any picture as shown, in its palettes, or in the greens, scaled up 2× to 8× with crisp pixels,
+  and a sprite's animation as a looping GIF.
 - **Careful with your files.** The last 10 versions of every file it overwrites, restorable from **Backups…**; a
   warning when a file changed on disk (pictures GB Studio changes reload by themselves) or GB Studio is open; and a
   short, fixed list of what it ever writes (below).

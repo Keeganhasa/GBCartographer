@@ -29,3 +29,7 @@
 /* Links to more art elsewhere, at the foot of the shelves. */
 .st-elsewhere { margin-top: auto; padding-top: var(--k-4); }
 .st-elsewhere .k-btn { justify-content: flex-start; }
+/* A set's own source (its first poster), top right of its card. */
+.st-set { position: relative; }
+.st-set-source { position: absolute; top: var(--k-2); right: var(--k-2); }
+.st-set-source + .st-set-top .st-set-name { padding-right: 96px; }

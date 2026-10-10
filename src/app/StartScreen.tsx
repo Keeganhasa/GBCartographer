@@ -1,4 +1,4 @@
-import { FolderOpen, FolderTree, Gamepad2 } from "lucide-react";
+import { FolderOpen, FolderTree, Gamepad2, TriangleAlert } from "lucide-react";
 import { Button, Chip, Kbd } from "../ui/kit";
 import "./StartScreen.css";
 
@@ -10,7 +10,7 @@ export function StartScreen({ recent, onChooseProject, onDemo, onOpenFiles, onOp
       <div className="ss-title">
         <h1>GB Cartographer <Chip tone="acc">ALPHA</Chip></h1>
         <p className="k-muted">A pixel painter for GB Studio projects</p>
-        <p className="k-muted k-small ss-alpha">An alpha release: expect bugs. Save writes into your GB Studio project, so keep it backed up and close GB Studio while you work.</p>
+        <p className="ss-alpha" role="note"><TriangleAlert size={16} aria-hidden /><span><b>Experimental alpha.</b> Only use it on GB Studio projects you have backed up: Save writes into the project. Close GB Studio while you work. Free during the alpha, maybe forever.</span></p>
       </div>
       <div className="ss-cards">
         {/* The first card is the main way in, so it's lit like a picked card. */}

@@ -8,7 +8,7 @@
 import library from "../palettes/library.json";
 
 export interface StorePalette { name: string; colors: string[] }
-export interface StoreSet { id: string; name: string; about?: string; palettes: StorePalette[] }
+export interface StoreSet { id: string; name: string; about?: string; /** Where the set was first posted (its author's page), to visit and support them. */ source?: string; palettes: StorePalette[] }
 export interface StoreShelf { name: string; about?: string; author?: string; license?: string; source?: string; sets: StoreSet[] }
 
 interface Collection { name: string; shelf?: string; about?: string; /** Display names of its sets by name prefix ("DWC" → "Dustwatch Center"). */ sets?: Record<string, string>; author?: string; license?: string; source?: string; palettes: StorePalette[] }
@@ -32,15 +32,15 @@ export function storeShelves(collections: readonly Collection[] = library.collec
 function collectionShelf({ name, shelf, about, author, license, source, sets: setNames, palettes }: Collection): StoreShelf | null {
   const kept = palettes.filter((palette) => palette.colors.length === 4 && !/^(XX|z)/.test(palette.name)).map((palette) => ({ name: palette.name, colors: [...palette.colors] }));
   if (!kept.length) return null;
-  if (kept.length <= 8) return { name, about, author, license, source, sets: [{ id: name, name: shelf ? name.replace(` (${shelf})`, "") : name, about: shelf ? about : undefined, palettes: kept }] };
+  if (kept.length <= 8) return { name, about, author, license, source, sets: [{ id: name, name: shelf ? name.replace(` (${shelf})`, "") : name, about: shelf ? about : undefined, source, palettes: kept }] };
   const groups = new Map<string, StorePalette[]>();
   for (const palette of kept) groups.set(prefixOf(palette.name), [...(groups.get(prefixOf(palette.name)) ?? []), palette]);
   const sets: StoreSet[] = [], more: StorePalette[] = [];
   for (const [prefix, members] of groups) {
-    if (prefix && members.length >= 2) sets.push({ id: `${name}/${prefix}`, name: setNames?.[prefix] ?? prefix, palettes: members });
+    if (prefix && members.length >= 2) sets.push({ id: `${name}/${prefix}`, name: setNames?.[prefix] ?? prefix, source, palettes: members });
     else more.push(...members);
   }
-  if (more.length) sets.push({ id: `${name}/more`, name: "More", palettes: more });
+  if (more.length) sets.push({ id: `${name}/more`, name: "More", source, palettes: more });
   return { name, about, author, license, source, sets };
 }
 

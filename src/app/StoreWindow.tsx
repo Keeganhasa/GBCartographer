@@ -1,5 +1,5 @@
 /**
- * The store (2026-10-10): what GB Cartographer ships, credited, for taking into a project piecemeal. Two aisles:
+ * The Graphics window (the store, 2026-10-10; renamed by the author): what GB Cartographer ships, credited, for taking into a project piecemeal. Two aisles:
  * palette sets (shelves of sets: add a whole set or one palette at a time, to the project or to Mine; a palette the
  * project already has shows as added) and the graphics library (placeholder art by kind: add it to the project as a
  * new PNG, or open it as a new picture). Each shelf says who made it, its license (the License button explains it)
@@ -126,12 +126,12 @@ export function StoreWindow({ projectName, projectPalettes, onClose, onAddToProj
     : GRAPHIC_GROUPS.map((name) => ({ key: name, label: name, count: GRAPHICS.filter((asset) => asset.group === name).length, on: !needle && name === group, pick: () => setGroup(name) }));
 
   return (
-    <Dialog open onOpenChange={(next) => { if (!next && !busy) onClose(); }} wide tall title="Store" icon={<Store size={18} />}
+    <Dialog open onOpenChange={(next) => { if (!next && !busy) onClose(); }} wide tall title="Graphics" icon={<Store size={18} />}
       sub={projectName ? `Credited ${GRAPHICS.length ? "palettes and graphics" : "palettes"} to take into ${projectName}, piece by piece` : `Credited ${GRAPHICS.length ? "palettes and graphics" : "palettes"}: open a project to add them to it`}
-      headExtra={GRAPHICS.length > 0 && <Segmented size="sm" label="Aisle" value={aisle} onChange={(next) => { setAisle(next); setQuery(""); setOpen(null); }} options={[{ value: "palettes", label: "Palettes" }, { value: "graphics", label: "Graphics" }]} />}>
+      headExtra={GRAPHICS.length > 0 && <Segmented size="sm" label="Aisle" value={aisle} onChange={(next) => { setAisle(next); setQuery(""); setOpen(null); }} options={[{ value: "palettes", label: "Palettes" }, { value: "graphics", label: "Art" }]} />}>
       <div className="st">
         <nav className="st-shelves k-stack k-stack--tight" aria-label="Shelves">
-          <label className="st-search"><Search size={14} /><input className="k-input" placeholder={aisle === "palettes" ? "Find a palette" : "Find graphics"} aria-label="Find" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
+          <label className="st-search"><Search size={14} /><input className="k-input" placeholder={aisle === "palettes" ? "Find a palette" : "Find art"} aria-label="Find" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
           {nav.map((item) => (
             <button key={item.key} type="button" className="app-row st-shelf" aria-pressed={item.on} onClick={() => { item.pick(); setQuery(""); setOpen(null); }}>
               <span className="app-name">{item.label}</span><span className="k-muted k-xs">{item.count}</span>
@@ -155,6 +155,7 @@ export function StoreWindow({ projectName, projectPalettes, onClose, onAddToProj
                     const expanded = open === set.id || Boolean(found);
                     return (
                       <article key={set.id} className="k-card st-set">
+                        {set.source && <span className="st-set-source"><SiteButton url={set.source} title={`Where ${set.name} was first posted: visit to support its author`} /></span>}
                         <button type="button" className="st-set-top" aria-expanded={expanded} onClick={() => setOpen(open === set.id ? null : set.id)} title={expanded ? "Hide its palettes" : "Show its palettes, to add one at a time"}>
                           <span className="st-set-name">{set.name}</span>
                           <span className="k-muted k-xs">{set.palettes.length} palette{set.palettes.length === 1 ? "" : "s"}{count && !all ? ` · ${count} added` : ""}</span>
@@ -186,7 +187,7 @@ export function StoreWindow({ projectName, projectPalettes, onClose, onAddToProj
           </>}
           {aisle === "graphics" && (
             <section className="k-stack">
-              <header className="st-head"><span className="st-title">{needle ? `Graphics matching “${query}”` : group}</span><Credit {...GRAPHICS_CREDIT} /></header>
+              <header className="st-head"><span className="st-title">{needle ? `Art matching “${query}”` : group}</span><Credit {...GRAPHICS_CREDIT} /></header>
               <p className="k-muted k-small st-about">Placeholder art drawn in plain shapes, ready to paint over your own way. Sprites come in GB Studio's classic strip, so it sets up their animations by itself.</p>
               {arts.length === 0 && <p className="k-muted k-small">Nothing matches “{query}”.</p>}
               <div className="st-sets st-sets--art">
