@@ -10,6 +10,10 @@ palettes straight back into the project.
 
 ![Painting palettes onto the demo's Winter Tileset, tile by tile, with the palette brush](docs/demo.gif)
 
+| Spray | Select and move | Pencil |
+| :---: | :---: | :---: |
+| ![Spraying shades over the demo's Free Furniture tileset](docs/demo-spray.gif) | ![Selecting a television on the Free Furniture tileset and moving it](docs/demo-select-move.gif) | ![Drawing zig-zag strokes with the pencil over the Free Furniture tileset](docs/demo-pencil.gif) |
+
 ## Features
 
 - **Open a GB Studio 4 project** (its `.gbsproj` or folder) and see its backgrounds, sprite sheets, tilesets and

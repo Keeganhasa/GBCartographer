@@ -88,7 +88,7 @@ into PROGRESS.md when they deserve a note.
 
 - [ ] Rename the archived private repo on GitHub (`gh repo rename GBCartographer-archive --repo Keeganhasa/GBCartographer`)
       so the name is free, then `gh repo create Keeganhasa/GBCartographer --public --source . --push`.
-- [x] README: a short GIF of painting (`docs/demo.gif`), plus three screenshots: the demo, and two of GB Studio's MIT sample project.
+- [x] README: a short GIF of painting (`docs/demo.gif`) and three tool GIFs (spray, select and move, pencil), plus three screenshots: the demo, and two of GB Studio's MIT sample project.
 - [x] Repo settings: description, topics (gbstudio, game-boy, pixel-art, electron), issues on, discussions off for now.
 - [ ] Tag `v0.1.0` once the builds below exist.
 
