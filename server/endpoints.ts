@@ -15,6 +15,7 @@
  *   GET  /__cartographer/gbstudio-running     whether a GB Studio process is running (it may overwrite project JSON when it saves)
  *   POST /__cartographer/reveal               ?kind=&file= shows that asset in Finder / Explorer (no kind: the project folder;
  *                                             ?backups=1: this project's backups folder)
+ *   POST /__cartographer/asset-times          { assets: [{ kind, file }] } their PNG and sidecar times (null: gone)
  *   GET  /__cartographer/backups              this project's backed-up files and their versions (?file= one file)
  *   GET  /__cartographer/backup               one version's bytes (?file=&version=; version=current: the file now)
  *   POST /__cartographer/backup-restore       { file, version } puts that version back (the current file is backed up first)
@@ -165,6 +166,17 @@ export async function handleCartographerRequest(req: IncomingMessage, res: Serve
       } catch (error) {
         reply(res, 404, { error: (error as Error).message });
       }
+      return true;
+    }
+    if (url.pathname === "/__cartographer/asset-times" && req.method === "POST") {
+      // The open pictures' file times (PNG and sidecar), so the app can notice GB Studio (or anything) changing them.
+      const body = JSON.parse((await readBody(req)).toString("utf8")) as { assets?: { kind?: unknown; file?: unknown }[] };
+      const times = (Array.isArray(body.assets) ? body.assets : []).slice(0, 200).map((asset) => {
+        const path = assetPath(project, String(asset.kind ?? ""), String(asset.file ?? ""));
+        if (!path) return null;
+        return { mtime: statSync(path).mtimeMs, metaMtime: existsSync(`${path}.gbsres`) ? statSync(`${path}.gbsres`).mtimeMs : null };
+      });
+      reply(res, 200, { ok: true, times });
       return true;
     }
     if (url.pathname === "/__cartographer/gbstudio-assets") {

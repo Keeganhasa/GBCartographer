@@ -494,3 +494,9 @@
 .gbp-about-title h1 { margin: 0 0 2px; font-size: var(--fs-xl); }
 .gbp-about a { color: var(--acc-text); }
 .gbp-about td:first-child { white-space: nowrap; color: var(--ink); }
+
+/* A picture changed on disk while it has unsaved changes. */
+.gbp-disk-bar { position: sticky; top: 0; left: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; box-sizing: border-box; width: 100%; margin: 0 0 8px; padding: 8px 12px; color: var(--ink); background: #2a2410; border: 1px solid #8a7420; border-radius: 10px; font-size: var(--fs-sm); }
+.gbp-disk-bar > span:first-child { flex: 1 1 220px; min-width: 0; }
+.gbp-disk-bar .gbp-spacer { display: none; }
+.gbp-disk-bar button { flex: none; }

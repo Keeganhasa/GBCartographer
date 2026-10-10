@@ -54,6 +54,8 @@ export default function PaintApp() {
   const gbStudioWarned = useRef(false);
   /** Projects whose GB Studio version note was shown this session. */
   const versionNoted = useRef(new Set<string>());
+  /** True while Save runs: the changed-on-disk check waits, since Save itself changes the files. */
+  const saving = useRef(false);
   const shadeInputs = useRef<(HTMLInputElement | null)[]>([]);
   const [recent, setRecent] = useState<{ name: string; path: string }[]>([]);
   /** The right-click menu on a picture card: where it opened and for which asset. */
@@ -537,6 +539,7 @@ export default function PaintApp() {
     if (!response.ok || !result.ok) throw new Error(result.error ?? response.statusText);
     asset.mtime = result.mtime ?? asset.mtime;
     target.dirty = false;
+    target.changedOnDisk = undefined;
     // The thumbnail in the project panel shows the new file.
     setProject((current) => current && { ...current, assets: current.assets.map((item) => item.kind === asset.kind && item.file === asset.file ? { ...item, mtime: asset.mtime } : item) });
     const notes = [`Saved ${asset.name} into the GB Studio project`];
@@ -688,6 +691,12 @@ export default function PaintApp() {
    */
   async function save(copy: boolean) {
     if (!doc) return;
+    saving.current = true;
+    try { await saveAll(copy); } finally { saving.current = false; }
+  }
+
+  async function saveAll(copy: boolean) {
+    if (!doc) return;
     bump();
     if (copy) {
       const name = await saveDoc(doc, true, true);
@@ -710,6 +719,41 @@ export default function PaintApp() {
     }
     scheduleSession();
     bump();
+  }
+
+  /**
+   * Notices open project pictures whose PNG or sidecar changed on disk (GB Studio saved, a restore, another app):
+   * a picture without unsaved changes reloads; one with unsaved changes gets a bar to reload or keep it.
+   */
+  async function checkDisk() {
+    const path = projectRef.current?.path;
+    if (!path || saving.current) return;
+    const open = docs.current.filter((item) => item.asset && (!item.asset.project || item.asset.project === path));
+    if (!open.length) return;
+    const result = await fetch("./__cartographer/asset-times", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ assets: open.map((item) => ({ kind: item.asset!.kind, file: item.asset!.file })) }) })
+      .then((response) => response.ok ? response.json() as Promise<{ times?: ({ mtime: number; metaMtime: number | null } | null)[] }> : null).catch(() => null);
+    if (!result?.times || saving.current) return;
+    const differs = (a: number | null | undefined, b: number | null | undefined) => a != null && b != null && Math.abs(a - b) > 1;
+    const reloaded: string[] = [];
+    for (const [index, item] of open.entries()) {
+      const now = result.times[index], asset = item.asset!;
+      if (!now) continue;
+      const seen = item.changedOnDisk;
+      const changed = differs(now.mtime, asset.mtime) || differs(now.metaMtime, asset.metaMtime);
+      if (!changed || (seen && !differs(now.mtime, seen.mtime) && !differs(now.metaMtime, seen.metaMtime))) continue;
+      if (item.dirty) item.changedOnDisk = now;
+      else if (await reloadAsset(item)) reloaded.push(asset.name);
+    }
+    if (reloaded.length) say(`${reloaded.join(", ")} changed on disk and ${reloaded.length === 1 ? "was" : "were"} reloaded.`);
+    bump();
+  }
+
+  /** Shows the next (1) or previous (-1) open picture, wrapping around. */
+  function switchTab(step: number) {
+    const list = docs.current;
+    if (list.length < 2) return;
+    const at = list.findIndex((item) => item.id === activeId);
+    setActiveId(list[(at + step + list.length) % list.length].id);
   }
 
   function closeDoc(target: Doc) {
@@ -905,6 +949,16 @@ export default function PaintApp() {
     const target = event.target as HTMLElement;
     if (target.matches?.("input, select, textarea")) return;
     const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+    // Tabs: Ctrl+Tab / Ctrl+PageDown next, with Shift / PageUp previous; Alt+W (and Ctrl+W in the desktop app) closes.
+    if (event.ctrlKey && (key === "Tab" || key === "PageDown" || key === "PageUp")) {
+      event.preventDefault();
+      return switchTab(key === "PageUp" || (key === "Tab" && event.shiftKey) ? -1 : 1);
+    }
+    if (event.altKey && !event.ctrlKey && !event.metaKey && event.code === "KeyW") {
+      event.preventDefault();
+      if (doc) closeDoc(doc);
+      return;
+    }
     if (event.ctrlKey || event.metaKey) {
       const action = key === "o" ? pickFiles
         : key === "s" || key === "e" ? () => void save(event.shiftKey || key === "e")
@@ -952,8 +1006,10 @@ export default function PaintApp() {
   }
 
   // Listeners registered once call the handlers of the latest render.
-  const latest = useRef({ keyDown, zoomBy, openFiles, pasteClip, writeSession, zoom: doc?.zoom ?? 1 });
-  latest.current = { keyDown, zoomBy, openFiles, pasteClip, writeSession, zoom: doc?.zoom ?? 1 };
+  const latest = useRef({ keyDown, zoomBy, openFiles, pasteClip, writeSession, checkDisk, zoom: doc?.zoom ?? 1 });
+  latest.current = { keyDown, zoomBy, openFiles, pasteClip, writeSession, checkDisk, zoom: doc?.zoom ?? 1 };
+  // The desktop app's File menu: Close Tab (Ctrl/Cmd+W) closes the open picture, not the window.
+  (window as PickerWindow & { __gbcCloseTab?: () => boolean }).__gbcCloseTab = () => { if (!doc) return false; closeDoc(doc); return true; };
 
   useEffect(() => {
     // The project's palettes come first: reading a picture needs them to recognise colored tiles.
@@ -1020,6 +1076,14 @@ export default function PaintApp() {
   const current = frames[Math.min(frame.index, Math.max(0, frames.length - 1))];
   useEffect(() => { setFrame({ animation: 0, index: 0 }); setPlaying(false); }, [activeId]);
   useEffect(() => { void rereadSlots(); }, [project]);
+  // Watch the open pictures' files: every 4 seconds while the window is visible, and when it comes back to front.
+  useEffect(() => {
+    if (!project) return;
+    const check = () => { if (document.visibilityState === "visible") void latest.current.checkDisk(); };
+    const timer = window.setInterval(check, 4000);
+    window.addEventListener("focus", check);
+    return () => { window.clearInterval(timer); window.removeEventListener("focus", check); };
+  }, [project]);
   useEffect(() => {
     if (!playing || frames.length < 2) return;
     const timer = window.setInterval(() => setFrame((at) => ({ ...at, index: (at.index + 1) % frames.length })), 125);
@@ -1216,6 +1280,14 @@ export default function PaintApp() {
                 ))}
               </div>
               <span className="gbp-frames-label">{animations.length > 1 ? animation.name : "frame"} {frame.index + 1} of {frames.length}</span>
+            </div>
+          )}
+          {doc?.changedOnDisk && !doc.changedOnDisk.kept && (
+            <div className="gbp-disk-bar" role="alert">
+              <span><b>{doc.name}</b> changed on disk (GB Studio or another app saved it) while you have unsaved changes here.</span>
+              <span className="gbp-spacer" />
+              <button className="quiet-button primary" onClick={() => { if (window.confirm(`Reload ${doc.name} from disk? Your unsaved changes here are lost.`)) { const target = doc; target.changedOnDisk = undefined; void reloadAsset(target); } }}>Reload from disk</button>
+              <button className="quiet-button" title="Keep painting; Save will ask before replacing the file on disk" onClick={() => { doc.changedOnDisk = { ...doc.changedOnDisk!, kept: true }; bump(); }}>Keep mine</button>
             </div>
           )}
           {doc && isFont && (

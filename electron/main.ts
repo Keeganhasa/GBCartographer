@@ -127,7 +127,15 @@ app.whenReady().then(() => {
   loadProjectFolder(ROOT, settingsFile());
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     ...(process.platform === "darwin" ? [{ role: "appMenu" as const }] : []),
-    { role: "fileMenu" },
+    {
+      label: "File",
+      submenu: [
+        // Ctrl/Cmd+W closes the open picture (the page decides); the window closes with Shift.
+        { label: "Close Tab", accelerator: "CmdOrCtrl+W", click: (_item, window) => { void (window as BrowserWindow | undefined)?.webContents.executeJavaScript("window.__gbcCloseTab ? window.__gbcCloseTab() : false", true); } },
+        { role: "close", accelerator: "CmdOrCtrl+Shift+W" },
+        ...(process.platform === "darwin" ? [] : [{ type: "separator" as const }, { role: "quit" as const }]),
+      ],
+    },
     { role: "editMenu" },
     { role: "viewMenu" },
     { role: "windowMenu" },
