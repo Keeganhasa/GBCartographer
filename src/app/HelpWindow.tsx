@@ -14,6 +14,8 @@ export function HelpWindow({ onClose, onAbout }: { onClose: () => void; onAbout:
               <tr><td /><td><b>Mirror</b></td><td><kbd>Shift+M</kbd></td><td>Paint both halves at once: off, left-right, top-bottom, both.</td></tr>
               <tr><td /><td><b>Shades</b></td><td><kbd>1–4</kbd> <kbd>0</kbd></td><td>Pick a shade; 0 is see-through in a picture that has it.</td></tr>
               <tr><td /><td><b>Brush</b></td><td><kbd>[</kbd> <kbd>]</kbd></td><td>Smaller or bigger: pixels, or tiles with the palette brush.</td></tr>
+              <tr><td /><td><b>Flip, turn</b></td><td><kbd>F</kbd> <kbd>Shift+F</kbd> <kbd>T</kbd></td><td>Flip the selection (or the whole picture) left-right or top-bottom; turn the selection clockwise.</td></tr>
+              <tr><td /><td><b>Undo</b></td><td><kbd>Ctrl+Z</kbd></td><td>Undo also brings back palette colors changed in the sidebar.</td></tr>
               <tr><td /><td><b>Tabs</b></td><td><kbd>Ctrl+Tab</kbd> <kbd>Ctrl+PgDn</kbd> <kbd>Ctrl+PgUp</kbd> <kbd>Alt+W</kbd></td><td>Next and previous picture (Shift+Ctrl+Tab goes back); Alt+W closes the picture (Ctrl+W too in the desktop app).</td></tr>
               <tr><td /><td><b>Files</b></td><td><kbd>Ctrl+O</kbd> <kbd>Ctrl+S</kbd> <kbd>Ctrl+E</kbd></td><td>Open PNGs, save, export a copy. Ctrl+Z / Ctrl+Shift+Z undo and redo; Ctrl+C / X / V and Ctrl+A work on the selection; Ctrl+= / Ctrl+- zoom; Esc drops the selection.</td></tr>
             </tbody>

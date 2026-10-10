@@ -1,7 +1,32 @@
 import { describe, expect, it } from "vitest";
-import { CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, clipRect, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, hexRgb, gbStudioShade, lift, linePoints, mirrorPoints, namedSlot, quantize, snapRect, toRgba } from "./paint";
+import { CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, clipRect, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, hexRgb, gbStudioShade, dropCells, flipFloat, lift, liftCells, linePoints, onTiles, replaceShade, rotateFloat, mirrorPoints, namedSlot, quantize, snapRect, toRgba } from "./paint";
 
 describe("GB Cartographer pixels", () => {
+  it("moves tile palettes with a tile-aligned piece, flips and turns it, and replaces a shade", () => {
+    // A 16 × 8 picture: two tiles wearing palettes 1 and 2.
+    const cells = new Uint8Array([1, 2]);
+    expect(onTiles({ x: 0, y: 0, w: 16, h: 8 })).toBe(true);
+    expect(onTiles({ x: 1, y: 0, w: 8, h: 8 })).toBe(false);
+    const lifted = liftCells(cells, 16, { x: 0, y: 0, w: 16, h: 8 }, 0);
+    expect([[...lifted], [...cells]]).toEqual([[1, 2], [0, 0]]);
+    const piece = { pixels: new Uint8Array(16 * 8), w: 16, h: 8, x: 0, y: 0, cells: lifted };
+    piece.pixels[0] = 3;
+    const flipped = flipFloat(piece, "x");
+    expect([flipped.pixels[15], [...flipped.cells!]]).toEqual([3, [2, 1]]);
+    const turned = rotateFloat(piece);
+    expect([turned.w, turned.h, turned.pixels[7], [...turned.cells!]]).toEqual([8, 16, 3, [1, 2]]);
+    dropCells(cells, 16, 8, flipped);
+    expect([...cells]).toEqual([2, 1]);
+    // Off tile edges, palettes stay where they are.
+    dropCells(cells, 16, 8, { ...piece, x: 3 });
+    expect([...cells]).toEqual([2, 1]);
+    const pixels = new Uint8Array([0, 1, 1, 2]);
+    expect(replaceShade(pixels, 2, 2, 1, 3)).toBe(2);
+    expect([...pixels]).toEqual([0, 3, 3, 2]);
+    expect(replaceShade(pixels, 2, 2, 3, 0, { x: 0, y: 0, w: 2, h: 1 })).toBe(1);
+    expect([...pixels]).toEqual([0, 0, 3, 2]);
+  });
+
   it("gives Chorbi-style palette names a slot: the base palette's, else the number in the name", () => {
     const slots = ["DWC-1-Cliffs", "DWC-4-Foliage", undefined];
     expect(namedSlot("DWC-1-Cliffs D", slots)).toBe(0);

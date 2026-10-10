@@ -10,7 +10,11 @@ export const GB_SHADES: readonly string[] = MONOCHROME_PALETTE;
 
 export interface Rect { x: number; y: number; w: number; h: number }
 /** A lifted piece of the picture that floats over it until it is dropped. */
-export interface Floating { pixels: Uint8Array; w: number; h: number; x: number; y: number }
+export interface Floating {
+  pixels: Uint8Array; w: number; h: number; x: number; y: number;
+  /** Lifted on tile edges: each 8 × 8 tile's palette (a picture's `cells` value) moves with the pixels. */
+  cells?: Uint8Array;
+}
 export type Mirror = "off" | "x" | "y" | "xy";
 
 export function hexRgb(hex: string): [number, number, number] {
@@ -323,6 +327,69 @@ export function lift(pixels: Uint8Array, width: number, rect: Rect, blank?: numb
     if (blank !== undefined) pixels.fill(blank, start, start + rect.w);
   }
   return { pixels: out, w: rect.w, h: rect.h, x: rect.x, y: rect.y };
+}
+
+/** Whether a rectangle starts and ends on 8 × 8 tile edges (its tiles' palettes can move with it). */
+export const onTiles = (rect: Rect) => rect.x % CELL === 0 && rect.y % CELL === 0 && rect.w % CELL === 0 && rect.h % CELL === 0;
+
+/** The tile palettes under a tile-aligned rectangle (row by row), and with `blank` clears them in the picture. */
+export function liftCells(cells: Uint8Array, width: number, rect: Rect, blank?: number): Uint8Array {
+  const cw = cellsWide(width), w = rect.w / CELL, h = rect.h / CELL;
+  const out = new Uint8Array(w * h);
+  for (let y = 0; y < h; y += 1) {
+    for (let x = 0; x < w; x += 1) {
+      const at = (rect.y / CELL + y) * cw + rect.x / CELL + x;
+      out[y * w + x] = cells[at];
+      if (blank !== undefined) cells[at] = blank;
+    }
+  }
+  return out;
+}
+
+/** Puts a floating piece's tile palettes into the picture, when it sits on tile edges (tiles outside are skipped). */
+export function dropCells(cells: Uint8Array, width: number, height: number, floating: Floating) {
+  if (!floating.cells || floating.x % CELL || floating.y % CELL) return;
+  const cw = cellsWide(width), ch = Math.ceil(height / CELL), w = floating.w / CELL, h = floating.h / CELL;
+  for (let y = 0; y < h; y += 1) {
+    for (let x = 0; x < w; x += 1) {
+      const tx = floating.x / CELL + x, ty = floating.y / CELL + y;
+      if (tx >= 0 && ty >= 0 && tx < cw && ty < ch) cells[ty * cw + tx] = floating.cells[y * w + x];
+    }
+  }
+}
+
+/** Mirrors a floating piece left-right ("x") or top-bottom ("y"), with its tile palettes. */
+export function flipFloat(floating: Floating, axis: "x" | "y"): Floating {
+  const flip = (data: Uint8Array, w: number, h: number) => {
+    const out = new Uint8Array(data.length);
+    for (let y = 0; y < h; y += 1) for (let x = 0; x < w; x += 1) out[y * w + x] = data[axis === "x" ? y * w + (w - 1 - x) : (h - 1 - y) * w + x];
+    return out;
+  };
+  return { ...floating, pixels: flip(floating.pixels, floating.w, floating.h), ...(floating.cells ? { cells: flip(floating.cells, floating.w / CELL, floating.h / CELL) } : {}) };
+}
+
+/** Turns a floating piece a quarter turn clockwise about its top-left corner (width and height swap). */
+export function rotateFloat(floating: Floating): Floating {
+  const turn = (data: Uint8Array, w: number, h: number) => {
+    const out = new Uint8Array(data.length);
+    for (let y = 0; y < h; y += 1) for (let x = 0; x < w; x += 1) out[x * h + (h - 1 - y)] = data[y * w + x];
+    return out;
+  };
+  return { ...floating, w: floating.h, h: floating.w, pixels: turn(floating.pixels, floating.w, floating.h), ...(floating.cells ? { cells: turn(floating.cells, floating.w / CELL, floating.h / CELL) } : {}) };
+}
+
+/** Every pixel of one shade becomes another, inside `rect` (or the whole picture). Returns how many changed. */
+export function replaceShade(pixels: Uint8Array, width: number, height: number, from: number, to: number, rect?: Rect | null): number {
+  const area = rect ? clipRect(rect, width, height) : { x: 0, y: 0, w: width, h: height };
+  if (!area || from === to) return 0;
+  let count = 0;
+  for (let y = area.y; y < area.y + area.h; y += 1) {
+    for (let x = area.x; x < area.x + area.w; x += 1) {
+      const at = y * width + x;
+      if (pixels[at] === from) { pixels[at] = to; count += 1; }
+    }
+  }
+  return count;
 }
 
 /** Flattens a floating piece into the picture where it sits; its see-through pixels leave the picture alone. */

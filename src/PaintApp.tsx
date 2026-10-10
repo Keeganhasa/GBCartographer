@@ -4,7 +4,7 @@
  * A tint only changes how the plain tiles look while painting. Saving writes one flat PNG, and for a project
  * picture also its tile palettes (see server/endpoints.ts).
  */
-import { ChevronDown, CircleHelp, Download, FlipHorizontal2, FolderOpen, FolderTree, Grid3x3, Magnet, Minus, Palette as PaletteIcon, Pause, Play, Plus, Redo2, Save, Undo2, X } from "lucide-react";
+import { ChevronDown, CircleHelp, Download, FlipHorizontal2, FolderOpen, FolderTree, Grid3x3, Magnet, Minus, Palette as PaletteIcon, Pause, Play, Plus, Redo2, Save, Tv, Undo2, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useReducer, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { flushSync } from "react-dom";
 import { LogoMark } from "./ui/LogoMark";
@@ -12,8 +12,8 @@ import { FONTS, applyFont, loadFont, type FontChoice } from "./ui/theme";
 import PaletteManager from "./PaletteManager";
 import BackupsWindow from "./BackupsWindow";
 import { attachMiddlePan, attachWheelZoom, nextStep } from "./ui/wheelZoom";
-import { CELL, CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, cellsWide, clipRect, colorize, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, lift, linePoints, mirrorPoints, namedSlot, quantize, rectFrom, shadeLut, snapRect, spray, toRgba, type Floating, type Mirror, type Palette } from "./paint";
-import { ASSET_KINDS, ASSET_URL, BUDGETS, BUDGET_KEY, BUILT_IN_TINTS, CUSTOM_TINT_KEY, FILE_MANAGER_LABEL, GRID_KEY, MIRRORS, MIRROR_LABEL, NAMED_SLOTS_KEY, PNG_TYPES, PREVIEW_VERSION, PROJECT_KIND_KEY, PROJECT_PANEL_KEY, PROJECT_URL, TINT_KEY, UI_SLOT, UNDO_BYTES, UNDO_LIMIT, ZOOMS, hasSlots, versionTime, type Asset, type AssetInfo, type AssetKind, type Doc, type Drag, type FileHandle, type Opening, type PickerWindow, type Point, type Project, type ToolId } from "./app/model";
+import { CELL, CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, cellsWide, clipRect, colorize, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, dropCells, flipFloat, lift, liftCells, linePoints, mirrorPoints, onTiles, replaceShade, rotateFloat, namedSlot, quantize, rectFrom, shadeLut, snapRect, spray, toRgba, type Floating, type Mirror, type Palette } from "./paint";
+import { ASSET_KINDS, ASSET_URL, BUDGETS, BUDGET_KEY, BUILT_IN_TINTS, CUSTOM_TINT_KEY, FILE_MANAGER_LABEL, GRID_KEY, MIRRORS, MIRROR_LABEL, NAMED_SLOTS_KEY, SCREENS_KEY, PNG_TYPES, PREVIEW_VERSION, PROJECT_KIND_KEY, PROJECT_PANEL_KEY, PROJECT_URL, TINT_KEY, UI_SLOT, UNDO_BYTES, UNDO_LIMIT, ZOOMS, hasSlots, versionTime, type Asset, type AssetInfo, type AssetKind, type Doc, type Drag, type FileHandle, type Opening, type PickerWindow, type Point, type Project, type ToolId } from "./app/model";
 import { KIND_ICONS, TOOLS } from "./app/tools";
 import { readStored, sessionStore, store } from "./app/storage";
 import { HelpTip } from "./app/HelpTip";
@@ -22,7 +22,8 @@ import { AboutWindow } from "./app/AboutWindow";
 import { Menu } from "./app/Menu";
 import { StartScreen } from "./app/StartScreen";
 
-let nextDocId = 1;
+/** A new picture's id: one above every open one (a counter would restart when the module reloads in development). */
+const newDocId = (docs: readonly { id: number }[]) => docs.reduce((top, item) => Math.max(top, item.id), 0) + 1;
 
 export default function PaintApp() {
   const docs = useRef<Doc[]>([]);
@@ -38,6 +39,8 @@ export default function PaintApp() {
   const [budgetId, setBudgetId] = useState<string>(() => readStored(BUDGET_KEY, "colorOnly"));
   const [tileCount, setTileCount] = useState(0);
   const [snap, setSnap] = useState(false);
+  /** Outlines every 160 × 144 area of the picture: one Game Boy screen. */
+  const [screens, setScreens] = useState<boolean>(() => readStored(SCREENS_KEY, false));
   const [palettes, setPalettes] = useState<Palette[]>([]);
   const [activePalette, setActivePalette] = useState(0);
   const [tint, setTint] = useState(() => readStored(TINT_KEY, "GB greens"));
@@ -65,6 +68,8 @@ export default function PaintApp() {
   /** The "Put in slot" menu for a palette of the open picture (its index in the picture's palettes, from 1). */
   /** The Backups window, open on a file (a path inside the project) or on the newest backup. */
   const [backups, setBackups] = useState<{ file?: string } | null>(null);
+  /** The Export menu: a copy of the file, or an image to share (as shown or in greens, scaled). */
+  const [exportMenu, setExportMenu] = useState<{ x: number; y: number } | null>(null);
   const [slotMenu, setSlotMenu] = useState<{ x: number; y: number; palette: number } | null>(null);
   /** Palettes named like DWC-2-Computer D save as their base palette's slot (or the number in the name). */
   const [namedSlots, setNamedSlots] = useState<boolean>(() => readStored(NAMED_SLOTS_KEY, false));
@@ -95,6 +100,9 @@ export default function PaintApp() {
   const drag = useRef<Drag | null>(null);
   const lastPoint = useRef<Point | null>(null);
   const clip = useRef<Floating | null>(null);
+  /** The palettes of the picture a clip was copied from, so its tile palettes land on the same palettes when pasted. */
+  const clipPalettes = useRef<Palette[]>([]);
+  const lastRecolor = useRef(0);
   const spaceDown = useRef(false);
   const paintTool = useRef<ToolId>("pencil");
   const palettesRef = useRef<Palette[]>([]);
@@ -152,7 +160,7 @@ export default function PaintApp() {
   // ---- undo and the floating selection ---------------------------------------------------------------------------
 
   function pushUndo(target: Doc) {
-    target.undo.push({ pixels: target.pixels.slice(), cells: target.cells.slice() });
+    target.undo.push({ pixels: target.pixels.slice(), cells: target.cells.slice(), palettes: clonePalettes(target.palettes) });
     while (target.undo.length > UNDO_LIMIT || (target.undo.length > 1 && target.undo.length * target.pixels.length > UNDO_BYTES)) target.undo.shift();
     target.redo = [];
   }
@@ -161,14 +169,18 @@ export default function PaintApp() {
   function dropFloat(target: Doc) {
     if (!target.float) return;
     drop(target.pixels, target.width, target.height, target.float);
+    dropCells(target.cells, target.width, target.height, target.float);
     target.float = null;
   }
 
   function stepHistory(from: "undo" | "redo") {
     if (!doc || !doc[from].length) return;
     dropFloat(doc);
-    doc[from === "undo" ? "redo" : "undo"].push({ pixels: doc.pixels, cells: doc.cells });
-    Object.assign(doc, doc[from].pop());
+    doc[from === "undo" ? "redo" : "undo"].push({ pixels: doc.pixels, cells: doc.cells, palettes: clonePalettes(doc.palettes) });
+    const { palettes, ...rest } = doc[from].pop()!;
+    Object.assign(doc, rest);
+    // Palette colors come back too; a restored list that predates a palette added since keeps the newer ones.
+    if (palettes) palettes.forEach((palette, index) => { if (doc.palettes[index]) doc.palettes[index] = palette; });
     doc.sel = null;
     touch(doc);
   }
@@ -183,6 +195,8 @@ export default function PaintApp() {
     if (!rect) return null;
     pushUndo(target);
     target.float = lift(target.pixels, target.width, rect, copy ? undefined : blank(target));
+    // On tile edges the tiles' palettes go along (the tiles left behind wear none).
+    if (onTiles(rect)) target.float.cells = liftCells(target.cells, target.width, rect, copy ? undefined : 0);
     target.sel = rect;
     return target.float;
   }
@@ -208,7 +222,8 @@ export default function PaintApp() {
   function copySelection() {
     if (!doc?.sel) return false;
     const rect = clipRect(doc.sel, doc.width, doc.height);
-    clip.current = doc.float ? { ...doc.float, pixels: doc.float.pixels.slice() } : rect ? lift(doc.pixels, doc.width, rect) : null;
+    clip.current = doc.float ? { ...doc.float, pixels: doc.float.pixels.slice(), ...(doc.float.cells ? { cells: doc.float.cells.slice() } : {}) } : rect ? { ...lift(doc.pixels, doc.width, rect), ...(onTiles(rect) ? { cells: liftCells(doc.cells, doc.width, rect) } : {}) } : null;
+    clipPalettes.current = clonePalettes(doc.palettes);
     return clip.current !== null;
   }
 
@@ -220,7 +235,15 @@ export default function PaintApp() {
     // The top-left corner of what is in view, on a tile boundary.
     const view = scroller.getBoundingClientRect(), box = wrap.getBoundingClientRect();
     const corner = (edge: number, size: number) => Math.min(Math.max(0, Math.ceil((edge / doc.zoom) / CELL) * CELL), Math.max(0, size - CELL));
-    doc.float = { ...clip.current, pixels: clip.current.pixels.slice(), x: corner(view.left - box.left, doc.width), y: corner(view.top - box.top, doc.height) };
+    // Tile palettes land on the same palettes in this picture (matched by GB Studio id, else name and colors; added if missing).
+    const cells = clip.current.cells?.map((wear) => {
+      const palette = wear ? clipPalettes.current[wear - 1] : undefined;
+      if (!palette) return 0;
+      let index = doc.palettes.findIndex((own) => (palette.id && own.id === palette.id) || (!palette.id && own.name === palette.name && own.colors.join() === palette.colors.join()));
+      if (index < 0) index = doc.palettes.push({ ...palette, colors: [...palette.colors] }) - 1;
+      return index + 1;
+    });
+    doc.float = { ...clip.current, pixels: clip.current.pixels.slice(), ...(cells ? { cells } : {}), x: corner(view.left - box.left, doc.width), y: corner(view.top - box.top, doc.height) };
     doc.sel = { x: doc.float.x, y: doc.float.y, w: doc.float.w, h: doc.float.h };
     setToolState("select");
     touch(doc);
@@ -251,7 +274,7 @@ export default function PaintApp() {
         // A background's tile colors (GB Studio's per-tile palettes) dress the cells when the scene's palettes are known.
         const dressed = info?.tileColors.length ? assignSlots(picture.cells, info.tileColors, info.slots, picture.palettes) : 0;
         const old = replace !== undefined ? docs.current.findIndex((item) => item.id === replace) : -1;
-        const id = old >= 0 ? replace! : nextDocId++;
+        const id = old >= 0 ? replace! : newDocId(docs.current);
         if (old < 0) last = id;
         const opened: Doc = { id, name: asset?.name ?? file.name, width: bitmap.width, height: bitmap.height, pixels: picture.pixels, cells: picture.cells, hasAlpha: picture.hasAlpha || keyGreen, palettes: picture.palettes, undo: [], redo: [], dirty: false, handle, asset: asset && info ? { kind: asset.kind, file: asset.file, name: asset.name, mtime: info.mtime, ...(hasSlots(asset.kind) ? { slots: info.slots, slotScene: info.slotScene ?? null, metaMtime: info.metaMtime, opened: info.tileColors.map((value) => value < 0 ? -1 : value & 7) } : {}), ...(asset.kind === "sprites" && info.animations?.length ? { animations: info.animations } : {}), project: projectRef.current?.path, ...(info.autoColor ? { autoColor: true } : {}) } : undefined, keyGreen: keyGreen || undefined, zoom: old >= 0 ? docs.current[old].zoom : fitZoom(bitmap.width, bitmap.height), sel: null, float: null };
         if (old >= 0) docs.current[old] = opened;
@@ -686,6 +709,52 @@ export default function PaintApp() {
   }
 
   /**
+   * Exports the open picture as an image to share (an itch page, a post): `colored` draws it as shown here (tile
+   * palettes, the tint on plain tiles), else in the GB greens; `scale` enlarges it with hard pixel edges.
+   * See-through pixels stay see-through. The picture itself is not touched.
+   */
+  async function exportImage(scale: number, colored: boolean) {
+    const target = doc;
+    if (!target) return;
+    const flat = target.pixels.slice(), cells = target.cells.slice();
+    if (target.float) {
+      drop(flat, target.width, target.height, target.float);
+      dropCells(cells, target.width, target.height, target.float);
+    }
+    const small = document.createElement("canvas");
+    Object.assign(small, { width: target.width, height: target.height });
+    const image = new ImageData(target.width, target.height);
+    if (colored) colorize(flat, cells, target.width, luts, new Uint32Array(image.data.buffer));
+    else image.data.set(toRgba(flat, cells, target.width, []));
+    small.getContext("2d")!.putImageData(image, 0, 0);
+    const big = document.createElement("canvas");
+    Object.assign(big, { width: target.width * scale, height: target.height * scale });
+    const context = big.getContext("2d")!;
+    context.imageSmoothingEnabled = false;
+    context.drawImage(small, 0, 0, big.width, big.height);
+    const blob = await new Promise<Blob>((resolve, reject) => big.toBlob((made) => made ? resolve(made) : reject(new Error("No PNG")), "image/png"));
+    const name = `${target.name.replace(/\.png$/i, "")}${colored ? "" : " greens"}${scale > 1 ? ` ${scale}x` : ""}.png`;
+    try {
+      const picker = (window as PickerWindow).showSaveFilePicker;
+      if (picker) {
+        const handle = await picker.call(window, { suggestedName: name, types: PNG_TYPES });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+      } else {
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = name;
+        link.click();
+        window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+      }
+      say(`Exported ${name} (${big.width} × ${big.height})`);
+    } catch (error) {
+      if ((error as Error).name !== "AbortError") say(`Could not export ${name}: ${(error as Error).message}`);
+    }
+  }
+
+  /**
    * Save (Ctrl+S) saves every changed picture that has somewhere to go; the active one is asked where when it has
    * none. Export copy (Ctrl+E) saves a copy of the active picture only.
    */
@@ -748,6 +817,20 @@ export default function PaintApp() {
     bump();
   }
 
+  /**
+   * Flips the selection (or the whole picture) left-right or top-bottom, or turns the selection a quarter turn
+   * clockwise. Tile-aligned pieces take their tile palettes along.
+   */
+  function transformSelection(how: "x" | "y" | "turn") {
+    if (!doc) return;
+    const floating = floatSelection(doc, false);
+    if (!floating) return;
+    doc.float = how === "turn" ? rotateFloat(floating) : flipFloat(floating, how);
+    doc.sel = { x: doc.float.x, y: doc.float.y, w: doc.float.w, h: doc.float.h };
+    setToolState("select");
+    touch(doc);
+  }
+
   /** Shows the next (1) or previous (-1) open picture, wrapping around. */
   function switchTab(step: number) {
     const list = docs.current;
@@ -768,6 +851,9 @@ export default function PaintApp() {
   /** Recolors the picked palette in this picture only (the library keeps its own colors). */
   function recolorPalette(colors: readonly string[]) {
     if (!doc || !picked) return;
+    // One undo step per burst of changes (a color well sends many while dragging).
+    if (Date.now() - lastRecolor.current > 1200) { dropFloat(doc); pushUndo(doc); }
+    lastRecolor.current = Date.now();
     picked.colors = colors.map((color) => color.toUpperCase());
     touch(doc);
   }
@@ -866,7 +952,9 @@ export default function PaintApp() {
       lastPoint.current = point;
     } else if (tool === "fill" || tool === "fillErase") {
       pushUndo(doc);
-      if (!floodFill(doc.pixels, doc.width, doc.height, point.x, point.y, value)) doc.undo.pop();
+      // Alt-click replaces that shade everywhere (inside the selection, if any) instead of filling one area.
+      const changed = event.altKey ? replaceShade(doc.pixels, doc.width, doc.height, doc.pixels[point.y * doc.width + point.x], value, doc.sel) > 0 : floodFill(doc.pixels, doc.width, doc.height, point.x, point.y, value);
+      if (!changed) doc.undo.pop();
     } else if (tool === "pencil" || tool === "eraser") {
       pushUndo(doc);
       for (const [x, y] of event.shiftKey && lastPoint.current ? linePoints(lastPoint.current.x, lastPoint.current.y, point.x, point.y) : [[point.x, point.y]]) mark(doc, { x, y }, value);
@@ -984,6 +1072,7 @@ export default function PaintApp() {
     const found = TOOLS.find(([, , , keys]) => keys.toLowerCase() === `${event.shiftKey ? "shift+" : ""}${key}`);
     if (found) return setTool(found[0]);
     if (event.shiftKey && key === "m") return setMirror(MIRRORS[(MIRRORS.indexOf(mirror) + 1) % MIRRORS.length]);
+    if (key === "f" || (key === "t" && doc?.sel)) return transformSelection(key === "t" ? "turn" : event.shiftKey ? "y" : "x");
     if (key >= "1" && key <= "4") return setShade(Number(key) - 1);
     if (key === "0" && doc?.hasAlpha) return setShade(CLEAR);
     if (key === "[") return tool === "palette" ? setCellBrush(Math.max(1, cellBrush - 1)) : setBrush(Math.max(1, brush - 1));
@@ -1018,7 +1107,7 @@ export default function PaintApp() {
       .then(() => sessionStore<{ active: number; docs: Omit<Doc, "id" | "undo" | "redo" | "sel" | "float">[] }>("readonly", (objects) => objects.get("open")))
       .then((session) => {
         if (!session?.docs?.length || docs.current.length) return;
-        docs.current = session.docs.map((saved) => ({ ...saved, palettes: saved.palettes ?? clonePalettes(palettesRef.current), id: nextDocId++, undo: [], redo: [], sel: null, float: null }));
+        docs.current = session.docs.map((saved, index) => ({ ...saved, palettes: saved.palettes ?? clonePalettes(palettesRef.current), id: index + 1, undo: [], redo: [], sel: null, float: null }));
         setActiveId(docs.current[Math.max(0, session.active)]?.id ?? docs.current[0].id);
         void rereadSlots();
       });
@@ -1135,13 +1224,18 @@ export default function PaintApp() {
     const canvas = canvasRef.current;
     if (!doc || !canvas) return;
     if (canvas.width !== doc.width || canvas.height !== doc.height) Object.assign(canvas, { width: doc.width, height: doc.height });
-    let pixels = doc.pixels;
+    let pixels = doc.pixels, cells = doc.cells;
     if (doc.float) {
       pixels = pixels.slice();
       drop(pixels, doc.width, doc.height, doc.float);
+      // A floating piece on tile edges shows in its own tile palettes.
+      if (doc.float.cells) {
+        cells = cells.slice();
+        dropCells(cells, doc.width, doc.height, doc.float);
+      }
     }
     const image = new ImageData(doc.width, doc.height);
-    colorize(pixels, doc.cells, doc.width, luts, new Uint32Array(image.data.buffer));
+    colorize(pixels, cells, doc.width, luts, new Uint32Array(image.data.buffer));
     canvas.getContext("2d")!.putImageData(image, 0, 0);
   });
 
@@ -1186,7 +1280,7 @@ export default function PaintApp() {
         <span className="gbp-seg" role="group" aria-label="File">
           <button className="quiet-button" title="Open PNG files · Ctrl+O (or drop them on the window)" onClick={() => void pickFiles()}><FolderOpen size={14} />Open</button>
           <button className="quiet-button" disabled={!doc} title={`Save every changed picture · Ctrl+S${doc?.asset ? ` (this one over ${doc.asset.file} in the project; old files go to the backups folder)` : doc?.handle ? ` (this one over ${doc.name})` : " (this one asks where)"}`} onClick={() => void save(false)}><Save size={14} />Save</button>
-          <button className="quiet-button" disabled={!doc} title="Export a copy, in the GB greens · Ctrl+E" onClick={() => void save(true)}><Download size={14} />Export</button>
+          <button className="quiet-button" disabled={!doc} aria-haspopup="menu" title="Export a copy in the GB greens (Ctrl+E), or an image to share: as shown, scaled up" onClick={(event) => { const r = event.currentTarget.getBoundingClientRect(); setExportMenu({ x: r.left, y: r.bottom + 6 }); }}><Download size={14} />Export</button>
         </span>
         <span className="gbp-seg" role="group" aria-label="Project and palettes">
           {project && <button className={`quiet-button ${showProject ? "active-tool" : ""}`} aria-pressed={showProject} title={`Show or hide the project's pictures (${project.path})`} onClick={() => setShowProject(!showProject)}><FolderTree size={14} />Project</button>}
@@ -1209,6 +1303,7 @@ export default function PaintApp() {
           <button className="icon-button small" aria-label="Zoom in" disabled={!doc} onClick={() => zoomBy(1)}><Plus size={12} /></button>
         </span>
         <button className={`icon-button ${grid ? "active-tool" : ""}`} aria-label="Tile grid" title={`Tile grid: ${grid ? `${grid} px` : "off"} (click for off / 8 px / 16 px)`} onClick={() => setGrid(grid === 0 ? 8 : grid === 8 ? 16 : 0)}><Grid3x3 size={15} />{grid > 0 && <small>{grid}</small>}</button>
+        <button className={`icon-button ${screens ? "active-tool" : ""}`} aria-label="Game Boy screens" aria-pressed={screens} title="Game Boy screens: outline every 160 × 144 area (one screen) on the picture" onClick={() => { setScreens(!screens); store(SCREENS_KEY, !screens); }}><Tv size={15} /></button>
         <button className={`icon-button ${snap ? "active-tool" : ""}`} aria-label="Snap selections to tiles" aria-pressed={snap} title="Snap selections and moves to 8 px tiles" onClick={() => setSnap(!snap)}><Magnet size={15} /></button>
         <button className={`icon-button ${showHelp ? "active-tool" : ""}`} aria-label="Help" title="Tools, keys and what Save writes · ?" onClick={() => setShowHelp(!showHelp)}><CircleHelp size={15} /></button>
       </header>
@@ -1301,6 +1396,7 @@ export default function PaintApp() {
               <div className="gbp-wrap" ref={wrapRef} style={{ width: doc.width * doc.zoom, height: doc.height * doc.zoom }}>
                 <canvas ref={canvasRef} />
                 {gridLines && <div className="gbp-grid" style={{ backgroundSize: `${gridLines} ${gridLines}` }} />}
+                {screens && <div className="gbp-screens" style={{ backgroundSize: `${160 * doc.zoom}px ${144 * doc.zoom}px` }} />}
                 {current && current.tiles.map((tile, index) => <div key={index} className="gbp-frame-slice" style={{ left: tile.sliceX * doc.zoom, top: tile.sliceY * doc.zoom, width: 8 * doc.zoom, height: 16 * doc.zoom }} />)}
                 {doc.sel && <div className={`gbp-selection ${doc.float ? "floating" : ""}`} style={{ left: doc.sel.x * doc.zoom, top: doc.sel.y * doc.zoom, width: doc.sel.w * doc.zoom, height: doc.sel.h * doc.zoom }} />}
                 <div className="gbp-brush-outline" ref={brushRef} />
@@ -1440,6 +1536,16 @@ export default function PaintApp() {
             </>}
             <hr />
             <button role="menuitem" onClick={() => { setProjectMenu(null); setShowAbout(true); }}>About GB Cartographer</button>
+        </Menu>
+      )}
+      {exportMenu && doc && (
+        <Menu x={exportMenu.x} y={exportMenu.y} width={300} height={260} className="gbp-export-menu" onClose={() => setExportMenu(null)}>
+          <button role="menuitem" onClick={() => { setExportMenu(null); void save(true); }}>Copy of the file, in the GB greens <kbd>Ctrl+E</kbd></button>
+          <hr />
+          <span className="gbp-menu-label">Image as shown, in its palettes</span>
+          <div className="gbp-menu-row">{[1, 2, 3, 4, 6, 8].map((scale) => <button key={scale} role="menuitem" title={`${doc.width * scale} × ${doc.height * scale} px`} onClick={() => { setExportMenu(null); void exportImage(scale, true); }}>{scale}×</button>)}</div>
+          <span className="gbp-menu-label">Image in the GB greens</span>
+          <div className="gbp-menu-row">{[1, 2, 3, 4, 6, 8].map((scale) => <button key={scale} role="menuitem" title={`${doc.width * scale} × ${doc.height * scale} px`} onClick={() => { setExportMenu(null); void exportImage(scale, false); }}>{scale}×</button>)}</div>
         </Menu>
       )}
       {slotMenu && doc && docPalettes[slotMenu.palette - 1] && (

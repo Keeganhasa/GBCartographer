@@ -23,6 +23,7 @@ export const CUSTOM_TINT_KEY = "gb-cartographer.custom-tint";
 export const PROJECT_PANEL_KEY = "gb-cartographer.project-panel";
 export const PROJECT_KIND_KEY = "gb-cartographer.project-kind";
 export const NAMED_SLOTS_KEY = "gb-cartographer.named-slots";
+export const SCREENS_KEY = "gb-cartographer.screens";
 /** GB Studio draws dialogue boxes and menus with the eighth background palette. */
 export const UI_SLOT = 7;
 /** A backup version's time from its name (2026-10-09T23-12-05-123Z.png). */
@@ -65,7 +66,7 @@ export interface AssetInfo { mtime: number; tileColors: number[]; slots: string[
 /** A file to open; `replace` names an open picture (by id) that it reloads in place (same tab, same zoom). */
 export interface Opening { file: File; handle?: FileHandle; asset?: Asset; info?: AssetInfo; replace?: number }
 
-export interface Snapshot { pixels: Uint8Array; cells: Uint8Array }
+export interface Snapshot { pixels: Uint8Array; cells: Uint8Array; /** The picture's palettes (colors are editable, so undo brings them back). */ palettes?: Palette[] }
 export interface Doc extends Snapshot {
   id: number;
   name: string;
