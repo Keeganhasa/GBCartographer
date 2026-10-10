@@ -111,6 +111,13 @@ export default function BackupsWindow({ projectName, initialFile, onClose, onRes
           <section className="gbp-backup-detail">
             {entry && chosen ? (
               <>
+                {entry.versions.length > 1 && (
+                  <label className="gbp-backup-slider" title="Scrub through this file's versions, oldest on the left">
+                    <span>oldest</span>
+                    <input type="range" min={0} max={entry.versions.length - 1} step={1} aria-label="Version" value={entry.versions.length - 1 - entry.versions.indexOf(chosen)} onChange={(event) => setVersion(entry.versions[entry.versions.length - 1 - Number(event.target.value)].id)} />
+                    <span>newest</span>
+                  </label>
+                )}
                 <div className="gbp-backup-versions" role="listbox" aria-label="Versions">
                   {entry.versions.map((item) => (
                     <button key={item.id} role="option" aria-selected={item.id === chosen.id} className={item.id === chosen.id ? "selected" : ""} title={when(item.time)} onClick={() => setVersion(item.id)}>

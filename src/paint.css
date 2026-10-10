@@ -581,3 +581,7 @@
 .gbp-camera-handle:active { cursor: grabbing; }
 .gbp-camera-strip canvas { image-rendering: pixelated; }
 .gbp-wrap { overflow: hidden; }
+.gbp-backup-slider { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: var(--fs-xs); }
+.gbp-backup-slider input { flex: 1; accent-color: var(--acc); }
+.gbp-backup-detail { display: flex; flex-direction: column; }
+.gbp-backup-detail .gbp-backup-compare { flex: 1; }
