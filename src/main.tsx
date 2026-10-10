@@ -1,7 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import PaintApp from "./PaintApp";
-import { TooltipProvider } from "./ui/kit";
+import { TooltipProvider, installTicker } from "./ui/kit";
 import "@fontsource/inter/400.css";
 import "@fontsource/inter/500.css";
 import "@fontsource/inter/600.css";
@@ -17,6 +17,7 @@ import { applyFont, applyTheme, loadFont, loadTheme } from "./ui/theme";
 // The theme and font picked last time.
 applyTheme(loadTheme(), false);
 applyFont(loadFont(), false);
+installTicker();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

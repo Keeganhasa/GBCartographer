@@ -140,3 +140,7 @@
 .k-dialog-sub { color: var(--k-ink-3); font-size: var(--k-text-sm); }
 .k-dialog-body { padding: var(--k-5); overflow: auto; flex: 1; min-height: 0; }
 .k-dialog-foot { display: flex; align-items: center; gap: var(--k-2); padding: var(--k-3) var(--k-5); border-top: 1px solid var(--k-edge); }
+
+/* Ticker: clipped text slides to show the rest while hovered (ticker.ts adds the class and the distance). */
+.k-ticker { text-overflow: clip !important; animation: k-ticker var(--k-ticker-time, 3s) ease-in-out .3s infinite alternate; }
+@keyframes k-ticker { 0%, 12% { text-indent: 0; } 88%, 100% { text-indent: var(--k-ticker-shift, 0); } }

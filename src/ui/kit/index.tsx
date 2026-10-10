@@ -7,6 +7,8 @@ import { Checkbox as RCheckbox, ContextMenu as RContextMenu, Dialog as RDialog, 
 import { forwardRef, useCallback, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
 import "./kit.css";
 
+export { installTicker } from "./ticker";
+
 const cx = (...names: (string | false | null | undefined)[]) => names.filter(Boolean).join(" ");
 
 // ---- buttons ---------------------------------------------------------------------------------------------------

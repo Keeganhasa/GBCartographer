@@ -28,7 +28,7 @@
 @media (prefers-reduced-motion: reduce) { .gbp-mascot { animation: none; } }
 
 /* The font sample: a sentence set in the sheet's glyphs, live. */
-.gbp-sample-canvas { width: 100%; max-width: 640px; image-rendering: pixelated; background: #e0f8cf; border: 1px solid var(--k-edge, #000); border-radius: 6px; }
+.gbp-sample-canvas { width: 320px; image-rendering: pixelated; background: #e0f8cf; border: 1px solid var(--k-edge, #000); border-radius: 6px; }
 
 /* The start screen fills the window (a splash). */
 .gbp-splash { overflow-y: auto; }

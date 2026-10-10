@@ -1431,34 +1431,46 @@ export default function PaintApp() {
     if (look === "gbc") gbcCorrect(image.data);
     canvas.getContext("2d")!.putImageData(image, 0, 0);
   });
-  // The font sample: each character's glyph copied from the sheet as just drawn, wrapped at the strip's width. In a
-  // variable-width font (see-through columns at a glyph's right, magenta in the file) each glyph advances by its width.
+  // The font sample, at a Game Boy screen's width (160 px, 8 px margins), wrapped at word breaks like a text box:
+  // each character's glyph copied from the sheet as just drawn. In a variable-width font (see-through columns at a
+  // glyph's right, magenta in the file) each glyph advances by its width.
   useLayoutEffect(() => {
     const sheet = canvasRef.current, canvas = sampleCanvas.current;
     if (!sheet || !canvas || !doc || !isFont) return;
-    const columns = Math.max(1, Math.floor(doc.width / 8)), perLine = 40;
-    const lines = sampleText.match(new RegExp(`.{1,${perLine}}(\\s|$)|.{1,${perLine}}`, "g")) ?? [""];
-    const widthOf = (sx: number, sy: number) => {
+    const columns = Math.max(1, Math.floor(doc.width / 8)), glyphs = columns * Math.floor(doc.height / 8);
+    const at = (char: string) => { const index = char.charCodeAt(0) - 32; return index < 0 || index >= glyphs ? null : { sx: (index % columns) * 8, sy: Math.floor(index / columns) * 8 }; };
+    const widthOf = (char: string) => {
+      const glyph = at(char);
+      if (!glyph || !doc.keyMagenta) return 8;
       let width = 8;
-      while (width > 1 && Array.from({ length: 8 }, (_, y) => doc.pixels[(sy + y) * doc.width + sx + width - 1] === CLEAR).every(Boolean)) width -= 1;
-      return doc.keyMagenta ? width : 8;
+      while (width > 1 && Array.from({ length: 8 }, (_, y) => doc.pixels[(glyph.sy + y) * doc.width + glyph.sx + width - 1] === CLEAR).every(Boolean)) width -= 1;
+      return width;
     };
-    canvas.width = perLine * 8;
-    canvas.height = Math.max(1, lines.length) * 8;
+    const SCREEN = 160, MARGIN = 8, ROOM = SCREEN - 2 * MARGIN;
+    const lines: string[] = [];
+    for (const paragraph of sampleText.split("\n")) {
+      let line = "", used = 0;
+      for (const word of paragraph.split(" ")) {
+        const wordWidth = [...word].reduce((sum, char) => sum + widthOf(char), 0), space = line ? widthOf(" ") : 0;
+        if (line && used + space + wordWidth > ROOM) { lines.push(line); line = ""; used = 0; }
+        line += (line ? " " : "") + word;
+        used += (line === word ? 0 : space) + wordWidth;
+      }
+      lines.push(line);
+    }
+    canvas.width = SCREEN;
+    canvas.height = Math.max(1, lines.length) * 8 + 2 * MARGIN;
     const context = canvas.getContext("2d")!;
     context.clearRect(0, 0, canvas.width, canvas.height);
     lines.forEach((line, row) => {
-      let pen = 0;
-      for (const char of line.trimEnd()) {
-        const index = char.charCodeAt(0) - 32;
-        if (index < 0 || index >= columns * Math.floor(doc.height / 8)) continue;
-        const sx = (index % columns) * 8, sy = Math.floor(index / columns) * 8, width = widthOf(sx, sy);
-        context.drawImage(sheet, sx, sy, width, 8, pen, row * 8, width, 8);
+      let pen = MARGIN;
+      for (const char of line) {
+        const glyph = at(char), width = widthOf(char);
+        if (glyph && pen + width <= SCREEN - MARGIN) context.drawImage(sheet, glyph.sx, glyph.sy, width, 8, pen, MARGIN + row * 8, width, 8);
         pen += width;
       }
     });
   });
-
 
   // The seamless view copies the picture as just drawn, so it runs after the drawing above.
   useLayoutEffect(() => {
@@ -1639,8 +1651,8 @@ export default function PaintApp() {
           )}
           {doc && isFont && (
             <div className="k-card app-strip" role="group" aria-label="Font sample">
-              <input className="k-input" style={{ width: 320 }} aria-label="Sample text" value={sampleText} onChange={(event) => setSampleText(event.target.value)} spellCheck={false} />
-              <canvas ref={sampleCanvas} className="gbp-sample-canvas" />
+              <canvas ref={sampleCanvas} className="gbp-sample-canvas" title="One Game Boy screen wide (160 px), shown at 2×" />
+              <label className="k-field" style={{ width: 260 }}><span className="k-label">Your text</span><textarea className="k-input" rows={3} style={{ height: "auto", padding: "6px 10px", resize: "vertical" }} aria-label="Sample text" value={sampleText} onChange={(event) => setSampleText(event.target.value)} spellCheck={false} /><span className="k-hint">Wraps like a text box, one screen wide.</span></label>
             </div>
           )}
           {doc ? (

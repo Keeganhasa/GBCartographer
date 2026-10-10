@@ -8,7 +8,7 @@
 import { MessageSquareText } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { GB_SHADES, gbStudioShade, hexRgb } from "../paint";
-import { Dialog, Field, Select } from "../ui/kit";
+import { Chip, Dialog, Field, Select } from "../ui/kit";
 import type { Asset } from "./model";
 import "./DialoguePreview.css";
 
@@ -49,7 +49,37 @@ export function DialoguePreview({ backgrounds, hasFrame, onClose }: { background
     return () => { live = false; };
   }, [font, background, hasFrame, backgrounds]);
   const palette = (settings?.uiPalette ?? [...GB_SHADES]).map(hexRgb);
-  const lines = text.split("\n").slice(0, 4);
+  // A glyph's width in the font sheet: 8, or for a variable-width font the columns before its magenta (unused) ones.
+  const sheetFont = images.font;
+  const glyphWidth = (char: string) => {
+    const index = char.charCodeAt(0) - 32;
+    if (!sheetFont || index < 0) return 8;
+    const sx = (index % 16) * 8, sy = Math.floor(index / 16) * 8;
+    if (sy + 8 > sheetFont.height) return 8;
+    const magenta = (x: number, y: number) => { const p = (y * sheetFont.width + x) * 4; return sheetFont.data[p] > 249 && sheetFont.data[p + 2] > 249 && sheetFont.data[p + 1] < 250; };
+    let width = 8;
+    while (width > 0 && Array.from({ length: 8 }, (_, y) => magenta(sx + width - 1, sy + y)).every(Boolean)) width -= 1;
+    return Math.max(1, width);
+  };
+  // The text wrapped at word breaks to the box's inside (144 px), as a text box would; four lines show at once.
+  const ROOM = 144, SHOWN_LINES = 4;
+  const wrapped: string[] = [];
+  for (const paragraph of text.split("\n")) {
+    let line = "", used = 0;
+    for (const word of paragraph.split(" ")) {
+      const wordWidth = [...word].reduce((sum, char) => sum + glyphWidth(char), 0), space = line ? glyphWidth(" ") : 0;
+      if (line && used + space + wordWidth > ROOM) { wrapped.push(line); line = "", used = 0; }
+      if (!line && wordWidth > ROOM) {
+        // A word longer than a line breaks where it runs out of room.
+        for (const char of word) { if (used + glyphWidth(char) > ROOM) { wrapped.push(line); line = "", used = 0; } line += char; used += glyphWidth(char); }
+        continue;
+      }
+      line += (line ? " " : "") + word;
+      used += (used ? space : 0) + wordWidth;
+    }
+    wrapped.push(line);
+  }
+  const lines = wrapped.slice(0, SHOWN_LINES), more = wrapped.length - lines.length;
   useEffect(() => {
     const target = canvas.current;
     if (!target) return;
@@ -114,7 +144,7 @@ export function DialoguePreview({ backgrounds, hasFrame, onClose }: { background
       footer={
         <div className="dp-notes k-small k-muted">
           <span>{settings ? (settings.uiPalette ? "UI palette: background slot 8 of the project's defaults" : settings.colorMode === "mono" ? "Monochrome project: the greens" : "No UI palette found: the greens") : "…"}{hasFrame ? "" : " · no assets/ui/frame.png, so a plain box"}</span>
-          <span>Approximate: up to 4 lines; GB Studio's event options change the real box.</span>
+          {more > 0 ? <span style={{ alignSelf: "flex-start" }}><Chip tone="warn" title="The box shows four lines at a time; GB Studio continues on the next page">{more} more line{more === 1 ? "" : "s"}: next page</Chip></span> : <span>Approximate: GB Studio's event options change the real box.</span>}
         </div>
       }>
       <div className="k-stack">
