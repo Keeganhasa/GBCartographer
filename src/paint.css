@@ -554,12 +554,6 @@
 .gbp-health-group.note .gbp-health-row { border-left-color: var(--acc); }
 
 /* The fill pattern button: a swatch of the pattern. */
-.gbp-pattern-swatch { display: block; width: 16px; height: 16px; border: 1px solid currentColor; border-radius: 3px; background: currentColor; }
-.gbp-pattern-swatch.checker { background: repeating-conic-gradient(currentColor 0 25%, transparent 0 50%) 0 0 / 4px 4px; }
-.gbp-pattern-swatch.quarter { background: radial-gradient(currentColor 0.9px, transparent 1px) 0 0 / 4px 4px; }
-.gbp-pattern-swatch.threeQuarters { background: currentColor; -webkit-mask: radial-gradient(transparent 0.9px, #000 1px) 2px 2px / 4px 4px; mask: radial-gradient(transparent 0.9px, #000 1px) 2px 2px / 4px 4px; }
-.gbp-pattern-swatch.rows { background: repeating-linear-gradient(to bottom, currentColor 0 2px, transparent 2px 4px); }
-.gbp-pattern-swatch.columns { background: repeating-linear-gradient(to right, currentColor 0 2px, transparent 2px 4px); }
 
 /* Seamless view. */
 .gbp-seamless { position: relative; top: auto; z-index: 1; flex-wrap: wrap; align-items: center; }

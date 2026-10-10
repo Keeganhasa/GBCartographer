@@ -61,6 +61,7 @@ export function AboutWindow({ onClose }: { onClose: () => void }) {
               <tr><td><b>OpenDyslexic</b></td><td>Abbie Gonzalez, SIL Open Font License 1.1 (downloaded the first time it is turned on).</td></tr>
               <tr><td><b>Demo project</b></td><td>Art by Raptorspank (CC0) and the GB Studio Community Assets authors (MIT), credited in the demo's CREDITS.md.</td></tr>
               <tr><td><b>Libraries</b></td><td>React and lucide icons (MIT, ISC); the desktop app runs on Electron (MIT).</td></tr>
+              <tr><td><b>More icons</b></td><td>A few icons from Pixelarticons by Gerrit Halfmann and from Phosphor Icons, both MIT (licences in the app's licenses folder).</td></tr>
             </tbody>
           </table>
           <p className="gbp-note">GB Studio is by Chris Maltby and contributors. GB Cartographer is not affiliated with GB Studio or Nintendo.</p>

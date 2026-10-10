@@ -32,6 +32,7 @@ import { framesOf, saveFile } from "./app/files";
 import { ToolColumn } from "./app/ToolColumn";
 import { PicturePane } from "./app/PicturePane";
 import { usePainting } from "./app/usePainting";
+import { PxGamepad } from "./ui/setIcons";
 import { PalettesPane } from "./app/PalettesPane";
 import { FramesStrip } from "./app/FramesStrip";
 
@@ -1428,7 +1429,7 @@ export default function PaintApp() {
         </span>
         <button className={`icon-button ${grid ? "active-tool" : ""}`} aria-label="Tile grid" title={`Tile grid: ${grid ? `${grid} px` : "off"} (click for off / 8 px / 16 px)`} onClick={() => setGrid(grid === 0 ? 8 : grid === 8 ? 16 : 0)}><Grid3x3 size={15} />{grid > 0 && <small>{grid}</small>}</button>
         <button className={`icon-button ${budgetView ? "active-tool" : ""}`} aria-label="Tile budget view" aria-pressed={budgetView} title="Tile budget view: red tiles are used only once; amber ones nearly match another tile (Picture tab can merge them)" onClick={() => setBudgetView(!budgetView)}><Gauge size={15} /></button>
-        <button className={`icon-button ${screens ? "active-tool" : ""}`} aria-label="Game Boy screens" aria-pressed={screens} title="Game Boy screens: outline every 160 × 144 area (one screen) on the picture" onClick={() => { setScreens(!screens); store(SCREENS_KEY, !screens); }}><Gamepad2 size={15} /></button>
+        <button className={`icon-button ${screens ? "active-tool" : ""}`} aria-label="Game Boy screens" aria-pressed={screens} title="Game Boy screens: outline every 160 × 144 area (one screen) on the picture" onClick={() => { setScreens(!screens); store(SCREENS_KEY, !screens); }}><PxGamepad size={15} /></button>
         <button className={`icon-button ${snap ? "active-tool" : ""}`} aria-label="Snap selections to tiles" aria-pressed={snap} title="Snap selections and moves to 8 px tiles" onClick={() => setSnap(!snap)}><Magnet size={15} /></button>
         <button className={`icon-button ${showHelp ? "active-tool" : ""}`} aria-label="Help" title="Tools, keys and what Save writes · ?" onClick={() => setShowHelp(!showHelp)}><CircleHelp size={15} /></button>
       </header>

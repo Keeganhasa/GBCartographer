@@ -3,6 +3,7 @@ import { FlipHorizontal, Grid2x2, Link2, Minus, Plus } from "lucide-react";
 import { PATTERNS, type Mirror, type Pattern } from "../paint";
 import { MIRRORS, MIRROR_LABEL, type ToolId } from "./model";
 import { TOOLS } from "./tools";
+import { PhCheckerboard } from "../ui/setIcons";
 
 interface Props {
   tool: ToolId; onTool: (tool: ToolId) => void;
@@ -24,7 +25,7 @@ export function ToolColumn({ tool, onTool, seamless, onSeamless, linked, onLinke
       <button className={`tool-button ${mirror !== "off" ? "active" : ""}`} aria-label={MIRROR_LABEL[mirror]} title={`${MIRROR_LABEL[mirror]}: paint both halves at once · Shift+M`} onClick={() => onMirror(MIRRORS[(MIRRORS.indexOf(mirror) + 1) % MIRRORS.length])}><FlipHorizontal size={17} /></button>
       {(tool === "fill" || tool === "rectFill") && (
         <button className={`tool-button gbp-pattern ${pattern !== "solid" ? "active" : ""}`} aria-label={`Fill pattern: ${patternLabel}`} title={`Fill pattern: ${patternLabel} · D for the next`} onClick={onPattern}>
-          <span className={`gbp-pattern-swatch ${pattern}`} />
+          <PhCheckerboard size={17} />
         </button>
       )}
       {tool === "palette" || tool === "priority" ? (
