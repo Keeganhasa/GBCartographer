@@ -3,7 +3,7 @@
  * palette slot the way the app does, put a palette in a scene slot, and check the files GB Studio would read and the
  * backups. It goes through the same endpoints as the app (no browser).
  */
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -15,6 +15,9 @@ import { handleCartographerRequest } from "./endpoints";
 import { setProjectFolder } from "./project";
 
 const repo = resolve(__dirname, "..");
+// The demo's art stays on the author's machines until its artists say yes (only palettes ship): without it, skip.
+const tilesets = join(repo, "demo/assets/tilesets");
+const hasDemoArt = existsSync(tilesets) && readdirSync(tilesets).some((file) => file.endsWith(".png"));
 let data = "";
 let server: Server;
 let base = "";
@@ -38,7 +41,7 @@ const json = async <T>(response: Response) => {
   return response.json() as Promise<T>;
 };
 
-it("opens the demo, paints a tile, saves it and its palette, and GB Studio's files say so", async () => {
+it.skipIf(!hasDemoArt)("opens the demo, paints a tile, saves it and its palette, and GB Studio's files say so", async () => {
   const opened = await json<{ project: { name: string; path: string } }>(await fetch(`${base}/project`, { method: "POST", body: JSON.stringify({ demo: true }) }));
   expect(opened.project.name).toBe("Demo Project");
   const project = opened.project.path;
