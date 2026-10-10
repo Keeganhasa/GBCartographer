@@ -1808,7 +1808,7 @@ export default function PaintApp() {
     { label: "A palette set…", icon: <SwatchBook />, disabled: noProject, title: "Eight palettes from a Lospec palette, a picture or the library", onSelect: () => setWizard("paletteSet") },
     { label: "New background…", icon: <FilePlus />, disabled: noProject, title: "A blank background in screens, with a palette set in its slots", onSelect: () => setWizard("newBackground") },
     { label: "Tile budget fixer…", icon: <PhPiggyBank size={15} />, disabled: !doc, title: "Get the open picture under GB Studio's tile limit, one merge at a time", onSelect: () => setWizard("budget") },
-    { label: "New map…", icon: <MapIcon />, disabled: noProject, title: "A Zelda-style grid of screens, in the Map Room", onSelect: () => setShowMapRoom(true) },
+    { label: "New map…", icon: <MapIcon />, disabled: noProject, title: "An adventure-style grid of screens, in the Map Room", onSelect: () => setShowMapRoom(true) },
     { label: "Project check-up…", icon: <PxHeart size={15} />, disabled: noProject, title: "The health report one issue at a time, each with its fix", onSelect: () => setWizard("checkup") },
   ];
   const lookName = look === "dmg" ? "Game Boy screen" : look === "pocket" ? "Pocket screen" : "GBC screen";
@@ -1827,7 +1827,7 @@ export default function PaintApp() {
         </span>
         <span className="k-seg" role="group" aria-label="Maps and palettes">
           {served && !project && <Button icon={<FolderTree />} title="Open a GB Studio project folder" onClick={() => void chooseProject()}>Open project…</Button>}
-          {project && <Button icon={<MapIcon />} title="Map Room: grids of screens (Zelda-style), each a background" onClick={() => setShowMapRoom(true)}>Maps</Button>}
+          {project && <Button icon={<MapIcon />} title="Map Room: adventure-style grids of screens, each a background" onClick={() => setShowMapRoom(true)}>Maps</Button>}
           <Button icon={<SwatchBook />} title="Palette manager: the project's palettes, a library, and your own" onClick={() => setShowPalettes(true)}>Palettes</Button>
           <Menu items={wizardItems} trigger={<Button icon={<PxRobotHappy size={15} />} title="Wizards: step-by-step helpers">Wizards</Button>} />
         </span>

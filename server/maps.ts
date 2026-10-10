@@ -1,5 +1,5 @@
 /**
- * Map Room layouts: grids of screens (each a project background) for Zelda-style maps. They live in the project, in
+ * Map Room layouts: grids of screens (each a project background) for adventure-style maps. They live in the project, in
  * GB Cartographer's own folder (Cartographer/maps.json, approved by the author 2026-10-10), so they travel with it;
  * GB Studio doesn't read that folder. Layouts kept in the app's data folder before then move there on first read.
  */

@@ -1,5 +1,5 @@
 /**
- * Map Room edges: neighbouring screens share their edge tiles (Zelda-style flip screens): a screen's last tile
+ * Map Room edges: neighbouring screens share their edge tiles (adventure-style flip screens): a screen's last tile
  * column is its east neighbour's first, its last tile row its south neighbour's first. Pictures are RGBA in the
  * GB greens; tiles compare by GB Studio's shade (the green channel) and see-through.
  */
