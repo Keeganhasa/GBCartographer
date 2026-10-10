@@ -1,0 +1,6 @@
+/* Fit to GB Studio's colors: the picture now and after, side by side, and the report under them. */
+.fw-stage { display: grid; grid-template-columns: 1fr 1fr; gap: var(--k-4); }
+.fw-picture { margin: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.fw-frame { display: grid; place-items: center; padding: var(--k-3); background: var(--k-well); }
+.fw-frame canvas { display: block; width: 100%; height: auto; max-height: 50vh; object-fit: contain; image-rendering: pixelated; }
+.fw-report { margin: 0; padding: 10px 12px; color: var(--k-ink-2); font-size: var(--k-text-sm); font-variant-numeric: tabular-nums; }

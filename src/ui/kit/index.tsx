@@ -4,7 +4,7 @@
  */
 import { Check, ChevronDown, X } from "lucide-react";
 import { Checkbox as RCheckbox, ContextMenu as RContextMenu, Dialog as RDialog, DropdownMenu as RMenu, Popover as RPopover, Select as RSelect, Slider as RSlider, Switch as RSwitch, Tabs as RTabs, ToggleGroup, Tooltip as RTooltip } from "radix-ui";
-import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { forwardRef, useCallback, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
 import "./kit.css";
 
 const cx = (...names: (string | false | null | undefined)[]) => names.filter(Boolean).join(" ");
@@ -181,4 +181,27 @@ export function Dialog({ open, onOpenChange, title, sub, icon, wide, tall, foote
       </RDialog.Portal>
     </RDialog.Root>
   );
+}
+
+interface AskOptions { title: ReactNode; label: ReactNode; hint?: ReactNode; placeholder?: string; initial?: string; confirm?: string }
+
+/**
+ * Asks for one line of text in a kit dialog (window.prompt doesn't work in the desktop app). Returns the dialog to
+ * render and `ask`, which resolves to the trimmed text, or null when cancelled.
+ */
+export function usePrompt(): [ReactNode, (options: AskOptions) => Promise<string | null>] {
+  const [asking, setAsking] = useState<{ options: AskOptions; resolve: (value: string | null) => void } | null>(null);
+  const [value, setValue] = useState("");
+  const ask = useCallback((options: AskOptions) => new Promise<string | null>((resolve) => { setValue(options.initial ?? ""); setAsking({ options, resolve }); }), []);
+  const close = (result: string | null) => { asking?.resolve(result); setAsking(null); };
+  const text = value.trim();
+  const element = asking && (
+    <Dialog open onOpenChange={(open) => { if (!open) close(null); }} title={asking.options.title}
+      footer={<><span className="k-spacer" /><Button onClick={() => close(null)}>Cancel</Button><Button variant="primary" disabled={!text} onClick={() => close(text)}>{asking.options.confirm ?? "OK"}</Button></>}>
+      <form onSubmit={(event) => { event.preventDefault(); if (text) close(text); }}>
+        <Field label={asking.options.label} hint={asking.options.hint}><input className="k-input" autoFocus value={value} placeholder={asking.options.placeholder} onChange={(event) => setValue(event.target.value)} /></Field>
+      </form>
+    </Dialog>
+  );
+  return [element, ask];
 }

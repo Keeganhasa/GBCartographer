@@ -2,11 +2,14 @@
  * Try a sprite on a background: one of the project's backgrounds, drawn in its scene's palettes, with the open
  * sprite sheet's frame on top (as shown in the painter). Drag the sprite around (Shift snaps to 8 px); the edge
  * contrast says how much of its outline is hard to see against the spot it stands on.
+ * The window is a kit Dialog: background, play and zoom on top, the readout in the foot.
  */
-import { Pause, Play, X } from "lucide-react";
+import { Image as ImageIcon, Pause, Play } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { LOW_CONTRAST, colorDistance } from "../paint";
+import { Dialog, IconButton, Segmented, Select } from "../ui/kit";
 import type { Asset } from "./model";
+import "./SpriteOnBackground.css";
 
 interface Props {
   backgrounds: Asset[];
@@ -68,12 +71,6 @@ export function SpriteOnBackground({ backgrounds, frames, fps, onClose }: Props)
     return () => window.clearInterval(timer);
   }, [playing, frames.length, fps]);
 
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
   // Draw the background and the frame; work out the edge contrast where the sprite stands.
   const [contrast, setContrast] = useState<{ edge: number; low: number; weakest: number } | null>(null);
   useEffect(() => {
@@ -95,32 +92,25 @@ export function SpriteOnBackground({ backgrounds, frames, fps, onClose }: Props)
   const share = contrast && contrast.edge ? Math.round((contrast.low / contrast.edge) * 100) : 0;
 
   return (
-    <div className="gbp-modal-backdrop" onClick={onClose}>
-      <div className="gbp-modal gbp-sprite-bg" role="dialog" aria-label="Sprite on a background" onClick={(event) => event.stopPropagation()}>
-        <header className="gbp-modal-head">
-          <h2>On a background</h2>
-          <select aria-label="Background" value={picked} onChange={(event) => setPicked(event.target.value)}>
-            {backgrounds.map((item) => <option key={item.file} value={item.file}>{item.name}</option>)}
-          </select>
-          {frames.length > 1 && <button className="icon-button small" aria-label={playing ? "Pause" : "Play"} onClick={() => setPlaying(!playing)}>{playing ? <Pause size={12} /> : <Play size={12} />}</button>}
-          <span className="gbp-spacer" />
-          <span className="gbp-seg gbp-zoom" role="group" aria-label="Zoom">{[2, 3, 4].map((step) => <button key={step} className={`quiet-button ${zoom === step ? "active-tool" : ""}`} onClick={() => setZoom(step)}>{step}×</button>)}</span>
-          <button className="icon-button small" aria-label="Close" onClick={onClose}><X size={14} /></button>
-        </header>
-        <div className="gbp-sprite-bg-stage">
-          {!backgrounds.length ? <p className="gbp-note">This project has no backgrounds.</p> : (
-            <canvas ref={canvas} style={image ? { width: image.naturalWidth * zoom, height: image.naturalHeight * zoom } : undefined}
-              onPointerDown={(event) => { const at = point(event); if (at.x >= position.x && at.y >= position.y && at.x < position.x + width && at.y < position.y + height) { drag.current = { dx: at.x - position.x, dy: at.y - position.y }; event.currentTarget.setPointerCapture(event.pointerId); } }}
-              onPointerMove={(event) => { if (!drag.current) return; const at = point(event); let x = at.x - drag.current.dx, y = at.y - drag.current.dy; if (event.shiftKey) { x = Math.round(x / 8) * 8; y = Math.round(y / 8) * 8; } setPosition({ x, y }); }}
-              onPointerUp={() => { drag.current = null; }} />
-          )}
-        </div>
-        <footer className="gbp-sprite-bg-foot">
-          <span>Drag the sprite (Shift snaps to 8 px) · at {position.x}, {position.y} · tile {Math.floor(position.x / 8)}, {Math.floor(position.y / 8)}</span>
-          <span className="gbp-spacer" />
-          {contrast && <span className={share > 25 ? "gbp-pm-warn" : ""} title="Outline pixels whose color is within 12 (CIE ΔE) of the background right next to them">{contrast.edge ? `${share ? `${share}% of the outline is hard to see here` : "The whole outline clears the bar here"} · weakest contrast ${Math.round(contrast.weakest * 10) / 10} (aim for 12 or more)` : "Off the background"}</span>}
-        </footer>
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }} wide icon={<ImageIcon size={18} />} title="On a background" sub="The sprite's animation over one of the project's backgrounds"
+      headExtra={<>
+        {backgrounds.length > 0 && <span className="sob-pick"><Select label="Background" value={picked} onChange={setPicked} options={backgrounds.map((item) => ({ value: item.file, label: item.name }))} /></span>}
+        {frames.length > 1 && <IconButton size="sm" label={playing ? "Pause" : "Play"} onClick={() => setPlaying(!playing)}>{playing ? <Pause /> : <Play />}</IconButton>}
+        <Segmented size="sm" label="Zoom" value={String(zoom) as "2" | "3" | "4"} onChange={(value) => setZoom(Number(value))} options={[2, 3, 4].map((step) => ({ value: String(step) as "2" | "3" | "4", label: `${step}×` }))} />
+      </>}
+      footer={<>
+        <span className="k-muted k-small">Drag the sprite (Shift snaps to 8 px) · at {position.x}, {position.y} · tile {Math.floor(position.x / 8)}, {Math.floor(position.y / 8)}</span>
+        <span className="k-spacer" />
+        {contrast && <span className={`k-small sob-readout ${share > 25 ? "sob-warn" : "k-muted"}`} title="Outline pixels whose color is within 12 (CIE ΔE) of the background right next to them">{contrast.edge ? `${share ? `${share}% of the outline is hard to see here` : "The whole outline clears the bar here"} · weakest contrast ${Math.round(contrast.weakest * 10) / 10} (aim for 12 or more)` : "Off the background"}</span>}
+      </>}>
+      <div className="k-well sob-stage">
+        {!backgrounds.length ? <p className="k-muted sob-empty">This project has no backgrounds.</p> : (
+          <canvas ref={canvas} style={image ? { width: image.naturalWidth * zoom, height: image.naturalHeight * zoom } : undefined}
+            onPointerDown={(event) => { const at = point(event); if (at.x >= position.x && at.y >= position.y && at.x < position.x + width && at.y < position.y + height) { drag.current = { dx: at.x - position.x, dy: at.y - position.y }; event.currentTarget.setPointerCapture(event.pointerId); } }}
+            onPointerMove={(event) => { if (!drag.current) return; const at = point(event); let x = at.x - drag.current.dx, y = at.y - drag.current.dy; if (event.shiftKey) { x = Math.round(x / 8) * 8; y = Math.round(y / 8) * 8; } setPosition({ x, y }); }}
+            onPointerUp={() => { drag.current = null; }} />
+        )}
       </div>
-    </div>
+    </Dialog>
   );
 }

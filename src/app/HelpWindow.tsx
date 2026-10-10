@@ -1,31 +1,71 @@
-import { X } from "lucide-react";
+import { Info, Keyboard } from "lucide-react";
+import type { ReactNode } from "react";
+import { Button, Dialog, Kbd } from "../ui/kit";
 import { TOOLS } from "./tools";
+import "./HelpWindow.css";
+
+/** One line of help: an optional icon, the name, its keys, and what it does. */
+function Row({ icon, name, keys = [], children }: { icon?: ReactNode; name: string; keys?: string[]; children: ReactNode }) {
+  return (
+    <div className="hp-row">
+      <span className="hp-icon">{icon}</span>
+      <b>{name}</b>
+      <span className="hp-keys">{keys.map((key) => <Kbd key={key}>{key}</Kbd>)}</span>
+      <p>{children}</p>
+    </div>
+  );
+}
+
+function Section({ title, children }: { title: string; children: ReactNode }) {
+  return <section className="hp-section"><h3 className="k-eyebrow">{title}</h3><div className="hp-rows">{children}</div></section>;
+}
 
 /** The ? window: every tool with its key and the long explanation, the other keys, and what Save writes. */
 export function HelpWindow({ onClose, onAbout }: { onClose: () => void; onAbout: () => void }) {
   return (
-    <div className="gbp-modal-backdrop" onClick={onClose}>
-      <div className="gbp-modal gbp-help" role="dialog" aria-label="Help" onClick={(event) => event.stopPropagation()}>
-        <header className="gbp-modal-head"><h2>Tools and keys</h2><span className="gbp-spacer" /><button className="quiet-button" onClick={onAbout}>About · v{__APP_VERSION__}</button><button className="icon-button small" aria-label="Close" onClick={onClose}><X size={14} /></button></header>
-        <div className="gbp-help-body">
-          <table>
-            <tbody>
-              {TOOLS.map(([id, label, Icon, keys, , long]) => <tr key={id}><td><Icon size={14} /></td><td><b>{label}</b></td><td><kbd>{keys}</kbd></td><td>{long}</td></tr>)}
-              <tr><td /><td><b>Mirror</b></td><td><kbd>Shift+M</kbd></td><td>Paint both halves at once: off, left-right, top-bottom, both.</td></tr>
-              <tr><td /><td><b>Shades</b></td><td><kbd>1–4</kbd> <kbd>0</kbd></td><td>Pick a shade; 0 is see-through in a picture that has it.</td></tr>
-              <tr><td /><td><b>Brush</b></td><td><kbd>[</kbd> <kbd>]</kbd></td><td>Smaller or bigger: pixels, or tiles with the palette brush.</td></tr>
-              <tr><td /><td><b>Seamless view</b></td><td /><td>The tile under the pointer (or the selection) repeated 3 × 3 above the picture, to check it tiles cleanly.</td></tr>
-              <tr><td /><td><b>Linked tiles</b></td><td><kbd>K</kbd></td><td>Painting a tile paints every identical copy of it too (one-color tiles aren't linked). One undo step per stroke.</td></tr>
-              <tr><td /><td><b>Flip, turn</b></td><td><kbd>F</kbd> <kbd>Shift+F</kbd> <kbd>T</kbd></td><td>Flip the selection (or the whole picture) left-right or top-bottom; turn the selection clockwise.</td></tr>
-              <tr><td /><td><b>Saved stamps</b></td><td>right-click</td><td>Right-click inside a selection: use it as the stamp, or save it as a stamp in the project's Cartographer/stamps folder (with its tile palettes on whole tiles). The Stamp tool shows the saved ones above the picture; the Stamps folder in the project panel opens one to edit.</td></tr>
-              <tr><td /><td><b>Undo</b></td><td><kbd>Ctrl+Z</kbd></td><td>Undo also brings back palette colors changed in the sidebar.</td></tr>
-              <tr><td /><td><b>Tabs</b></td><td><kbd>Ctrl+Tab</kbd> <kbd>Ctrl+PgDn</kbd> <kbd>Ctrl+PgUp</kbd> <kbd>Alt+W</kbd></td><td>Next and previous picture (Shift+Ctrl+Tab goes back); Alt+W closes the picture (Ctrl+W too in the desktop app).</td></tr>
-              <tr><td /><td><b>Files</b></td><td><kbd>Ctrl+O</kbd> <kbd>Ctrl+S</kbd> <kbd>Ctrl+E</kbd></td><td>Open PNGs, save, export a copy. Ctrl+Z / Ctrl+Shift+Z undo and redo; Ctrl+C / X / V and Ctrl+A work on the selection; Ctrl+= / Ctrl+- zoom; Esc drops the selection.</td></tr>
-            </tbody>
-          </table>
-          <p className="gbp-note">What Save writes into a GB Studio project: the PNG (same size, or the new one after Resize), a new PNG from New, a background's tile palettes (<code>tileColors</code>), a sprite sheet's slice palettes (<code>paletteIndex</code>), palette files from the palette manager, and when you put a palette in a slot, the scene's palette list or the project's default palettes. Nothing else. The old file is backed up first (Backups… in the project menu).</p>
-        </div>
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }} wide tall title="Tools and keys" icon={<Keyboard size={18} />}
+      headExtra={<Button variant="ghost" size="sm" icon={<Info />} onClick={onAbout}>About · v{__APP_VERSION__}</Button>}>
+      <div className="k-stack k-stack--loose">
+        <Section title="Tools">
+          {TOOLS.map(([id, label, Icon, keys, , long]) => <Row key={id} icon={<Icon size={16} />} name={label} keys={[keys]}>{long}</Row>)}
+        </Section>
+        <Section title="While painting">
+          <Row name="Shades" keys={["1–4", "0"]}>Pick a shade. 0 is see-through, in a picture that has see-through pixels.</Row>
+          <Row name="Brush size" keys={["[", "]"]}>Smaller or bigger: pixels, or tiles with the palette brush.</Row>
+          <Row name="Mirror" keys={["Shift+M"]}>Paint both halves at once: off, left-right, top-bottom, both.</Row>
+          <Row name="Linked tiles" keys={["K"]}>Painting a tile paints every identical copy of it too (one-color tiles aren't linked). One undo step per stroke.</Row>
+          <Row name="Seamless view">The tile under the pointer (or the selection) repeated 3 × 3 above the picture, to check that it tiles cleanly.</Row>
+        </Section>
+        <Section title="Selection">
+          <Row name="Copy, cut, paste" keys={["Ctrl+C", "Ctrl+X", "Ctrl+V"]}>Work on the selection.</Row>
+          <Row name="Select all" keys={["Ctrl+A"]}>Selects the whole picture.</Row>
+          <Row name="Drop it" keys={["Esc"]}>Drops the selection.</Row>
+          <Row name="Flip, turn" keys={["F", "Shift+F", "T"]}>Flip the selection (or the whole picture) left-right or top-bottom; turn the selection clockwise.</Row>
+          <Row name="Saved stamps" keys={["Right-click"]}>Right-click inside a selection to use it as the stamp, or to save it as a stamp in the project's Cartographer/stamps folder (with its tile palettes, on whole tiles). The Stamp tool shows the saved ones above the picture; the Stamps folder in the project panel opens one to edit.</Row>
+        </Section>
+        <Section title="Files and undo">
+          <Row name="Open, save, export" keys={["Ctrl+O", "Ctrl+S", "Ctrl+E"]}>Open PNGs, save, export a copy.</Row>
+          <Row name="Undo, redo" keys={["Ctrl+Z", "Ctrl+Shift+Z"]}>Undo also brings back palette colors changed in the sidebar.</Row>
+          <Row name="Zoom" keys={["Ctrl+=", "Ctrl+-"]}>Zoom in and out.</Row>
+        </Section>
+        <Section title="Tabs">
+          <Row name="Next, previous" keys={["Ctrl+Tab", "Ctrl+PgDn", "Ctrl+PgUp"]}>The next and previous picture (Shift+Ctrl+Tab goes back).</Row>
+          <Row name="Close" keys={["Alt+W"]}>Closes the picture (Ctrl+W too, in the desktop app).</Row>
+        </Section>
+        <section className="hp-section">
+          <h3 className="k-eyebrow">What Save writes</h3>
+          <div className="k-well hp-save">
+            <p>Into a GB Studio project, Save writes only:</p>
+            <ul>
+              <li>the PNG (same size, or the new size after Resize), and a new PNG from New</li>
+              <li>a background's tile palettes (<code>tileColors</code>) and a sprite sheet's slice palettes (<code>paletteIndex</code>)</li>
+              <li>palette files from the palette manager</li>
+              <li>when you put a palette in a slot: the scene's palette list or the project's default palettes</li>
+            </ul>
+            <p className="k-muted">Nothing else. The old file is backed up first (Backups… in the project menu).</p>
+          </div>
+        </section>
       </div>
-    </div>
+    </Dialog>
   );
 }

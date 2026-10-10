@@ -1,0 +1,15 @@
+/* Help: titled sections of rows (icon, name, keys, what it does), and what Save writes in a well. */
+.hp-section { display: flex; flex-direction: column; gap: var(--k-2); }
+.hp-section h3 { margin: 0; }
+.hp-rows { display: flex; flex-direction: column; }
+.hp-row { display: grid; grid-template-columns: 24px 140px 160px 1fr; gap: var(--k-3); align-items: start; padding: var(--k-2) var(--k-2); border-top: 1px solid var(--k-edge); }
+.hp-rows > .hp-row:first-child { border-top: 0; }
+.hp-icon { display: grid; place-items: center; height: 20px; color: var(--k-acc-text); }
+.hp-row b { font-weight: 600; line-height: 20px; }
+.hp-keys { display: flex; flex-wrap: wrap; gap: 4px; padding-top: 1px; }
+.hp-row p { margin: 0; color: var(--k-ink-2); font-size: var(--k-text-sm); line-height: 1.5; }
+.hp-save { padding: var(--k-3) var(--k-4); color: var(--k-ink-2); font-size: var(--k-text-sm); line-height: 1.5; }
+.hp-save p { margin: 0; }
+.hp-save ul { margin: 6px 0; padding-left: 18px; }
+.hp-save code { color: var(--k-ink); font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: var(--k-text-xs); }
+@media (max-width: 720px) { .hp-row { grid-template-columns: 24px 1fr; } .hp-keys, .hp-row p { grid-column: 2; } }

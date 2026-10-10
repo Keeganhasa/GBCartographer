@@ -1,0 +1,14 @@
+/* About: the name and version as a header block, links, the update check, and the licences as a list in a well. */
+.ab-hero { display: flex; align-items: center; gap: var(--k-4); }
+.ab-hero svg { flex: none; }
+.ab-hero-text { display: flex; flex-direction: column; gap: 4px; line-height: 1.45; }
+.ab-hero-text h1 { display: inline-flex; align-items: center; gap: var(--k-2); margin: 0 0 2px; font-size: var(--k-text-xl); font-weight: 700; }
+.ab-links { flex-wrap: wrap; }
+.ab-update { min-height: var(--k-ctl-h); flex-wrap: wrap; }
+.ab-update > span { color: var(--k-ink-2); }
+.ab-licences { margin: 0; padding: var(--k-1) var(--k-4); }
+.ab-licences > div { display: grid; grid-template-columns: 128px 1fr; gap: var(--k-3); padding: var(--k-2) 0; border-top: 1px solid var(--k-edge); font-size: var(--k-text-sm); line-height: 1.45; }
+.ab-licences > div:first-child { border-top: 0; }
+.ab-licences dt { color: var(--k-ink); font-weight: 600; }
+.ab-licences dd { margin: 0; color: var(--k-ink-2); }
+.ab-note { margin: 0; line-height: 1.45; }

@@ -1,0 +1,8 @@
+/* A sprite on a background (src/app/SpriteOnBackground.tsx) on the kit Dialog. */
+.sob-pick .k-select { width: 240px; }
+.sob-stage { display: flex; overflow: auto; max-height: calc(100vh - 220px); padding: var(--k-4); }
+.sob-stage canvas { display: block; margin: auto; image-rendering: pixelated; cursor: grab; border-radius: 2px; box-shadow: 0 0 0 1px var(--k-edge-2), 0 12px 40px rgba(0, 0, 0, .7); }
+.sob-stage canvas:active { cursor: grabbing; }
+.sob-empty { margin: auto; padding: var(--k-8) 0; }
+.sob-readout { text-align: right; }
+.sob-warn { color: var(--k-warn); }

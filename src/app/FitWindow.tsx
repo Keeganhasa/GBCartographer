@@ -3,9 +3,11 @@
  * keeping slot 8 for the UI palette). Shows the picture before and after, which pixels change, and applies it as
  * the picture's tiles and palettes (undoable), optionally adding the palettes to the project in the scene's slots.
  */
-import { X } from "lucide-react";
+import { Palette, Wand2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fitPalettes, toRgba } from "../paint";
+import { Button, Dialog, Segmented, Switch } from "../ui/kit";
+import "./FitWindow.css";
 
 interface Props {
   name: string;
@@ -26,7 +28,7 @@ function Picture({ rgba, width, height, label }: { rgba: Uint8ClampedArray; widt
     Object.assign(target, { width, height });
     target.getContext("2d")!.putImageData(new ImageData(new Uint8ClampedArray(rgba), width, height), 0, 0);
   }, [rgba, width, height]);
-  return <figure><figcaption>{label}</figcaption><canvas ref={canvas} /></figure>;
+  return <figure className="fw-picture"><figcaption className="k-eyebrow">{label}</figcaption><div className="k-well fw-frame"><canvas ref={canvas} /></div></figure>;
 }
 
 export function FitWindow({ name, rgba, width, height, slotsTarget, onClose, onApply }: Props) {
@@ -39,36 +41,27 @@ export function FitWindow({ name, rgba, width, height, slotsTarget, onClose, onA
     if (showChanges) for (let at = 0; at < out.length; at += 4) if (out[at] !== rgba[at] || out[at + 1] !== rgba[at + 1] || out[at + 2] !== rgba[at + 2]) out.set([255, 0, 255, 255], at);
     return out;
   }, [fit, rgba, width, showChanges]);
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
   const share = Math.round((fit.report.changed / Math.max(1, width * height)) * 1000) / 10;
   const apply = async (intoProject: boolean) => { setBusy(true); try { await onApply(fit, intoProject); onClose(); } finally { setBusy(false); } };
   return (
-    <div className="gbp-modal-backdrop" onClick={onClose}>
-      <div className="gbp-modal gbp-sprite-bg gbp-fit" role="dialog" aria-label="Fit to GB Studio's colors" onClick={(event) => event.stopPropagation()}>
-        <header className="gbp-modal-head">
-          <h2>Fit {name} to GB Studio's colors</h2>
-          <span className="gbp-spacer" />
-          <label className="gbp-field gbp-inline">Palettes
-            <select value={max} onChange={(event) => setMax(Number(event.target.value))}><option value={8}>8</option><option value={7}>7 (keep slot 8 for the UI)</option></select>
-          </label>
-          <label className="gbp-check"><input type="checkbox" checked={showChanges} onChange={(event) => setShowChanges(event.target.checked)} />Show changed pixels</label>
-          <button className="icon-button small" aria-label="Close" onClick={onClose}><X size={14} /></button>
-        </header>
-        <div className="gbp-sprite-bg-stage gbp-fit-stage">
-          <Picture rgba={rgba} width={width} height={height} label="Now" />
-          <Picture rgba={after} width={width} height={height} label={showChanges ? "After (changes in magenta)" : "After"} />
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }} wide title={`Fit ${name} to GB Studio's colors`} sub={`Four colors per tile, at most ${max} palettes`} icon={<Wand2 size={18} />}
+      headExtra={<><span className="k-muted k-small">Palettes</span><Segmented size="sm" label="Palettes" value={String(max)} onChange={(value) => setMax(Number(value))} options={[{ value: "8", label: "8" }, { value: "7", label: "7 · keep slot 8 for the UI", title: "Leaves slot 8 free for the UI palette" }]} /></>}
+      footer={<>
+        <span className="k-muted k-small">Undo brings the picture back</span>
+        <span className="k-spacer" />
+        <Button disabled={busy} title="The picture takes these tiles and palettes (undo brings it back)" onClick={() => void apply(false)}>Apply</Button>
+        {slotsTarget && <Button variant="primary" icon={<Palette />} disabled={busy} title={`Also adds the ${fit.report.after} palettes to the project and puts them in ${slotsTarget}'s slots; Save then writes the tiles`} onClick={() => void apply(true)}>Apply and put in {slotsTarget}</Button>}
+      </>}>
+      <div className="k-stack">
+        <div className="k-row">
+          <Switch checked={showChanges} onChange={setShowChanges}>Show changed pixels</Switch>
         </div>
-        <footer className="gbp-sprite-bg-foot">
-          <span>{fit.report.before} tile palette{fit.report.before === 1 ? "" : "s"} → {fit.report.after} · {fit.report.overfull.length} tile{fit.report.overfull.length === 1 ? "" : "s"} had more than 4 colors · {fit.report.changed} pixel{fit.report.changed === 1 ? "" : "s"} change ({share}%)</span>
-          <span className="gbp-spacer" />
-          <button className="quiet-button" disabled={busy} title="The picture takes these tiles and palettes (undo brings it back)" onClick={() => void apply(false)}>Apply</button>
-          {slotsTarget && <button className="quiet-button primary" disabled={busy} title={`Also adds the ${fit.report.after} palettes to the project and puts them in ${slotsTarget}'s slots; Save then writes the tiles`} onClick={() => void apply(true)}>Apply and put in {slotsTarget}</button>}
-        </footer>
+        <div className="fw-stage">
+          <Picture rgba={rgba} width={width} height={height} label="Now" />
+          <Picture rgba={after} width={width} height={height} label={showChanges ? "After · changes in magenta" : "After"} />
+        </div>
+        <p className="k-well fw-report">{fit.report.before} tile palette{fit.report.before === 1 ? "" : "s"} → {fit.report.after} · {fit.report.overfull.length} tile{fit.report.overfull.length === 1 ? "" : "s"} had more than 4 colors · {fit.report.changed} pixel{fit.report.changed === 1 ? "" : "s"} change ({share}%)</p>
       </div>
-    </div>
+    </Dialog>
   );
 }

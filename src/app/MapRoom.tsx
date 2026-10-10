@@ -4,12 +4,16 @@
  * doesn't read.
  * A new screen next to others can start with their edge tiles, so neighbouring screens line up; edges that differ
  * show in amber and can be copied across. Writes go through the same endpoints as the painter (backups first).
+ * The window is a kit Dialog: the maps on the left, the grid in the middle, the selected screen on the right.
  */
-import { Download, Plus, Trash2, X } from "lucide-react";
+import { Download, Map as MapIcon, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { countUniqueTiles, gbStudioShade } from "../paint";
+import { Button, Checkbox, Chip, Dialog, Field, Meter, Segmented, Select } from "../ui/kit";
+import { PxSnake } from "../ui/setIcons";
 import { copyEdge, edgeMatch, OFFSET, OPPOSITE, SIDES, type Picture, type Side } from "./mapEdges";
 import type { Asset, Project } from "./model";
+import "./MapRoom.css";
 
 interface MapCell { x: number; y: number; file: string }
 interface MapLayout { id: string; name: string; screen: { width: number; height: number }; overlap?: number; cells: MapCell[] }
@@ -18,6 +22,7 @@ interface Loaded { picture: Picture; preview: HTMLImageElement }
 const W = 160, H = 144;
 const SIDE_NAMES: Record<Side, string> = { north: "North", south: "South", east: "East", west: "West" };
 const query = (file: string) => new URLSearchParams({ kind: "backgrounds", file });
+const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? "" : "s"}`;
 
 async function loadPicture(asset: Asset): Promise<Loaded> {
   const blob = await fetch(`./__cartographer/gbstudio-asset?${query(asset.file)}&t=${Math.round(asset.mtime)}`, { cache: "no-cache" }).then((response) => response.blob());
@@ -47,11 +52,19 @@ function screenOf(source: Picture): Picture {
   return out;
 }
 
+/** Unique 8 × 8 tiles in a screen (GB Studio's count, in shades). */
+function tilesOf(picture: Picture) {
+  const shades = Uint8Array.from({ length: picture.width * picture.height }, (_, at) => picture.rgba[at * 4 + 3] < 128 ? 4 : gbStudioShade(picture.rgba[at * 4 + 1]));
+  return countUniqueTiles(shades, picture.width, picture.height, false);
+}
+
 export function MapRoom({ project, onClose, onOpen, onProjectChanged, onExport, say }: { project: Project; onClose: () => void; onOpen: (asset: Asset) => void; onProjectChanged: () => Promise<void>; onExport: (blob: Blob, name: string) => Promise<boolean>; say: (text: string) => void }) {
   const [maps, setMaps] = useState<MapLayout[] | null>(null);
   const [mapId, setMapId] = useState("");
   const [selected, setSelected] = useState<{ x: number; y: number } | null>(null);
   const [adding, setAdding] = useState<{ x: number; y: number } | null>(null);
+  // The new map's name while it's being typed (null: not making one).
+  const [naming, setNaming] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
   const [loaded, setLoaded] = useState(new Map<string, Loaded>());
   const [busy, setBusy] = useState(false);
@@ -64,11 +77,6 @@ export function MapRoom({ project, onClose, onOpen, onProjectChanged, onExport, 
   useEffect(() => {
     void fetch("./__cartographer/maps", { cache: "no-cache" }).then((response) => response.json() as Promise<{ maps?: MapLayout[] }>).then((result) => { setMaps(result.maps ?? []); setMapId(result.maps?.[0]?.id ?? ""); });
   }, []);
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
 
   // Each screen's picture, read again when its file changes (keyed by file and time).
   const keyOf = (file: string) => `${file}|${Math.round(assetOf(file)?.mtime ?? 0)}`;
@@ -93,11 +101,12 @@ export function MapRoom({ project, onClose, onOpen, onProjectChanged, onExport, 
   }
   const updateMap = (change: (layout: MapLayout) => MapLayout) => map && maps && void save(maps.map((item) => item.id === map.id ? change(item) : item));
 
-  async function newMap() {
-    const name = window.prompt("Name of the new map (e.g. Overworld):", maps?.length ? `Map ${maps.length + 1}` : "Overworld");
-    if (!name?.trim() || !maps) return;
+  /** Makes the map named in the list (typed there: the desktop app has no window.prompt) and starts its first screen. */
+  async function newMap(name: string) {
+    if (!name.trim() || !maps) return;
     const id = `map-${Date.now().toString(36)}`;
     await save([...maps, { id, name: name.trim(), screen: { width: W, height: H }, overlap: 1, cells: [] }]);
+    setNaming(null);
     setMapId(id);
     setSelected(null);
     setAdding({ x: 0, y: 0 });
@@ -160,112 +169,148 @@ export function MapRoom({ project, onClose, onOpen, onProjectChanged, onExport, 
     if (blob && await onExport(blob, `${map.name}.png`)) say(`Exported ${map.name}.png (${canvas.width} × ${canvas.height})`);
   }
 
+  const pickMap = (id: string) => { setMapId(id); setSelected(null); setAdding(null); };
+  const openCell = (cell: MapCell) => { const asset = assetOf(cell.file); if (asset) { onOpen(asset); onClose(); } };
+
+  // The head: overlap and zoom; the foot: the legend, then the map's own actions.
+  const headExtra = map && (
+    <>
+      <span className="k-row" title="How many tile columns or rows neighbouring screens share at each edge">
+        <span className="k-muted k-small">Edge overlap</span>
+        <Segmented size="sm" label="Edge overlap" value={String(overlap) as "1" | "2"} onChange={(value) => updateMap((item) => ({ ...item, overlap: Number(value) }))} options={[{ value: "1", label: "1 tile" }, { value: "2", label: "2 tiles" }]} />
+      </span>
+      <Segmented size="sm" label="Zoom" value={String(zoom) as "1" | "2"} onChange={(value) => setZoom(Number(value))} options={[{ value: "1", label: "1×" }, { value: "2", label: "2×" }]} />
+    </>
+  );
+  const footer = (
+    <>
+      {map ? <span className="k-muted k-small mr-legend"><i className="match" /> edge matches · <i className="differ" /> edge differs · click a screen to select, double-click to paint it</span>
+        : <span className="k-muted k-small">Each screen stays a normal background PNG.</span>}
+      <span className="k-spacer" />
+      {map && <Button variant="danger" icon={<Trash2 />} title="Only the layout goes; every PNG stays in the project" onClick={() => { if (window.confirm(`Delete the map ${map.name}? Only the layout goes; every PNG stays in the project.`)) { void save(maps.filter((item) => item.id !== map.id)); setMapId(""); } }}>Delete this map</Button>}
+      <Button icon={<Download />} disabled={!cells.length} title="The whole map as one PNG, in its palettes" onClick={() => void exportMap()}>Export map PNG</Button>
+    </>
+  );
+
   return (
-    <div className="gbp-modal-backdrop" onClick={onClose}>
-      <div className="gbp-modal gbp-maproom" role="dialog" aria-label="Map Room" onClick={(event) => event.stopPropagation()}>
-        <header className="gbp-modal-head">
-          <h2>Map Room</h2>
-          {map && <span className="gbp-note">{map.name} · {cells.length} screen{cells.length === 1 ? "" : "s"} · each 160 × 144 px (20 × 18 tiles)</span>}
-          <span className="gbp-spacer" />
-          {map && <label className="gbp-field gbp-inline" title="How many tile columns or rows neighbouring screens share at each edge">Edge overlap
-            <select value={overlap} onChange={(event) => updateMap((item) => ({ ...item, overlap: Number(event.target.value) }))}><option value={1}>1 tile</option><option value={2}>2 tiles</option></select>
-          </label>}
-          <span className="gbp-seg" role="group" aria-label="Zoom">{[1, 2].map((step) => <button key={step} className={`quiet-button ${zoom === step ? "active-tool" : ""}`} onClick={() => setZoom(step)}>{step}×</button>)}</span>
-          <button className="quiet-button" disabled={!cells.length} title="The whole map as one PNG, in its palettes" onClick={() => void exportMap()}><Download size={14} />Export map PNG</button>
-          <button className="icon-button small" aria-label="Close" onClick={onClose}><X size={14} /></button>
-        </header>
-        <div className="gbp-maproom-body">
-          <nav className="gbp-backup-files" aria-label="Maps">
-            {maps.map((item) => <button key={item.id} className={item.id === map?.id ? "selected" : ""} onClick={() => { setMapId(item.id); setSelected(null); setAdding(null); }}><b>{item.name}</b><small>{item.cells.length} screen{item.cells.length === 1 ? "" : "s"}</small></button>)}
-            <button className="gbp-backup-older" onClick={() => void newMap()}><b><Plus size={12} /> New map</b><small>a grid of screens</small></button>
-            <p className="gbp-note">A map is GB Cartographer's own layout, saved in the project's Cartographer folder (GB Studio doesn't read it); each screen stays a normal background PNG.</p>
-          </nav>
-          <section className="gbp-maproom-grid">
-            {!map ? <p className="gbp-note">Make a map to start: New map on the left.</p> : (
-              <div className="gbp-maproom-cells" style={{ gridTemplateColumns: `repeat(${maxX - minX + 1}, ${W * zoom}px)`, gridAutoRows: `${H * zoom}px` }}>
-                {Array.from({ length: (maxY - minY + 1) * (maxX - minX + 1) }, (_, at) => {
-                  const x = minX + (at % (maxX - minX + 1)), y = minY + Math.floor(at / (maxX - minX + 1));
-                  const cell = cellAt(x, y);
-                  if (cell) {
-                    const isSelected = selected?.x === x && selected?.y === y;
-                    return (
-                      <button key={`${x},${y}`} className={`gbp-maproom-cell ${isSelected ? "selected" : ""}`} onClick={() => { setSelected({ x, y }); setAdding(null); }} onDoubleClick={() => { const asset = assetOf(cell.file); if (asset) { onOpen(asset); onClose(); } }}>
-                        {pictureOf(cell.file) ? <img src={pictureOf(cell.file)!.preview.src} alt="" /> : <span className="gbp-note">{assetOf(cell.file) ? "…" : "missing"}</span>}
-                        <span className="gbp-maproom-label">{assetOf(cell.file)?.name ?? cell.file} · {x}, {y}</span>
-                        {isSelected && edges.map(({ side, result }) => <i key={side} className={`gbp-maproom-edge ${side} ${result && result.match === result.total ? "match" : "differ"}`} />)}
-                      </button>
-                    );
-                  }
-                  return nearCell(x, y)
-                    ? <button key={`${x},${y}`} className={`gbp-maproom-add ${adding?.x === x && adding?.y === y ? "selected" : ""}`} title={`Add a screen at ${x}, ${y}`} onClick={() => { setAdding({ x, y }); setSelected(null); }}><Plus size={20} /></button>
-                    : <span key={`${x},${y}`} />;
-                })}
-              </div>
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }} wide tall icon={<MapIcon size={18} />} title="Map Room"
+      sub={map ? `${map.name} · ${plural(cells.length, "screen")} · each 160 × 144 px (20 × 18 tiles)` : "Grids of screens, each a background"}
+      headExtra={headExtra} footer={footer}>
+      <div className="mr-room">
+        <nav className="mr-maps" aria-label="Maps">
+          <span className="k-eyebrow mr-maps-head">Maps</span>
+          <div className="mr-list">
+            {maps.map((item) => (
+              <button key={item.id} type="button" className="mr-row" aria-pressed={item.id === map?.id} onClick={() => pickMap(item.id)}>
+                <b>{item.name}</b><span className="k-muted k-xs">{plural(item.cells.length, "screen")}</span>
+              </button>
+            ))}
+            {naming === null ? (
+              <button type="button" className="mr-row mr-row--new" onClick={() => setNaming(maps.length ? `Map ${maps.length + 1}` : "Overworld")}>
+                <b><Plus size={12} /> New map</b><span className="k-muted k-xs">a grid of screens</span>
+              </button>
+            ) : (
+              <form className="k-well mr-new" onSubmit={(event) => { event.preventDefault(); void newMap(naming); }}>
+                <Field label="Name of the new map"><input className="k-input" autoFocus value={naming} placeholder="e.g. Overworld" onChange={(event) => setNaming(event.target.value)} /></Field>
+                <div className="k-row"><span className="k-spacer" /><Button size="sm" onClick={() => setNaming(null)}>Cancel</Button><Button size="sm" variant="primary" type="submit" disabled={!naming.trim()}>Create</Button></div>
+              </form>
             )}
-            {map && <p className="gbp-note gbp-maproom-legend"><i className="match" /> edge matches · <i className="differ" /> edge differs · click a screen to select, double-click to paint it</p>}
-          </section>
-          <aside className="gbp-maproom-side">
-            {map && adding ? (
-              <AddScreen map={map} at={adding} backgrounds={backgrounds} neighbours={SIDES.flatMap((side) => { const cell = cellAt(adding.x + OFFSET[side][0], adding.y + OFFSET[side][1]); return cell ? [{ side, cell }] : []; })} pictureOf={pictureOf} assetOf={assetOf} overlap={overlap} busy={busy}
-                onCancel={() => setAdding(null)}
-                onCreate={async (choice) => {
-                  setBusy(true);
-                  try {
-                    let file = choice.existing;
-                    if (!file) {
-                      const response = await fetch(`./__cartographer/gbstudio-new-asset?${new URLSearchParams({ kind: "backgrounds", name: choice.name })}`, { method: "POST", body: await toBlob(choice.picture!) });
-                      const result = await response.json() as { ok?: boolean; error?: string; file?: string };
-                      if (!response.ok || !result.file) { say(`Could not make the screen: ${result.error ?? response.statusText}`); return; }
-                      file = result.file;
-                    }
-                    updateMap((item) => ({ ...item, cells: [...item.cells.filter((cell) => !(cell.x === adding.x && cell.y === adding.y)), { x: adding.x, y: adding.y, file: file! }] }));
-                    await onProjectChanged();
-                    setSelected(adding);
-                    setAdding(null);
-                    say(choice.existing ? `${assetOf(file)?.name ?? file} is now at ${adding.x}, ${adding.y}.` : `Made assets/backgrounds/${file} at ${adding.x}, ${adding.y}.`);
-                  } finally {
-                    setBusy(false);
+          </div>
+          <p className="k-muted k-xs mr-maps-note">A map is GB Cartographer's own layout, saved in the project's Cartographer folder (GB Studio doesn't read it); each screen stays a normal background PNG.</p>
+        </nav>
+
+        <section className="k-well mr-grid" aria-label="Screens">
+          {!map ? (
+            <div className="mr-empty"><span className="mr-mascot"><PxSnake size={48} /></span><span className="k-muted">Make a map to start: New map on the left.</span></div>
+          ) : (
+            <div className="mr-cells" style={{ gridTemplateColumns: `repeat(${maxX - minX + 1}, ${W * zoom}px)`, gridAutoRows: `${H * zoom}px` }}>
+              {Array.from({ length: (maxY - minY + 1) * (maxX - minX + 1) }, (_, at) => {
+                const x = minX + (at % (maxX - minX + 1)), y = minY + Math.floor(at / (maxX - minX + 1));
+                const cell = cellAt(x, y);
+                if (cell) {
+                  const isSelected = selected?.x === x && selected?.y === y;
+                  return (
+                    <button key={`${x},${y}`} type="button" className="mr-cell" aria-pressed={isSelected} onClick={() => { setSelected({ x, y }); setAdding(null); }} onDoubleClick={() => openCell(cell)}>
+                      {pictureOf(cell.file) ? <img src={pictureOf(cell.file)!.preview.src} alt="" /> : <span className="k-muted k-small">{assetOf(cell.file) ? "…" : "missing"}</span>}
+                      <span className="mr-label">{assetOf(cell.file)?.name ?? cell.file} · {x}, {y}</span>
+                      {isSelected && edges.map(({ side, result }) => <i key={side} className={`mr-edge ${side} ${result && result.match === result.total ? "match" : "differ"}`} />)}
+                    </button>
+                  );
+                }
+                return nearCell(x, y)
+                  ? <button key={`${x},${y}`} type="button" className="mr-add" aria-pressed={adding?.x === x && adding?.y === y} title={`Add a screen at ${x}, ${y}`} onClick={() => { setAdding({ x, y }); setSelected(null); }}><Plus size={20} /></button>
+                  : <span key={`${x},${y}`} />;
+              })}
+            </div>
+          )}
+        </section>
+
+        <aside className="mr-side" aria-label="Screen">
+          {map && adding ? (
+            <AddScreen key={`${map.id}|${adding.x},${adding.y}`} map={map} at={adding} backgrounds={backgrounds} neighbours={SIDES.flatMap((side) => { const cell = cellAt(adding.x + OFFSET[side][0], adding.y + OFFSET[side][1]); return cell ? [{ side, cell }] : []; })} pictureOf={pictureOf} assetOf={assetOf} overlap={overlap} busy={busy}
+              onCancel={() => setAdding(null)}
+              onCreate={async (choice) => {
+                setBusy(true);
+                try {
+                  let file = choice.existing;
+                  if (!file) {
+                    const response = await fetch(`./__cartographer/gbstudio-new-asset?${new URLSearchParams({ kind: "backgrounds", name: choice.name })}`, { method: "POST", body: await toBlob(choice.picture!) });
+                    const result = await response.json() as { ok?: boolean; error?: string; file?: string };
+                    if (!response.ok || !result.file) { say(`Could not make the screen: ${result.error ?? response.statusText}`); return; }
+                    file = result.file;
                   }
-                }} />
-            ) : map && selectedCell ? (
-              <div className="gbp-form">
-                {pictureOf(selectedCell.file) && <img className="gbp-maproom-thumb" src={pictureOf(selectedCell.file)!.preview.src} alt="" />}
-                <dl className="gbp-maproom-facts">
-                  <dt>Screen</dt><dd>{assetOf(selectedCell.file)?.name ?? selectedCell.file} · {selectedCell.x}, {selectedCell.y}</dd>
-                  <dt>File</dt><dd>assets/backgrounds/{selectedCell.file}</dd>
-                  {pictureOf(selectedCell.file) && <><dt>Tiles</dt><dd>{(() => { const p = pictureOf(selectedCell.file)!.picture; const shades = Uint8Array.from({ length: p.width * p.height }, (_, at) => p.rgba[at * 4 + 3] < 128 ? 4 : gbStudioShade(p.rgba[at * 4 + 1])); return countUniqueTiles(shades, p.width, p.height, false); })()} of 192</dd></>}
-                </dl>
-                <span className="eyebrow">Edges</span>
-                {!edges.length && <p className="gbp-note">No neighbours yet.</p>}
-                {edges.map(({ side, neighbour, result }) => (
-                  <div key={side} className="gbp-maproom-edge-row">
-                    <span><b>{SIDE_NAMES[side]}</b> · {assetOf(neighbour.file)?.name ?? neighbour.file}: {result ? (result.match === result.total ? `${result.total} / ${result.total} match` : `${result.total - result.match} differ`) : "…"}</span>
-                    <span className="gbp-budget-actions">
-                      <button className="quiet-button" disabled={busy || !result || result.match === result.total} onClick={() => void copyAcross(side, true)}>Copy mine → neighbour</button>
-                      <button className="quiet-button" disabled={busy || !result || result.match === result.total} onClick={() => void copyAcross(side, false)}>Copy neighbour's → mine</button>
-                    </span>
+                  updateMap((item) => ({ ...item, cells: [...item.cells.filter((cell) => !(cell.x === adding.x && cell.y === adding.y)), { x: adding.x, y: adding.y, file: file! }] }));
+                  await onProjectChanged();
+                  setSelected(adding);
+                  setAdding(null);
+                  say(choice.existing ? `${assetOf(file)?.name ?? file} is now at ${adding.x}, ${adding.y}.` : `Made assets/backgrounds/${file} at ${adding.x}, ${adding.y}.`);
+                } finally {
+                  setBusy(false);
+                }
+              }} />
+          ) : map && selectedCell ? (
+            <div className="k-stack">
+              <span className="k-eyebrow">Screen at {selectedCell.x}, {selectedCell.y}</span>
+              {pictureOf(selectedCell.file) && <img className="mr-thumb" src={pictureOf(selectedCell.file)!.preview.src} alt="" />}
+              <div className="k-stack" style={{ gap: 2 }}>
+                <b>{assetOf(selectedCell.file)?.name ?? selectedCell.file}</b>
+                <span className="k-muted k-small k-mono mr-path">assets/backgrounds/{selectedCell.file}</span>
+              </div>
+              {pictureOf(selectedCell.file) && (() => { const tiles = tilesOf(pictureOf(selectedCell.file)!.picture); return <Meter label="Tiles" value={tiles} of={192} tone={tiles > 192 ? "bad" : tiles > 180 ? "warn" : undefined} title="Unique tiles against the 192 a background can have" />; })()}
+              <div className="k-row">
+                <Button variant="primary" disabled={!assetOf(selectedCell.file)} onClick={() => openCell(selectedCell)}>Open in painter</Button>
+                <span className="k-spacer" />
+                <Button variant="danger" icon={<Trash2 />} title="Takes it off the map; the PNG stays in the project" onClick={() => { updateMap((item) => ({ ...item, cells: item.cells.filter((cell) => !(cell.x === selectedCell.x && cell.y === selectedCell.y)) })); setSelected(null); }}>Remove from map</Button>
+              </div>
+              <p className="k-hint mr-p">Remove from map changes only the layout; the PNG stays in the project.</p>
+              <Field label="Swap background">
+                <Select label="Swap background" value="" placeholder="Swap background…" onChange={(file) => { if (file) updateMap((item) => ({ ...item, cells: item.cells.map((cell) => cell.x === selectedCell.x && cell.y === selectedCell.y ? { ...cell, file } : cell) })); }}
+                  options={backgrounds.map((asset) => ({ value: asset.file, label: asset.name }))} />
+              </Field>
+              <hr className="k-divider" />
+              <span className="k-eyebrow">Edges</span>
+              {!edges.length && <p className="k-muted k-small mr-p">No neighbours yet.</p>}
+              {edges.map(({ side, neighbour, result }) => (
+                <div key={side} className="k-card mr-edge-card">
+                  <div className="k-row">
+                    <b>{SIDE_NAMES[side]}</b>
+                    <span className="k-muted k-small mr-ellipsis">{assetOf(neighbour.file)?.name ?? neighbour.file}</span>
+                    <span className="k-spacer" />
+                    {result ? <Chip tone={result.match === result.total ? "acc" : "warn"}>{result.match === result.total ? `${result.total} / ${result.total} match` : `${result.total - result.match} differ`}</Chip> : <Chip>…</Chip>}
                   </div>
-                ))}
-                <span className="gbp-budget-actions">
-                  <button className="quiet-button primary" disabled={!assetOf(selectedCell.file)} onClick={() => { onOpen(assetOf(selectedCell.file)!); onClose(); }}>Open in painter</button>
-                  <select aria-label="Swap background" value="" onChange={(event) => { const file = event.target.value; if (file) updateMap((item) => ({ ...item, cells: item.cells.map((cell) => cell.x === selectedCell.x && cell.y === selectedCell.y ? { ...cell, file } : cell) })); }}>
-                    <option value="">Swap background…</option>
-                    {backgrounds.map((asset) => <option key={asset.file} value={asset.file}>{asset.name}</option>)}
-                  </select>
-                  <button className="quiet-button danger" title="Takes it off the map; the PNG stays in the project" onClick={() => { updateMap((item) => ({ ...item, cells: item.cells.filter((cell) => !(cell.x === selectedCell.x && cell.y === selectedCell.y)) })); setSelected(null); }}><Trash2 size={14} />Remove from map</button>
-                </span>
-                <p className="gbp-note">Remove from map changes only the layout; the PNG stays in the project.</p>
-              </div>
-            ) : map ? (
-              <div className="gbp-form">
-                <p className="gbp-note">Click a screen to see how its edges meet its neighbours, or a + to add a screen there.</p>
-                <button className="quiet-button danger" onClick={() => { if (window.confirm(`Delete the map ${map.name}? Only the layout goes; every PNG stays in the project.`)) { void save(maps.filter((item) => item.id !== map.id)); setMapId(""); } }}><Trash2 size={14} />Delete this map</button>
-              </div>
-            ) : null}
-          </aside>
-        </div>
+                  <div className="k-row mr-edge-actions">
+                    <Button size="sm" disabled={busy || !result || result.match === result.total} onClick={() => void copyAcross(side, true)}>Copy mine → neighbour</Button>
+                    <Button size="sm" disabled={busy || !result || result.match === result.total} onClick={() => void copyAcross(side, false)}>Copy neighbour's → mine</Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : map ? (
+            <p className="k-muted k-small mr-p">Click a screen to see how its edges meet its neighbours, or a + to add a screen there.</p>
+          ) : null}
+        </aside>
       </div>
-    </div>
+    </Dialog>
   );
 }
 
@@ -295,36 +340,41 @@ function AddScreen({ map, at, backgrounds, neighbours, pictureOf, assetOf, overl
     void toBlob(picture).then((blob) => { const url = URL.createObjectURL(blob); setPreview((old) => { if (old) URL.revokeObjectURL(old); return url; }); });
   }, [picture]);
 
+  const starts = [
+    { value: "blank" as const, label: "Blank", title: "A new blank background" },
+    ...neighbours.length > 0 ? [{ value: "copy" as const, label: "Neighbour", title: "A copy of a neighbour" }] : [],
+    { value: "existing" as const, label: "In the project", title: "A background already in the project" },
+  ];
+
   return (
-    <div className="gbp-form">
-      <span className="eyebrow">Add screen at {at.x}, {at.y}</span>
-      <label className="gbp-field">Start from
-        <select value={start} onChange={(event) => setStart(event.target.value as typeof start)}>
-          <option value="blank">A new blank background</option>
-          {neighbours.length > 0 && <option value="copy">A copy of a neighbour</option>}
-          <option value="existing">A background already in the project</option>
-        </select>
-      </label>
-      {start === "copy" && <label className="gbp-field">Copy of
-        <select value={copyFrom} onChange={(event) => setCopyFrom(event.target.value)}>{neighbours.map(({ side, cell }) => <option key={side} value={cell.file}>{assetOf(cell.file)?.name ?? cell.file} ({side})</option>)}</select>
-      </label>}
-      {start === "existing" && <label className="gbp-field">Background
-        <select value={existing} onChange={(event) => setExisting(event.target.value)}>{backgrounds.map((asset) => <option key={asset.file} value={asset.file}>{asset.name}</option>)}</select>
-      </label>}
+    <div className="k-stack">
+      <span className="k-eyebrow">Add screen at {at.x}, {at.y}</span>
+      <div className="k-field">
+        <span className="k-label">Start from</span>
+        <Segmented fill size="sm" label="Start from" value={start} onChange={setStart} options={starts} />
+        <span className="k-hint">{starts.find((item) => item.value === start)?.title}</span>
+      </div>
+      {start === "copy" && <Field label="Copy of">
+        <Select label="Copy of" value={copyFrom} onChange={setCopyFrom} options={neighbours.map(({ side, cell }) => ({ value: cell.file, label: `${assetOf(cell.file)?.name ?? cell.file} (${side})` }))} />
+      </Field>}
+      {start === "existing" && <Field label="Background">
+        <Select label="Background" value={existing} onChange={setExisting} placeholder="No backgrounds" options={backgrounds.map((asset) => ({ value: asset.file, label: asset.name }))} />
+      </Field>}
       {start !== "existing" && neighbours.length > 0 && (
-        <div className="gbp-field">Copy border tiles from ({overlap} tile{overlap === 1 ? "" : "s"} deep)
-          {neighbours.map(({ side, cell }) => <label key={side} className="gbp-check"><input type="checkbox" checked={sides.includes(side)} onChange={(event) => setSides(event.target.checked ? [...sides, side] : sides.filter((item) => item !== side))} />{SIDE_NAMES[side]} · {assetOf(cell.file)?.name ?? cell.file}'s {SIDE_NAMES[OPPOSITE[side]].toLowerCase()} edge</label>)}
+        <div className="k-field">
+          <span className="k-label">Copy border tiles from ({overlap} tile{overlap === 1 ? "" : "s"} deep)</span>
+          {neighbours.map(({ side, cell }) => <Checkbox key={side} checked={sides.includes(side)} onChange={(checked) => setSides(checked ? [...sides, side] : sides.filter((item) => item !== side))}>{SIDE_NAMES[side]} · {assetOf(cell.file)?.name ?? cell.file}'s {SIDE_NAMES[OPPOSITE[side]].toLowerCase()} edge</Checkbox>)}
         </div>
       )}
-      {preview && <img className="gbp-maproom-thumb" src={preview} alt="The new screen" />}
-      {start !== "existing" && <label className="gbp-field">File name
-        <input type="text" value={name} onChange={(event) => setName(event.target.value)} />
-        <small className="gbp-note">Writes one new file: assets/backgrounds/{name.trim().replace(/\.png$/i, "")}.png (blank parts in the lightest green; GB Studio adds its settings when it next reads the project).</small>
-      </label>}
-      <span className="gbp-budget-actions">
-        <button className="quiet-button" onClick={onCancel}>Cancel</button>
-        <button className="quiet-button primary" disabled={!ready || busy} onClick={() => void onCreate(start === "existing" ? { name, existing } : { name: name.trim(), picture: picture! })}>{start === "existing" ? "Place it" : "Create"}</button>
-      </span>
+      {preview && <img className="mr-thumb" src={preview} alt="The new screen" />}
+      {start !== "existing" && <Field label="File name" hint={`Writes one new file: assets/backgrounds/${name.trim().replace(/\.png$/i, "")}.png (blank parts in the lightest green; GB Studio adds its settings when it next reads the project).`}>
+        <input className="k-input" type="text" value={name} onChange={(event) => setName(event.target.value)} />
+      </Field>}
+      <div className="k-row">
+        <span className="k-spacer" />
+        <Button onClick={onCancel}>Cancel</Button>
+        <Button variant="primary" disabled={!ready || busy} onClick={() => void onCreate(start === "existing" ? { name, existing } : { name: name.trim(), picture: picture! })}>{start === "existing" ? "Place it" : "Create"}</Button>
+      </div>
     </div>
   );
 }

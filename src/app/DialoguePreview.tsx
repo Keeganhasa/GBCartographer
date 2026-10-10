@@ -3,11 +3,17 @@
  * font sheet (8 × 8 glyphs from character 32, 16 a row) and the UI palette (background slot 8 of the project's
  * defaults; the greens in monochrome), over one of the backgrounds if you like. Approximate: GB Studio's event
  * options (lines, position, variable-width fonts) change the real box.
+ * The window is a kit Dialog: font and background on top, the box, the text to try, notes in the foot.
  */
-import { X } from "lucide-react";
+import { MessageSquareText } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { GB_SHADES, gbStudioShade, hexRgb } from "../paint";
+import { Dialog, Field, Select } from "../ui/kit";
 import type { Asset } from "./model";
+import "./DialoguePreview.css";
+
+/** The kit's Select can't hold an empty value, so "no background" has its own (file names end in .png). */
+const NONE = "none";
 
 interface Settings { colorMode: string; uiPalette: string[] | null; defaultFont: string | null; fonts: { file: string; name: string }[] }
 
@@ -42,12 +48,6 @@ export function DialoguePreview({ backgrounds, hasFrame, onClose }: { background
     })();
     return () => { live = false; };
   }, [font, background, hasFrame, backgrounds]);
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
   const palette = (settings?.uiPalette ?? [...GB_SHADES]).map(hexRgb);
   const lines = text.split("\n").slice(0, 4);
   useEffect(() => {
@@ -110,28 +110,22 @@ export function DialoguePreview({ backgrounds, hasFrame, onClose }: { background
   });
 
   return (
-    <div className="gbp-modal-backdrop" onClick={onClose}>
-      <div className="gbp-modal gbp-sprite-bg gbp-dialogue" role="dialog" aria-label="Dialogue box preview" onClick={(event) => event.stopPropagation()}>
-        <header className="gbp-modal-head">
-          <h2>Dialogue box</h2>
-          <select aria-label="Font" value={font} onChange={(event) => setFont(event.target.value)}>{settings?.fonts.map((item) => <option key={item.file} value={item.file}>{item.name}</option>)}</select>
-          <select aria-label="Background" value={background} onChange={(event) => setBackground(event.target.value)}>
-            <option value="">No background</option>
-            {backgrounds.map((item) => <option key={item.file} value={item.file}>{item.name}</option>)}
-          </select>
-          <span className="gbp-spacer" />
-          <button className="icon-button small" aria-label="Close" onClick={onClose}><X size={14} /></button>
-        </header>
-        <div className="gbp-sprite-bg-stage gbp-dialogue-stage">
-          <canvas ref={canvas} style={{ width: 480, height: 432 }} />
-          <textarea aria-label="Text" value={text} rows={4} spellCheck={false} onChange={(event) => setText(event.target.value)} />
-        </div>
-        <footer className="gbp-sprite-bg-foot">
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }} icon={<MessageSquareText size={18} />} title="Dialogue box" sub="As GB Studio draws it, roughly"
+      footer={
+        <div className="dp-notes k-small k-muted">
           <span>{settings ? (settings.uiPalette ? "UI palette: background slot 8 of the project's defaults" : settings.colorMode === "mono" ? "Monochrome project: the greens" : "No UI palette found: the greens") : "…"}{hasFrame ? "" : " · no assets/ui/frame.png, so a plain box"}</span>
-          <span className="gbp-spacer" />
           <span>Approximate: up to 4 lines; GB Studio's event options change the real box.</span>
-        </footer>
+        </div>
+      }>
+      <div className="k-stack">
+        <div className="dp-tools">
+          <Field label="Font"><Select label="Font" value={font} onChange={setFont} placeholder="No font" options={(settings?.fonts ?? []).map((item) => ({ value: item.file, label: item.name }))} /></Field>
+          <Field label="Background"><Select label="Background" value={background || NONE} onChange={(value) => setBackground(value === NONE ? "" : value)}
+            options={[{ value: NONE, label: "No background" }, ...backgrounds.map((item) => ({ value: item.file, label: item.name }))]} /></Field>
+        </div>
+        <div className="k-well dp-stage"><canvas ref={canvas} style={{ width: 480, height: 432 }} /></div>
+        <Field label="Text"><textarea className="k-input dp-text" value={text} rows={4} spellCheck={false} onChange={(event) => setText(event.target.value)} /></Field>
       </div>
-    </div>
+    </Dialog>
   );
 }

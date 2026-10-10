@@ -1,0 +1,49 @@
+/*
+ * The Map Room window (src/app/MapRoom.tsx) on the kit Dialog: maps on the left, the grid of screens in the
+ * middle, the selected screen on the right. The kit carries the look; this places things and draws the screens.
+ */
+/* Bigger than the kit's wide window: a map wants room. */
+.k-dialog:has(> .k-dialog-body > .mr-room) { width: min(1400px, calc(100vw - 48px)); height: min(900px, calc(100vh - 48px)); }
+.k-dialog-body:has(> .mr-room) { overflow: hidden; }
+.mr-room { display: grid; grid-template-columns: 210px minmax(0, 1fr) 320px; grid-template-rows: minmax(0, 1fr); gap: var(--k-4); height: 100%; min-height: 0; }
+
+/* The maps. */
+.mr-maps { display: flex; flex-direction: column; gap: var(--k-2); min-height: 0; }
+.mr-maps-head { padding: 0 var(--k-2); }
+.mr-list { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; min-height: 0; }
+.mr-row { flex: none; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 0; min-height: 44px; padding: 4px var(--k-3); color: var(--k-ink); background: transparent; border: 0; border-radius: var(--k-r-ctl); font: var(--k-text-md) var(--k-font); text-align: left; cursor: pointer; }
+.mr-row b { font-size: var(--k-text-sm); font-weight: 600; display: inline-flex; align-items: center; gap: 4px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mr-row:hover { background: var(--k-hover); color: var(--k-hover-ink); }
+.mr-row[aria-pressed="true"] { background: rgba(var(--k-acc-rgb), .16); box-shadow: inset 0 0 0 1px rgba(var(--k-acc-rgb), .5); }
+.mr-row--new b { color: var(--k-acc-text); }
+.mr-new { display: flex; flex-direction: column; gap: var(--k-2); padding: var(--k-3); }
+.mr-maps-note { margin: auto 0 0; padding: 0 var(--k-2); line-height: 1.45; }
+
+/* The grid of screens. */
+.mr-grid { min-width: 0; min-height: 0; overflow: auto; padding: var(--k-4); background: var(--k-well); }
+.mr-cells { display: grid; gap: 2px; width: max-content; }
+.mr-cell, .mr-add { position: relative; padding: 0; overflow: hidden; color: var(--k-ink); background: var(--k-ctl); border: 2px solid transparent; border-radius: 6px; cursor: pointer; font: inherit; }
+.mr-cell img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: left top; image-rendering: pixelated; }
+.mr-cell:hover { border-color: var(--k-hover-edge); }
+.mr-cell[aria-pressed="true"] { border-color: var(--k-acc-hi); box-shadow: 0 0 0 1px rgba(var(--k-acc-rgb), .35), 0 4px 16px rgba(var(--k-acc-rgb), .25); }
+.mr-label { position: absolute; left: 4px; bottom: 4px; max-width: calc(100% - 8px); padding: 1px 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #fff; background: rgba(0, 0, 0, .65); border-radius: 4px; font-size: var(--k-text-xs); }
+.mr-add { display: grid; place-items: center; color: var(--k-ink-3); background: transparent; border: 2px dashed var(--k-edge-2); }
+.mr-add:hover { color: var(--k-hover-ink); background: rgba(48, 104, 80, .35); border-color: var(--k-hover-edge); }
+.mr-add[aria-pressed="true"] { color: var(--k-acc-text); background: rgba(var(--k-acc-rgb), .12); border-color: var(--k-acc-hi); }
+.mr-edge { position: absolute; }
+.mr-edge.north { left: 0; right: 0; top: 0; height: 5px; } .mr-edge.south { left: 0; right: 0; bottom: 0; height: 5px; }
+.mr-edge.east { top: 0; bottom: 0; right: 0; width: 5px; } .mr-edge.west { top: 0; bottom: 0; left: 0; width: 5px; }
+.mr-edge.match, .mr-legend .match { background: var(--k-acc); } .mr-edge.differ, .mr-legend .differ { background: var(--k-warn); }
+.mr-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; }
+.mr-empty { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--k-3); text-align: center; }
+.mr-mascot { color: var(--k-acc-text); }
+
+/* The selected screen, or the screen being added. */
+.mr-side { min-width: 0; min-height: 0; overflow-y: auto; padding-right: 2px; }
+.mr-thumb { display: block; width: 100%; image-rendering: pixelated; border-radius: var(--k-r-ctl); box-shadow: 0 0 0 1px var(--k-edge-2); }
+.mr-path { overflow-wrap: anywhere; }
+.mr-p { margin: 0; line-height: 1.45; }
+.mr-ellipsis { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mr-edge-card { display: flex; flex-direction: column; gap: var(--k-2); padding: 10px; }
+.mr-edge-actions { flex-wrap: wrap; }
+.mr-side .k-select { width: 100%; }

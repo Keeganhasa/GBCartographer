@@ -1,0 +1,14 @@
+/* Project health window: one card per issue, a colored bar for its level, the action on the right. */
+.hw-body { gap: var(--k-4); }
+.hw-line { margin: 0; }
+.hw-issue { display: grid; grid-template-columns: 4px 1fr auto; gap: var(--k-3); align-items: center; padding: var(--k-3); }
+.hw-issue > i { align-self: stretch; border-radius: 4px; background: #5a6270; }
+.hw-problem > i { background: var(--k-bad); }
+.hw-warning > i { background: var(--k-warn); }
+.hw-note > i { background: var(--k-acc); }
+.hw-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.hw-text b { font-size: var(--k-text-md); font-weight: 600; }
+.hw-text small { color: var(--k-ink-3); font-size: var(--k-text-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hw-text span { color: var(--k-ink-2); font-size: var(--k-text-sm); line-height: 1.45; }
+.hw-openable { cursor: pointer; }
+.hw-openable:hover { background: var(--k-ctl-2); border-color: var(--k-edge-2); }

@@ -1,0 +1,24 @@
+/* The start screen (the splash without a project): the icon, three ways in, recent projects, About. */
+.ss-splash { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--k-4); padding: var(--k-8) var(--k-6); background: var(--k-bg); }
+.ss-icon { border-radius: 20px; box-shadow: 0 10px 30px rgba(0, 0, 0, .6); }
+.ss-title { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.ss-title h1 { display: inline-flex; align-items: center; gap: var(--k-2); margin: 0; font-size: 22px; font-weight: 700; }
+.ss-title p { margin: 0; }
+.ss-alpha { max-width: 520px; line-height: 1.45; }
+.ss-cards { display: grid; grid-template-columns: repeat(3, 220px); gap: var(--k-3); }
+.ss-card { display: flex; flex-direction: column; gap: var(--k-2); padding: var(--k-4); min-height: 150px; }
+.ss-card--main { background: rgba(var(--k-acc-rgb), .14); border-color: rgba(var(--k-acc-rgb), .7); box-shadow: 0 0 0 1px rgba(var(--k-acc-rgb), .35), 0 4px 16px rgba(var(--k-acc-rgb), .18); }
+.ss-card--main:hover { background: rgba(var(--k-acc-rgb), .2); border-color: var(--k-acc-hi); }
+.ss-ic { width: 36px; height: 36px; display: grid; place-items: center; background: var(--k-sunk); border: 1px solid var(--k-edge); border-radius: var(--k-r-group); color: var(--k-acc-text); }
+.ss-card b { font-size: var(--k-text-lg); }
+.ss-card > span:not(.ss-ic):not(.ss-keys) { color: var(--k-ink-3); font-size: var(--k-text-sm); line-height: 1.45; }
+.ss-keys { margin-top: auto; }
+.ss-recent { width: min(684px, 100%); display: flex; flex-direction: column; gap: 2px; }
+.ss-recent-head { padding: 0 var(--k-2) var(--k-1); }
+.ss-row { display: flex; align-items: center; gap: var(--k-3); height: 30px; padding: 0 var(--k-2); color: var(--k-ink); background: transparent; border: 0; border-radius: var(--k-r-ctl); font: var(--k-text-md) var(--k-font); text-align: left; cursor: pointer; }
+.ss-row:hover { background: var(--k-hover); color: var(--k-hover-ink); }
+.ss-row:hover .k-muted { color: inherit; opacity: .8; }
+.ss-row b { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ss-row span { max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ss-foot { max-width: 520px; margin: 0; text-align: center; line-height: 1.45; }
+@media (max-width: 760px) { .ss-cards { grid-template-columns: 1fr; width: min(320px, 100%); } }

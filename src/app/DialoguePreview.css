@@ -1,0 +1,7 @@
+/* The dialogue box preview (src/app/DialoguePreview.tsx) on the kit Dialog. */
+.dp-tools { display: grid; grid-template-columns: 1fr 1fr; gap: var(--k-3); }
+.dp-tools .k-select { width: 100%; }
+.dp-stage { display: grid; place-items: center; padding: var(--k-4); }
+.dp-stage canvas { display: block; image-rendering: pixelated; border-radius: 4px; box-shadow: 0 0 0 1px var(--k-edge-2), 0 12px 40px rgba(0, 0, 0, .7); }
+.k-input.dp-text { height: auto; padding: var(--k-2) var(--k-3); font-family: 'JetBrains Mono', ui-monospace, monospace; line-height: 1.5; resize: vertical; }
+.dp-notes { display: flex; flex-direction: column; gap: 2px; line-height: 1.4; }

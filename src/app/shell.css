@@ -3,7 +3,7 @@
  * folder rail, project panel, tool column, picture area, inspector and status bar. The kit carries the look; this
  * places things. The picture area's own layers (stage, canvas, grid, overlays) stay in paint.css.
  */
-.app { display: grid; grid-template-rows: auto auto 1fr auto; height: 100vh; background: var(--k-bg); overflow: hidden; }
+.app { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr) auto; height: 100vh; background: var(--k-bg); overflow: hidden; }
 .app-bar { display: flex; align-items: center; gap: var(--k-2); padding: var(--k-2) var(--k-3) 6px; min-width: 0; }
 .app-brand { flex: none; display: inline-flex; align-items: center; gap: var(--k-2); height: var(--k-ctl-h); padding: 0 var(--k-2); color: var(--k-ink); background: transparent; border: 0; border-radius: var(--k-r-ctl); font: 700 var(--k-text-md) var(--k-font); white-space: nowrap; cursor: pointer; }
 .app-brand:hover { background: var(--k-hover); color: var(--k-hover-ink); }
@@ -22,7 +22,7 @@
 .app-tab .dirty { color: var(--k-acc-text); }
 
 /* The body: rail, project panel, tools, picture, inspector. */
-.app-body { display: flex; gap: var(--k-2); padding: 0 var(--k-2) var(--k-2); min-height: 0; }
+.app-body { min-width: 0; display: flex; gap: var(--k-2); padding: 0 var(--k-2) var(--k-2); min-height: 0; }
 .app-rail { flex: none; display: flex; flex-direction: column; align-items: center; gap: var(--k-1); width: 52px; padding: 6px; }
 .app-rail .k-btn { position: relative; width: 38px; height: 38px; border-radius: var(--k-r-group); }
 .app-rail .k-btn svg { width: 18px; height: 18px; }
@@ -103,3 +103,4 @@
 .app-tiles.over { color: var(--k-bad); } .app-tiles.over .k-meter-fill { background: var(--k-bad); }
 .app-tiles span:last-child { font-variant-numeric: tabular-nums; }
 .app-toast { position: fixed; left: 50%; bottom: 44px; transform: translateX(-50%); z-index: 70; max-width: min(640px, calc(100vw - 48px)); padding: 8px 18px; color: var(--k-ink); background: #1a1d22; border: 1px solid var(--k-edge-2); border-radius: 999px; box-shadow: var(--k-float); font: var(--k-text-sm) var(--k-font); }
+.app-anim-scene { image-rendering: pixelated; border-radius: 8px; background: repeating-conic-gradient(#20232a 0 25%, #17191e 0 50%) 0 0 / 12px 12px; }

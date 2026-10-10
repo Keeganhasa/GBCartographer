@@ -24,7 +24,7 @@ import { DialoguePreview } from "./app/DialoguePreview";
 import { MapRoom } from "./app/MapRoom";
 import { FitWindow } from "./app/FitWindow";
 import { NewPictureWindow, ResizeWindow, type NewPicture } from "./app/NewPictureWindow";
-import { Button, Chip, IconButton, Kbd, Menu, MenuAt, TabList, Tabs, Tooltip, type MenuEntry } from "./ui/kit";
+import { Button, Chip, IconButton, Kbd, Menu, MenuAt, TabList, Tabs, Tooltip, usePrompt, type MenuEntry } from "./ui/kit";
 import "./app/shell.css";
 import { StartScreen } from "./app/StartScreen";
 import { ProjectPanel } from "./app/ProjectPanel";
@@ -161,6 +161,7 @@ export default function PaintApp() {
   const swatchColors = picked ? shown(picked.colors) : tintColors;
   const clonePalettes = (list: readonly Palette[]): Palette[] => list.map(({ name, colors, id }) => ({ name, colors: [...colors], ...(id ? { id } : {}) }));
   const blank = (target: Doc) => target.hasAlpha ? CLEAR : 0;
+  const [promptDialog, askText] = usePrompt();
   const { takeStamp, setStamp, pointerDown, pointerMove, pointerUp } = usePainting({
     doc, tool, shade, brush, cellBrush, mirror, pattern, linked, snap, seamless, activePalette, hoverCell,
     wrapRef, scrollerRef, readoutRef, brushRef, spaceDown, paintTool,
@@ -741,7 +742,7 @@ export default function PaintApp() {
     if (!target?.sel || !project) return;
     const area = clipRect(target.sel, target.width, target.height);
     if (!area) return;
-    const name = window.prompt("Save the selection as a stamp, in this project's Cartographer/stamps folder. Name:", "")?.trim();
+    const name = await askText({ title: "Save as stamp", label: "Name", placeholder: "e.g. Cabin bed", hint: `A PNG in ${project.name}/Cartographer/stamps${onTiles(area) ? ", with its tile palettes" : ""}`, confirm: "Save stamp" });
     if (!name) return;
     const flat = target.pixels.slice(), flatCells = target.cells.slice();
     if (target.float) { drop(flat, target.width, target.height, target.float); dropCells(flatCells, target.width, target.height, target.float); }
@@ -1622,7 +1623,7 @@ export default function PaintApp() {
         <ToolColumn tool={tool} onTool={setTool} seamless={seamless} onSeamless={setSeamless} linked={linked} onLinked={setLinked} mirror={mirror} onMirror={setMirror} pattern={pattern} onPattern={cyclePattern} cellBrush={cellBrush} onCellBrush={setCellBrush} brush={brush} onBrush={setBrush} />
         <div className="k-panel app-stage gbp-scroller" ref={scrollerRef}>
           {doc && tool === "stamp" && project && project.assets.some((asset) => asset.kind === "stamps") && <StampsStrip stamps={project.assets.filter((asset) => asset.kind === "stamps")} slotsVersion={slotsVersion} onUse={(asset) => void useSavedStamp(asset)} onOpen={(asset) => { setProjectKind("stamps"); void openAsset(asset); }} />}
-          {doc && frames.length > 0 && <FramesStrip animations={animations} frame={frame} onFrame={setFrame} playing={playing} onPlaying={setPlaying} animSpeed={animSpeed} fps={fps} canvases={frameCanvases} onBackground={project?.assets.some((asset) => asset.kind === "backgrounds") ? () => setOnBackground(composeFrames()) : undefined} />}
+          {doc && frames.length > 0 && <FramesStrip animations={animations} frame={frame} onFrame={setFrame} playing={playing} onPlaying={setPlaying} animSpeed={animSpeed} fps={fps} canvases={frameCanvases} onBackground={project?.assets.some((asset) => asset.kind === "backgrounds") ? () => setOnBackground(composeFrames()) : undefined} backgrounds={project?.assets.filter((asset) => asset.kind === "backgrounds") ?? []} />}
           {doc?.changedOnDisk && !doc.changedOnDisk.kept && (
             <div className="k-card app-strip app-strip--alert" role="alert">
               <span className="app-strip-label"><b>{doc.name}</b> changed on disk (GB Studio or another app saved it) while you have unsaved changes here.</span>
@@ -1706,6 +1707,7 @@ export default function PaintApp() {
         )}
       </footer>
       {toast && <div className="app-toast" role="status">{toast}</div>}
+      {promptDialog}
       {slotMenu && slotItems.length > 0 && <MenuAt x={slotMenu.x} y={slotMenu.y} items={slotItems} label="Put in slot" onClose={() => setSlotMenu(null)} />}
       {selectionMenu && selectionItems.length > 0 && <MenuAt x={selectionMenu.x} y={selectionMenu.y} items={selectionItems} label="Selection" onClose={() => setSelectionMenu(null)} />}
       {assetMenu && <MenuAt x={assetMenu.x} y={assetMenu.y} items={assetItems} label={assetMenu.asset.name} onClose={() => setAssetMenu(null)} />}
@@ -1717,7 +1719,7 @@ export default function PaintApp() {
       {showDialogue && project && <DialoguePreview backgrounds={project.assets.filter((asset) => asset.kind === "backgrounds")} hasFrame={project.assets.some((asset) => asset.kind === "ui" && asset.file === "frame.png")} onClose={() => setShowDialogue(false)} />}
       {showHealth && project && <HealthWindow projectName={project.name} onClose={() => setShowHealth(false)} onOpen={(kind, file) => { const asset = project.assets.find((item) => item.kind === kind && item.file === file); if (asset) { setProjectKind(kind); void openAsset(asset); } }} />}
       {showNew && <NewPictureWindow projectName={project?.name ?? null} initialKind={projectKind} onClose={() => setShowNew(false)} onCreate={createPicture} />}
-      {showResize && doc && <ResizeWindow width={doc.width} height={doc.height} sprite={doc.asset?.kind === "sprites"} inProject={Boolean(doc.asset)} onClose={() => setShowResize(false)} onResize={resizePicture} />}
+      {showResize && doc && <ResizeWindow name={doc.asset?.name ?? doc.name} width={doc.width} height={doc.height} sprite={doc.asset?.kind === "sprites"} inProject={Boolean(doc.asset)} onClose={() => setShowResize(false)} onResize={resizePicture} />}
       {backups && project && (
         <BackupsWindow projectName={project.name} initialFile={backups.file} onClose={() => setBackups(null)} onRestore={restoreFromBackup} />
       )}

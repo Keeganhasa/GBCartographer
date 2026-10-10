@@ -1,11 +1,24 @@
-import { X } from "lucide-react";
-import { GB_STUDIO } from "../gb/compat";
+import { Bug, CodeXml, ExternalLink, Info, RefreshCw } from "lucide-react";
 import { useState } from "react";
+import { GB_STUDIO } from "../gb/compat";
+import { Button, Chip, Dialog } from "../ui/kit";
 import { LogoMark } from "../ui/LogoMark";
+import "./AboutWindow.css";
 
 const REPO = "https://github.com/Keeganhasa/GBCartographer";
 
-/** About GB Cartographer: the version, where to report bugs, and every licence that ships with the app. */
+/** Every licence that ships with the app: what, and whose and under which licence. */
+const LICENCES: [string, string][] = [
+  ["GB Cartographer", "MIT license. The logo and app icon are the author's own pixel art, CC0."],
+  ["Inter", "The Inter Project Authors (Rasmus Andersson), SIL Open Font License 1.1."],
+  ["JetBrains Mono", "JetBrains, SIL Open Font License 1.1."],
+  ["Public Pixel", "GGBotNet, CC0."],
+  ["OpenDyslexic", "Abbie Gonzalez, SIL Open Font License 1.1. Downloaded the first time you turn it on."],
+  ["Demo project", "Art by Raptorspank (CC0) and the GB Studio Community Assets authors (MIT), credited in the demo's CREDITS.md."],
+  ["Libraries", "React (MIT) and lucide icons (ISC). The desktop app runs on Electron (MIT)."],
+  ["More icons", "A few from Pixelarticons by Gerrit Halfmann and from Phosphor Icons, both MIT. Their licences are in the app's licenses folder."],
+];
+
 /** "0.1.0-alpha.1" → comparable parts; a release without a pre-release suffix sorts after its pre-releases. */
 export function compareVersions(a: string, b: string): number {
   const parse = (value: string) => { const [core, pre] = value.replace(/^v/, "").split("-", 2); return { core: core.split(".").map(Number), pre: pre ?? null }; };
@@ -17,6 +30,9 @@ export function compareVersions(a: string, b: string): number {
   return x.pre.localeCompare(y.pre, undefined, { numeric: true });
 }
 
+const open = (url: string) => window.open(url, "_blank", "noreferrer");
+
+/** About GB Cartographer: the version, where to report bugs, and every licence that ships with the app. */
 export function AboutWindow({ onClose }: { onClose: () => void }) {
   const [update, setUpdate] = useState<{ state: "idle" | "checking" | "done"; text?: string; url?: string }>({ state: "idle" });
   /** Asks GitHub for the latest release, only when the user clicks (no automatic calls). */
@@ -35,38 +51,33 @@ export function AboutWindow({ onClose }: { onClose: () => void }) {
     }
   }
   return (
-    <div className="gbp-modal-backdrop" onClick={onClose}>
-      <div className="gbp-modal gbp-help gbp-about" role="dialog" aria-label="About GB Cartographer" onClick={(event) => event.stopPropagation()}>
-        <header className="gbp-modal-head"><h2>About</h2><span className="gbp-spacer" /><button className="icon-button small" aria-label="Close" onClick={onClose}><X size={14} /></button></header>
-        <div className="gbp-help-body">
-          <div className="gbp-about-title">
-            <LogoMark size={48} />
-            <div>
-              <h1>GB Cartographer <span className="gbp-alpha">Alpha</span></h1>
-              <p className="gbp-note">Version {__APP_VERSION__} · a pixel painting and color palette companion app for GB Studio projects</p>
-              <p className="gbp-note">Follows GB Studio {GB_STUDIO.latest}: reads projects from GB Studio {GB_STUDIO.oldest} – {GB_STUDIO.latest} (file format {GB_STUDIO.format.version}, release {GB_STUDIO.format.release}).</p>
-            </div>
+    <Dialog open onOpenChange={(next) => { if (!next) onClose(); }} title="About" icon={<Info size={18} />}>
+      <div className="k-stack k-stack--loose">
+        <div className="ab-hero">
+          <LogoMark size={48} />
+          <div className="ab-hero-text">
+            <h1>GB Cartographer <Chip tone="acc">ALPHA</Chip></h1>
+            <span className="k-small">Version {__APP_VERSION__} · a pixel painter and palette companion for GB Studio projects</span>
+            <span className="k-muted k-small">Follows GB Studio {GB_STUDIO.latest}. Reads projects from GB Studio {GB_STUDIO.oldest} to {GB_STUDIO.latest} (file format {GB_STUDIO.format.version}, release {GB_STUDIO.format.release}).</span>
           </div>
-          <p><a href={REPO} target="_blank" rel="noreferrer">Source code on GitHub</a> · <a href={`${REPO}/issues`} target="_blank" rel="noreferrer">Report a bug or ask for a feature</a></p>
-          <p className="gbp-about-update">
-            <button className="quiet-button" disabled={update.state === "checking"} title="Asks GitHub for the latest release (only when you click)" onClick={() => void check()}>{update.state === "checking" ? "Checking…" : "Check for updates"}</button>
-            {update.text && <span>{update.text} {update.url && <a href={update.url} target="_blank" rel="noreferrer">Get it</a>}</span>}
-          </p>
-          <table>
-            <tbody>
-              <tr><td><b>GB Cartographer</b></td><td>MIT license. The logo and app icon are the author's own pixel art, CC0.</td></tr>
-              <tr><td><b>Inter</b></td><td>The Inter Project Authors (Rasmus Andersson), SIL Open Font License 1.1.</td></tr>
-              <tr><td><b>JetBrains Mono</b></td><td>JetBrains, SIL Open Font License 1.1.</td></tr>
-              <tr><td><b>Public Pixel</b></td><td>GGBotNet, CC0.</td></tr>
-              <tr><td><b>OpenDyslexic</b></td><td>Abbie Gonzalez, SIL Open Font License 1.1 (downloaded the first time it is turned on).</td></tr>
-              <tr><td><b>Demo project</b></td><td>Art by Raptorspank (CC0) and the GB Studio Community Assets authors (MIT), credited in the demo's CREDITS.md.</td></tr>
-              <tr><td><b>Libraries</b></td><td>React and lucide icons (MIT, ISC); the desktop app runs on Electron (MIT).</td></tr>
-              <tr><td><b>More icons</b></td><td>A few icons from Pixelarticons by Gerrit Halfmann and from Phosphor Icons, both MIT (licences in the app's licenses folder).</td></tr>
-            </tbody>
-          </table>
-          <p className="gbp-note">GB Studio is by Chris Maltby and contributors. GB Cartographer is not affiliated with GB Studio or Nintendo.</p>
         </div>
+        <div className="k-row ab-links">
+          <Button icon={<CodeXml />} onClick={() => open(REPO)}>Source code</Button>
+          <Button icon={<Bug />} onClick={() => open(`${REPO}/issues`)}>Report a bug or ask for a feature</Button>
+        </div>
+        <div className="k-row ab-update">
+          <Button size="sm" icon={<RefreshCw />} disabled={update.state === "checking"} title="Asks GitHub for the latest release (only when you click)" onClick={() => void check()}>{update.state === "checking" ? "Checking…" : "Check for updates"}</Button>
+          {update.text && <span className="k-small">{update.text}</span>}
+          {update.url && <Button size="sm" variant="primary" icon={<ExternalLink />} onClick={() => open(update.url!)}>Get it</Button>}
+        </div>
+        <div className="k-stack k-stack--tight">
+          <span className="k-eyebrow">Licences</span>
+          <dl className="k-well ab-licences">
+            {LICENCES.map(([what, licence]) => <div key={what}><dt>{what}</dt><dd>{licence}</dd></div>)}
+          </dl>
+        </div>
+        <p className="k-muted k-small ab-note">GB Studio is by Chris Maltby and contributors. GB Cartographer is not affiliated with GB Studio or Nintendo.</p>
       </div>
-    </div>
+    </Dialog>
   );
 }
