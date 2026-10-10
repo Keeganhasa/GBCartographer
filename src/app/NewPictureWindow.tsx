@@ -1,12 +1,13 @@
-import { X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { FileImage, FilePlus, Type, X } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { GB_SHADES } from "../paint";
 import { loadFontFile, renderFontSheet, type LoadedFont } from "./fontSheet";
 import { ASSET_KINDS, type AssetKind } from "./model";
+import { KIND_ICONS } from "./tools";
 
 /** Sizes that suit each kind (all in whole 8 × 8 tiles); the first is the default. */
 const PRESETS: Record<AssetKind | "file", [number, number, string][]> = {
-  backgrounds: [[160, 144, "one screen"], [320, 144, "two screens wide"], [160, 288, "two screens tall"], [256, 256, "256 × 256"]],
+  backgrounds: [[160, 144, "one screen"], [320, 144, "two screens wide"], [160, 288, "two screens tall"], [256, 256, "square"]],
   sprites: [[16, 16, "one 16 × 16 frame"], [32, 16, "two frames"], [64, 16, "four frames"], [16, 32, "one 16 × 32 frame"]],
   tilesets: [[128, 64, "16 × 8 tiles"], [64, 64, "8 × 8 tiles"], [16, 16, "2 × 2 tiles"]],
   fonts: [[128, 112, "ASCII 32–255 (16 per row)"], [128, 48, "ASCII 32–127"]],
@@ -14,8 +15,30 @@ const PRESETS: Record<AssetKind | "file", [number, number, string][]> = {
   stamps: [[16, 16, "2 × 2 tiles"], [32, 32, "4 × 4 tiles"], [8, 8, "one tile"]],
   avatars: [[16, 16, "an avatar"]],
   ui: [[24, 24, "the dialogue frame"], [8, 8, "the cursor"]],
-  file: [[160, 144, "one screen"], [256, 256, "256 × 256"], [16, 16, "16 × 16"]],
+  file: [[160, 144, "one screen"], [256, 256, "square"], [16, 16, "a sprite"]],
 };
+
+/** Short names for the Where tiles (the rail's labels are longer). */
+const WHERE_LABEL: Record<AssetKind, string> = { backgrounds: "Background", sprites: "Sprite", tilesets: "Tileset", fonts: "Font", emotes: "Emote", avatars: "Avatar", ui: "UI", stamps: "Stamp" };
+const folderOf = (kind: AssetKind) => kind === "stamps" ? "Cartographer/stamps" : `assets/${kind}`;
+
+/** A size preset's shape, to scale in a 44 × 32 box, with each 160 × 144 screen marked on wide or tall backgrounds. */
+function SizeShape({ width, height, screens }: { width: number; height: number; screens: boolean }) {
+  const scale = Math.min(44 / width, 32 / height), w = Math.max(4, Math.round(width * scale)), h = Math.max(4, Math.round(height * scale));
+  const lines: ReactNode[] = [];
+  if (screens) {
+    for (let x = 160; x < width; x += 160) lines.push(<line key={`x${x}`} x1={x * scale} y1={0} x2={x * scale} y2={h} />);
+    for (let y = 144; y < height; y += 144) lines.push(<line key={`y${y}`} x1={0} y1={y * scale} x2={w} y2={y * scale} />);
+  }
+  return (
+    <span className="gbp-shape-box">
+      <svg className="gbp-size-shape" width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden="true">
+        <rect x={0.5} y={0.5} width={w - 1} height={h - 1} rx={2} />
+        {lines}
+      </svg>
+    </span>
+  );
+}
 
 export interface NewPicture { kind: AssetKind | null; name: string; width: number; height: number; /** Shades to start from (a font drawn from a font file); blank otherwise. */ pixels?: Uint8Array }
 
@@ -72,31 +95,43 @@ export function NewPictureWindow({ projectName, initialKind, onClose, onCreate }
   }
   return (
     <div className="gbp-modal-backdrop" onClick={onClose}>
-      <div className="gbp-modal gbp-help gbp-small-modal" role="dialog" aria-label="New picture" onClick={(event) => event.stopPropagation()}>
+      <div className="gbp-modal gbp-help gbp-small-modal gbp-new" role="dialog" aria-label="New picture" onClick={(event) => event.stopPropagation()}>
         <header className="gbp-modal-head"><h2>New picture</h2><span className="gbp-spacer" /><button className="icon-button small" aria-label="Close" onClick={onClose}><X size={14} /></button></header>
         <div className="gbp-help-body gbp-form">
-          <label className="gbp-field">Where
-            <select value={where} onChange={(event) => pick(event.target.value as AssetKind | "file")}>
-              {projectName && <optgroup label={projectName}>{ASSET_KINDS.map(([kind, label]) => <option key={kind} value={kind}>{label} · assets/{kind}/</option>)}</optgroup>}
-              <option value="file">Only here (save it anywhere later)</option>
-            </select>
-          </label>
+          <div className="gbp-field">Where
+            <div className="gbp-where" role="radiogroup" aria-label="Where">
+              {projectName && ASSET_KINDS.map(([kind]) => { const Icon = KIND_ICONS[kind]; return (
+                <button key={kind} role="radio" aria-checked={where === kind} className={`gbp-where-tile ${where === kind ? "selected" : ""}`} title={`A new PNG in ${projectName}/${folderOf(kind)}/`} onClick={() => pick(kind)}>
+                  <Icon size={18} /><span>{WHERE_LABEL[kind]}</span>
+                </button>
+              ); })}
+              <button role="radio" aria-checked={where === "file"} className={`gbp-where-tile ${where === "file" ? "selected" : ""}`} title="Just here: Save asks where to keep it" onClick={() => pick("file")}>
+                <FileImage size={18} /><span>Only here</span>
+              </button>
+            </div>
+          </div>
           <label className="gbp-field">Name
             <input type="text" value={name} placeholder={where === "file" ? "Untitled" : "e.g. Cave Entrance"} onChange={(event) => setName(event.target.value)} autoFocus />
           </label>
           <div className="gbp-field">Size
-            <div className="gbp-presets">{presets.map(([w, h, label]) => <button key={`${w}x${h}`} className={`quiet-button ${size[0] === w && size[1] === h ? "active-tool" : ""}`} onClick={() => setSize([w, h])}>{w} × {h}<small>{label}</small></button>)}</div>
+            <div className="gbp-presets">{presets.map(([w, h, label]) => (
+              <button key={`${w}x${h}`} className={`gbp-preset ${size[0] === w && size[1] === h ? "selected" : ""}`} aria-pressed={size[0] === w && size[1] === h} onClick={() => setSize([w, h])}>
+                <SizeShape width={w} height={h} screens={where === "backgrounds" && w % 160 === 0 && h % 144 === 0} />
+                <b>{w} × {h}</b><small>{label}</small>
+              </button>
+            ))}</div>
             <span className="gbp-size-row">
+              <span className="gbp-size-label">Custom</span>
               <input type="number" min={8} max={2048} step={8} aria-label="Width" value={size[0]} onChange={(event) => setSize([Number(event.target.value), size[1]])} /> ×
               <input type="number" min={8} max={2048} step={8} aria-label="Height" value={size[1]} onChange={(event) => setSize([size[0], Number(event.target.value)])} /> px
-              <small className="gbp-note">{size[0] % 8 || size[1] % 8 ? "Whole 8 × 8 tiles only." : `${size[0] / 8} × ${size[1] / 8} tiles`}</small>
+              <span className={`gbp-tile-chip ${size[0] % 8 || size[1] % 8 ? "bad" : ""}`}>{size[0] % 8 || size[1] % 8 ? "whole 8 × 8 tiles only" : `${size[0] / 8} × ${size[1] / 8} tiles`}</span>
             </span>
           </div>
           {where === "fonts" && (
             <div className="gbp-field">Glyphs
               <span className="gbp-budget-actions">
-                <button className={`quiet-button ${!font ? "active-tool" : ""}`} onClick={() => setFont(null)}>Blank</button>
-                <button className={`quiet-button ${font ? "active-tool" : ""}`} title="Draw characters 32–255 from a TTF or OTF font, 1 bit, 8 × 8 each" onClick={() => void pickFont()}>{font ? `From ${font.name}` : "From a font file…"}</button>
+                <button className={`quiet-button ${!font ? "active-tool" : ""}`} onClick={() => setFont(null)}><FilePlus size={14} />Blank</button>
+                <button className={`quiet-button ${font ? "active-tool" : ""}`} title="Draw characters 32–255 from a TTF or OTF font, 1 bit, 8 × 8 each" onClick={() => void pickFont()}><Type size={14} />{font ? `From ${font.name}` : "From a font file…"}</button>
               </span>
               {fromFont && <>
                 <canvas ref={fontPreview} className="gbp-font-preview" />
@@ -108,8 +143,10 @@ export function NewPictureWindow({ projectName, initialKind, onClose, onCreate }
               </>}
             </div>
           )}
-          <p className="gbp-note">{where === "file" ? "A blank picture in the GB greens. Save asks where to keep it." : `Writes one new file, assets/${where}/${(name.trim() || "…").replace(/\.png$/i, "")}.png, ${fromFont ? "with the glyphs drawn from the font file" : `blank${where === "sprites" || where === "emotes" ? " (see-through)" : " (lightest shade)"}`}. GB Studio adds its own settings for it when it next reads the project. An existing file is never replaced.`}</p>
-          <div className="gbp-backup-actions"><span className="gbp-spacer" /><button className="quiet-button" onClick={onClose}>Cancel</button><button className="quiet-button primary" disabled={!valid || busy} onClick={() => void create()}>Create and open</button></div>
+          <p className="gbp-new-where">{where === "file"
+            ? <>A blank picture in the GB greens, only here. <b>Save</b> asks where to keep it.</>
+            : <>Creates <code>{folderOf(where)}/{(name.trim() || "…").replace(/\.png$/i, "")}.png</code>, {fromFont ? "with the glyphs from the font file" : where === "sprites" || where === "emotes" || where === "stamps" ? "see-through" : "in the lightest shade"}. Never replaces a file.</>}</p>
+          <div className="gbp-backup-actions"><span className="gbp-spacer" /><button className="quiet-button" onClick={onClose}>Cancel</button><button className="quiet-button primary" disabled={!valid || busy} title={valid ? undefined : "Give it a name (letters, digits, spaces, - _ ( ) .)"} onClick={() => void create()}><FilePlus size={14} />Create and open</button></div>
         </div>
       </div>
     </div>
