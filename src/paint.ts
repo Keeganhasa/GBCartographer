@@ -270,16 +270,55 @@ export function ellipsePoints(x0: number, y0: number, x1: number, y1: number): [
   return points;
 }
 
-export function fillRect(pixels: Uint8Array, width: number, height: number, rect: Rect, shade: number) {
-  for (let y = Math.max(0, rect.y); y < Math.min(height, rect.y + rect.h); y += 1) {
-    pixels.fill(shade, y * width + Math.max(0, rect.x), y * width + Math.min(width, rect.x + rect.w));
+/** Fill patterns: which pixels a fill paints (anchored to the picture, so neighbouring fills line up). */
+export type Pattern = "solid" | "checker" | "quarter" | "threeQuarters" | "rows" | "columns";
+export const PATTERNS: { id: Pattern; label: string }[] = [
+  { id: "solid", label: "Solid" }, { id: "checker", label: "Checker 50%" }, { id: "quarter", label: "Dots 25%" },
+  { id: "threeQuarters", label: "Dense 75%" }, { id: "rows", label: "Rows" }, { id: "columns", label: "Columns" },
+];
+export function inPattern(pattern: Pattern, x: number, y: number): boolean {
+  switch (pattern) {
+    case "checker": return (x + y) % 2 === 0;
+    case "quarter": return x % 2 === 0 && y % 2 === 0;
+    case "threeQuarters": return !(x % 2 === 1 && y % 2 === 1);
+    case "rows": return y % 2 === 0;
+    case "columns": return x % 2 === 0;
+    default: return true;
   }
 }
 
-/** Fills the connected area of one shade around (x, y); false when there was nothing to change. */
-export function floodFill(pixels: Uint8Array, width: number, height: number, x: number, y: number, shade: number): boolean {
+export function fillRect(pixels: Uint8Array, width: number, height: number, rect: Rect, shade: number, pattern: Pattern = "solid") {
+  for (let y = Math.max(0, rect.y); y < Math.min(height, rect.y + rect.h); y += 1) {
+    if (pattern === "solid") { pixels.fill(shade, y * width + Math.max(0, rect.x), y * width + Math.min(width, rect.x + rect.w)); continue; }
+    for (let x = Math.max(0, rect.x); x < Math.min(width, rect.x + rect.w); x += 1) if (inPattern(pattern, x, y)) pixels[y * width + x] = shade;
+  }
+}
+
+/**
+ * Fills the connected area of one shade around (x, y); false when there was nothing to change. With a pattern,
+ * only the area's pixels on the pattern take the shade.
+ */
+export function floodFill(pixels: Uint8Array, width: number, height: number, x: number, y: number, shade: number, pattern: Pattern = "solid"): boolean {
   if (x < 0 || y < 0 || x >= width || y >= height) return false;
   const from = pixels[y * width + x];
+  if (pattern !== "solid") {
+    const seen = new Uint8Array(pixels.length), area: number[] = [];
+    const stack = [y * width + x];
+    seen[stack[0]] = 1;
+    while (stack.length) {
+      const at = stack.pop()!;
+      area.push(at);
+      const ax = at % width;
+      for (const next of [ax > 0 ? at - 1 : -1, ax < width - 1 ? at + 1 : -1, at - width, at + width]) {
+        if (next < 0 || next >= pixels.length || seen[next] || pixels[next] !== from) continue;
+        seen[next] = 1;
+        stack.push(next);
+      }
+    }
+    let changed = false;
+    for (const at of area) if (inPattern(pattern, at % width, Math.floor(at / width)) && pixels[at] !== shade) { pixels[at] = shade; changed = true; }
+    return changed;
+  }
   if (from === shade) return false;
   const stack = [y * width + x];
   pixels[stack[0]] = shade;

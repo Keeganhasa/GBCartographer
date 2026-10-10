@@ -1,7 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, clipRect, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, hexRgb, closeShades, colorDistance, linkGroups, syncLinked, mergeNearTiles, tileUsage, gbStudioShade, gbcCorrect, dropCells, flipFloat, lift, liftCells, linePoints, onTiles, replaceShade, rotateFloat, mirrorPoints, namedSlot, quantize, snapRect, toRgba } from "./paint";
+import { CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, clipRect, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, hexRgb, closeShades, colorDistance, inPattern, linkGroups, syncLinked, mergeNearTiles, tileUsage, gbStudioShade, gbcCorrect, dropCells, flipFloat, lift, liftCells, linePoints, onTiles, replaceShade, rotateFloat, mirrorPoints, namedSlot, quantize, snapRect, toRgba } from "./paint";
 
 describe("GB Cartographer pixels", () => {
+  it("fills with patterns anchored to the picture", () => {
+    const pixels = new Uint8Array(16);
+    floodFill(pixels, 4, 4, 0, 0, 3, "checker");
+    expect([...pixels]).toEqual([3, 0, 3, 0, 0, 3, 0, 3, 3, 0, 3, 0, 0, 3, 0, 3]);
+    // The pixels left between the checks are not connected (only corners touch), so filling one stays within it.
+    floodFill(pixels, 4, 4, 1, 0, 3, "checker");
+    expect([...pixels].filter((value) => value === 3)).toHaveLength(8);
+    const rows = new Uint8Array(16);
+    fillRect(rows, 4, 4, { x: 1, y: 1, w: 2, h: 3 }, 2, "rows");
+    expect([...rows]).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 0, 0, 0, 0, 0]);
+    expect([inPattern("quarter", 0, 0), inPattern("quarter", 1, 0), inPattern("threeQuarters", 1, 1)]).toEqual([true, false, false]);
+  });
+
   it("links identical tiles (not flat ones) and keeps them alike while painting", () => {
     // Three tiles: A, A and a flat one.
     const width = 24, pixels = new Uint8Array(24 * 8);
