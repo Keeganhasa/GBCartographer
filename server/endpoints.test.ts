@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, request, type Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -84,6 +84,11 @@ describe("project folder", () => {
     writeFileSync(join(root, "demo-project/marker.txt"), "painted here");
     await post({ demo: true });
     expect(readFileSync(join(root, "demo-project/marker.txt"), "utf8")).toBe("painted here");
+    // Reset keeps the painted copy in the backups folder and makes a fresh one.
+    await post({ demo: true, reset: true });
+    expect(existsSync(join(root, "demo-project/marker.txt"))).toBe(false);
+    const kept = readdirSync(join(root, "backups")).find((name) => name.startsWith("demo-project "))!;
+    expect(readFileSync(join(root, "backups", kept, "marker.txt"), "utf8")).toBe("painted here");
     expect((await json<{ project: { name: string } }>(await post({ path: project }))).project.name).toBe("My Game");
     // The .gbsproj file stands for its folder.
     expect((await json<{ project: { path: string } }>(await post({ path: join(project, "my-game.gbsproj") }))).project.path).toBe(project);

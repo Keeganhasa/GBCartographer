@@ -18,37 +18,44 @@ palettes straight back into the project.
 
 ## Features
 
-- **Open a GB Studio 4 project** (its `.gbsproj` or folder) and see its backgrounds, sprite sheets, tilesets and
-  fonts as thumbnail cards, drawn in their real palettes. Or open any Game Boy PNG on its own.
+- **Open a GB Studio 4 project** (its `.gbsproj` or folder) and see its backgrounds, sprite sheets, tilesets,
+  fonts, emotes, avatars and UI pictures as thumbnail cards, drawn in their real palettes. Or open any Game Boy
+  PNG on its own.
 - **One flat picture per file.** No layers, no tileset management: what you see is the PNG, kept in the four
-  Game Boy shades. Sprite sheets keep their key green (`#65FF00`) for see-through pixels.
+  Game Boy shades, read exactly the way GB Studio reads colors. Sprite sheets and emotes keep their key green
+  (`#65FF00`) for see-through pixels.
 - **Paint directly with palettes.** The palette brush gives each 8 × 8 background or tileset tile (or 8 × 16
   sprite tile) one of its eight palettes, in 1, 2 × 2 or 3 × 3 tile steps, with Shift-click for straight lines and
   I to pick a tile's palette. Save writes them as GB Studio does: `tileColors`, or a sprite slice's `paletteIndex`.
-- **Put a palette in a slot.** Right-click a palette to place it in one of the eight slots: the scene's palette
-  list, or the project's default palettes. An optional named-slots rule lets day / night / sunset variants
-  (`Forest-2-Trees N`) save as their base palette's slot.
-- **Palettes edited in place.** Click a shade square again to change that color; Save writes the recolored
-  palette back into the project.
+- **Put a palette in a slot.** Right-click a palette (in the sidebar or the palette manager) to place it in one of
+  the eight slots: the scene's palette list, or the project's default palettes. An optional named-slots rule lets
+  day / night / sunset variants (`Forest-2-Trees N`) save as their base palette's slot.
 - **A palette manager.** The project's palettes, a bundled library (Game Boy classics and the author's own CC0
-  set) and your own, with a live preview of the open picture; add palettes to the project or edit its own.
-- **The usual tools.** Pencil, eraser, spray, line, rectangle, ellipse, fill, eyedropper, select and move, mirror
-  painting, brush sizes, undo, tabs, drag-and-drop, paste from the clipboard.
-- **GB Studio's limits in view.** A tile counter shows unique 8 × 8 tiles against the 192 / 384 budget.
+  set) and your own, with a live preview of the open picture; add palettes to the project or edit its own, and
+  see which scenes use each one (unused and duplicate palettes are marked).
+- **Palettes edited in place.** Click a shade square again to change that color; Save writes the recolored
+  palette back into the project, and undo brings old colors back.
+- **The usual tools.** Pencil, eraser, spray, line, rectangle, ellipse, fill (Alt-click replaces a shade
+  everywhere), eyedropper, select and move, flip and turn, mirror painting, brush sizes, undo, tabs, drag-and-drop,
+  paste from the clipboard. Selections on tile edges take their tiles' palettes with them, even into another
+  picture.
+- **New pictures and resizing.** Make a new background, sprite sheet or tileset in the project, or resize one in
+  whole tiles.
+- **GB Studio's limits in view.** A tile counter shows unique 8 × 8 tiles against the 192 / 384 budget, and an
+  overlay shows where each 160 × 144 screen falls.
 - **Sprite frames and font samples.** A sprite sheet shows its animations' frames above it (and plays them); a font
   sheet shows a sample sentence set in its own glyphs.
-- **Careful with your files.** Backups before every write, a warning when a file changed on disk or GB Studio is
-  open, and a short, fixed list of what it ever writes (below).
-- **A demo project** to try it on, with CC0 and MIT art by credited authors.
+- **Export to share.** Any picture as shown, in its palettes, or in the greens, scaled up 2× to 8× with crisp pixels.
+- **Careful with your files.** The last 10 versions of every file it overwrites, restorable from **Backups…**; a
+  warning when a file changed on disk (pictures GB Studio changes reload by themselves) or GB Studio is open; and a
+  short, fixed list of what it ever writes (below).
+- **Works offline**, with its fonts built in. **A demo project** to try it on, with CC0 and MIT art by credited
+  authors.
 
 ## Planned
 
-- Color conversion that matches GB Studio's own when a PNG is drawn in other colors.
 - Prebuilt apps for macOS, Windows and Linux (GitHub Releases and itch.io), and a tested Windows pass.
-- Put in slot from the palette manager; palette manager round 2 (delete, reorder, import / export).
-- Reload a picture when GB Studio changes it on disk; GB Studio's animation speeds in the frames strip.
-- Fonts bundled for offline use; an About box; next / previous tab keys.
-- GB Studio 3 projects: read-only support, or a clear message.
+- Palette manager round 2 (delete, reorder, import / export); GB Studio's animation speeds in the frames strip.
 
 ## Screenshots
 

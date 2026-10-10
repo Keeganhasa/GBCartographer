@@ -368,8 +368,9 @@ export default function PaintApp() {
   }
 
   /** After the project changed: the old project's pictures close (their files belong to that project). */
-  function closeDocsOf(oldPath: string | undefined) {
-    if (!oldPath || oldPath === projectRef.current?.path) return;
+  /** Closes the pictures of a project that is no longer open (`always`: also when the same folder reopened, e.g. a reset demo). */
+  function closeDocsOf(oldPath: string | undefined, always = false) {
+    if (!oldPath || (!always && oldPath === projectRef.current?.path)) return;
     const keep = docs.current.filter((item) => !(item.asset && (!item.asset.project || item.asset.project === oldPath)));
     if (keep.length === docs.current.length) return;
     docs.current = keep;
@@ -403,13 +404,14 @@ export default function PaintApp() {
   }
 
   /** Asks for a GB Studio project folder: the desktop app's folder dialog, or a typed path on the dev server. `demo` opens a copy of the shipped demo instead. */
-  async function chooseProject(demo = false) {
+  async function chooseProject(demo = false, reset = false) {
     const native = (window as PickerWindow).gbc;
+    if (reset && !window.confirm("Start the demo project over? Your painted copy is moved to the backups folder (nothing is deleted), and a fresh copy of the demo opens.")) return;
     if (!await readyToLeaveProject()) return;
     const oldPath = projectRef.current?.path;
     try {
       if (demo) {
-        const response = await fetch("./__cartographer/project", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ demo: true }) });
+        const response = await fetch("./__cartographer/project", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ demo: true, ...(reset ? { reset: true } : {}) }) });
         const result = await response.json() as { ok?: boolean; error?: string };
         if (!response.ok || !result.ok) return say(result.error ?? response.statusText);
       } else if (native) {
@@ -423,7 +425,8 @@ export default function PaintApp() {
       }
       palettesReady.current = loadProject();
       await palettesReady.current;
-      closeDocsOf(oldPath);
+      closeDocsOf(oldPath, reset);
+      if (reset) setSlotsVersion((value) => value + 1);
       setShowProject(true);
     } catch (error) {
       say(`Could not open the project: ${(error as Error).message}`);
@@ -1624,6 +1627,7 @@ export default function PaintApp() {
         <Menu x={projectMenu.x} y={projectMenu.y} width={260} height={300} onClose={() => setProjectMenu(null)}>
             <button role="menuitem" onClick={() => { setProjectMenu(null); void chooseProject(); }}>Open another project…</button>
             <button role="menuitem" onClick={() => { setProjectMenu(null); void chooseProject(true); }}>Open the demo project</button>
+            {project && /[\\/]demo-project$/.test(project.path) && <button role="menuitem" title="Your painted copy goes to the backups folder; a fresh copy of the demo opens" onClick={() => { setProjectMenu(null); void chooseProject(true, true); }}>Reset the demo project…</button>}
             {recent.filter((item) => item.path !== project?.path).length > 0 && <><hr /><span className="gbp-menu-label">Recent</span></>}
             {recent.filter((item) => item.path !== project?.path).slice(0, 5).map((item) => <button key={item.path} role="menuitem" title={item.path} onClick={() => { setProjectMenu(null); void openProjectPath(item.path); }}>{item.name}</button>)}
             {project && <>

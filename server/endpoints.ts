@@ -2,7 +2,8 @@
  * The endpoints behind GB Cartographer, served by the Vite dev server and the desktop app alike (same-origin only):
  *   GET  /__cartographer/ping                 which GB Studio project is open (name, path), or none
  *   POST /__cartographer/project              { path } opens another project folder (the desktop app also sets it from its dialog);
- *                                             { demo: true } opens a copy of the demo project that ships with the app
+ *                                             { demo: true } opens a copy of the demo project that ships with the app;
+ *                                             { demo: true, reset: true } first moves that copy to the backups folder
  *   GET  /__cartographer/gbstudio-assets      the project's asset PNGs and palettes
  *   GET  /__cartographer/gbstudio-asset       one PNG            ?kind=backgrounds|sprites|tilesets|fonts|emotes|avatars|ui&file=name.png
  *   GET  /__cartographer/gbstudio-asset-info  its size, times, per-cell palette slots and the slot palette ids
@@ -119,8 +120,8 @@ export async function handleCartographerRequest(req: IncomingMessage, res: Serve
       return true;
     }
     if (url.pathname === "/__cartographer/project" && req.method === "POST") {
-      const body = JSON.parse((await readBody(req)).toString("utf8")) as { path?: unknown; demo?: unknown };
-      const path = body.demo === true ? demoProjectCopy(options.root, options.settingsFile) ?? "" : typeof body.path === "string" && body.path.trim() ? projectFolderFor(body.path) : "";
+      const body = JSON.parse((await readBody(req)).toString("utf8")) as { path?: unknown; demo?: unknown; reset?: unknown };
+      const path = body.demo === true ? demoProjectCopy(options.root, options.settingsFile, body.reset === true ? { backupDir: options.backupDir } : undefined) ?? "" : typeof body.path === "string" && body.path.trim() ? projectFolderFor(body.path) : "";
       if (body.demo === true && !path) {
         reply(res, 404, { error: "This build has no demo project." });
         return true;

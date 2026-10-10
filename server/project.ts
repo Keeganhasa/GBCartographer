@@ -3,7 +3,7 @@
  * its settings file; the dev server reads GBC_PROJECT or cartographer.local.json ({ "project": "<folder>" }) next to
  * the repo. A folder counts as a project when it has an assets/ folder (GB Studio 4 layout).
  */
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
 /** The GB Studio versions GB Cartographer was tested with (major.minor). */
@@ -92,10 +92,21 @@ export function loadProjectFolder(root: string, settingsFile = resolve(root, "ca
  * The demo project that ships with the app (`<root>/demo`), copied next to the settings file the first time it is
  * opened, so painting in it never touches the shipped copy. Returns the copy's folder, or null without a demo.
  */
-export function demoProjectCopy(root: string, settingsFile: string): string | null {
+export function demoProjectCopy(root: string, settingsFile: string, reset?: { backupDir: string }): string | null {
   const source = resolve(root, "demo");
   if (!isProjectFolder(source)) return null;
   const copy = resolve(dirname(settingsFile), "demo-project");
+  // Reset: the painted copy is kept in the backups folder (never deleted), and a fresh copy is made.
+  if (reset && existsSync(copy)) {
+    const kept = resolve(reset.backupDir, `demo-project ${new Date().toISOString().replace(/[:.]/g, "-")}`);
+    mkdirSync(reset.backupDir, { recursive: true });
+    try {
+      renameSync(copy, kept);
+    } catch {
+      cpSync(copy, kept, { recursive: true });
+      rmSync(copy, { recursive: true, force: true });
+    }
+  }
   if (!existsSync(copy)) cpSync(source, copy, { recursive: true });
   return copy;
 }
