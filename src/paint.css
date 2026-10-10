@@ -561,3 +561,4 @@
 /* Seamless view. */
 .gbp-seamless { position: relative; top: auto; z-index: 1; flex-wrap: wrap; align-items: center; }
 .gbp-seamless canvas { image-rendering: pixelated; border-radius: 4px; box-shadow: 0 0 0 1px var(--b-edge, var(--line)); }
+.gbp-about-update { display: flex; align-items: center; gap: 10px; }
