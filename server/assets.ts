@@ -207,6 +207,41 @@ function assetId(path: string): string | undefined {
   return typeof id === "string" ? id : undefined;
 }
 
+export interface PaletteUse { kind: "background" | "sprite"; slot: number; /** The scene's name, or null for the project's defaults. */ scene: string | null; /** A scene slot left blank that takes this default. */ inherited?: boolean }
+export interface PaletteUsage { id: string; uses: PaletteUse[]; /** Other project palettes with the same four colors. */ sameColors: string[] }
+
+/**
+ * Which scenes use each project palette, slot by slot: the project's default background and sprite palettes,
+ * every scene that sets its own, and the scenes whose blank slots take a default. Also palettes with the same
+ * four colors as another. A palette with no use is unused by every scene (it may still be picked in events).
+ */
+export function paletteUsage(project: string): PaletteUsage[] {
+  const palettes = listPalettes(project);
+  const usage = new Map(palettes.map((palette) => [palette.id, { id: palette.id, uses: [] as PaletteUse[], sameColors: [] as string[] }]));
+  const settings = readJson(join(project, "project/settings.gbsres"));
+  const defaults = { background: idList(settings?.defaultBackgroundPaletteIds), sprite: idList(settings?.defaultSpritePaletteIds) };
+  for (const kind of ["background", "sprite"] as const) defaults[kind].forEach((id, slot) => usage.get(id)?.uses.push({ kind, slot, scene: null }));
+  const scenesDir = join(project, "project/scenes");
+  if (existsSync(scenesDir)) {
+    for (const folder of readdirSync(scenesDir).sort()) {
+      const scene = readJson(join(scenesDir, folder, "scene.gbsres"));
+      if (!scene) continue;
+      const name = typeof scene.name === "string" && scene.name ? scene.name : folder;
+      for (const [kind, field] of [["background", "paletteIds"], ["sprite", "spritePaletteIds"]] as const) {
+        const own = idList(scene[field]);
+        for (let slot = 0; slot < 8; slot += 1) {
+          const id = own[slot] || defaults[kind][slot];
+          if (id) usage.get(id)?.uses.push({ kind, slot, scene: name, ...(own[slot] ? {} : { inherited: true }) });
+        }
+      }
+    }
+  }
+  for (const palette of palettes) {
+    usage.get(palette.id)!.sameColors = palettes.filter((other) => other.id !== palette.id && other.colors.join() === palette.colors.join()).map((other) => other.id);
+  }
+  return [...usage.values()];
+}
+
 /** What GB Cartographer needs besides the pixels: the file's time and size, and for backgrounds and sprites their palette slots. */
 export function assetInfo(project: string, kind: AssetKind, path: string): AssetInfo {
   const size = pngSizeOfFile(path) ?? { width: 0, height: 0 };

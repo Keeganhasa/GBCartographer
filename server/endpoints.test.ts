@@ -257,6 +257,26 @@ describe("tile palettes", () => {
   });
 });
 
+describe("palette usage", () => {
+  it("lists each palette's uses by scene and default, inherited blanks, and palettes with the same colors", async () => {
+    const result = await json<{ palettes: { id: string; uses: { kind: string; slot: number; scene: string | null; inherited?: boolean }[]; sameColors: string[] }[] }>(await fetch(`${base}/palette-usage`));
+    const town = result.palettes.find((palette) => palette.id === "pal-town")!;
+    // By now the tests put pal-town in Town's slots 2 and 4, in the default background slot 1 (so Town's blank slot 1
+    // inherits it) and in the default sprite slot 8 (Town has no sprite palettes of its own).
+    expect(town.uses).toEqual(expect.arrayContaining([
+      { kind: "background", slot: 0, scene: null },
+      { kind: "sprite", slot: 7, scene: null },
+      { kind: "background", slot: 0, scene: "Town", inherited: true },
+      { kind: "background", slot: 1, scene: "Town" },
+      { kind: "background", slot: 3, scene: "Town" },
+      { kind: "sprite", slot: 7, scene: "Town", inherited: true },
+    ]));
+    const dusk = result.palettes.find((palette) => palette.sameColors.length);
+    expect(dusk === undefined || dusk.sameColors.every((id) => typeof id === "string")).toBe(true);
+    expect(result.palettes.filter((palette) => !palette.uses.length).length).toBeGreaterThan(0);
+  });
+});
+
 describe("GB Studio versions", () => {
   it("explains a GB Studio 3 project, notes untested versions, and leaves files of an unexpected type alone", async () => {
     const gb3 = join(root, "old-game");

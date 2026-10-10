@@ -54,9 +54,11 @@ export interface PaletteManagerProps {
   onWriteProject: (palette: { id?: string; name: string; colors: string[] }) => Promise<string | null>;
   /** Paints with this project palette: the palette brush picks it. */
   onPick: (paletteId: string) => void;
+  /** Right-click on a project palette while a picture with slots is open: the painter's "Put in slot" menu. */
+  onSlotMenu?: (paletteId: string, x: number, y: number) => void;
 }
 
-export default function PaletteManager({ projectName, projectPalettes, sceneSlots, picture, onClose, onWriteProject, onPick }: PaletteManagerProps) {
+export default function PaletteManager({ projectName, projectPalettes, sceneSlots, picture, onClose, onWriteProject, onPick, onSlotMenu }: PaletteManagerProps) {
   const [collection, setCollection] = useState<Collection>(projectPalettes.length ? "project" : LIBRARY[0]?.name ?? "mine");
   const [filter, setFilter] = useState("");
   const [mine, setMine] = useState<Palette[]>(() => readMine());
@@ -65,6 +67,19 @@ export default function PaletteManager({ projectName, projectPalettes, sceneSlot
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  /** Which scenes use each project palette (by id), read from the project when the Project collection shows. */
+  const [usage, setUsage] = useState<Map<string, PaletteUsage> | null>(null);
+  const [onlyOdd, setOnlyOdd] = useState(false);
+  useEffect(() => {
+    if (!projectName) return setUsage(null);
+    let live = true;
+    fetch("./__cartographer/palette-usage", { cache: "no-cache" }).then((response) => response.ok ? response.json() as Promise<{ palettes?: PaletteUsage[] }> : null)
+      .then((result) => { if (live && result?.palettes) setUsage(new Map(result.palettes.map((entry) => [entry.id, entry]))); })
+      .catch(() => null);
+    return () => { live = false; };
+  }, [projectName, projectPalettes, sceneSlots.join()]);
+  const unused = (palette: Palette) => Boolean(usage && palette.id && !usage.get(palette.id)?.uses.length);
+  const twin = (palette: Palette) => Boolean(palette.id && usage?.get(palette.id)?.sameColors.length);
 
   const collections: { id: Collection; label: string; palettes: Palette[]; editable: boolean }[] = [
     { id: "project", label: projectName ? `Project · ${projectName}` : "Project (none open)", palettes: projectPalettes, editable: true },
@@ -73,7 +88,7 @@ export default function PaletteManager({ projectName, projectPalettes, sceneSlot
   ];
   const current = collections.find((group) => group.id === collection) ?? collections[0];
   const matches = (name: string) => !filter.trim() || name.toLowerCase().includes(filter.trim().toLowerCase());
-  const shown = current.palettes.map((palette, index) => ({ palette, index })).filter(({ palette }) => matches(palette.name));
+  const shown = current.palettes.map((palette, index) => ({ palette, index })).filter(({ palette }) => matches(palette.name) && (!onlyOdd || collection !== "project" || unused(palette) || twin(palette)));
   // The project list leads with the open picture's slots, in slot order, then everything else.
   const slotOf = (palette: Palette) => palette.id ? sceneSlots.indexOf(palette.id) : -1;
   const groups = collection === "project" && sceneSlots.length
@@ -211,15 +226,19 @@ export default function PaletteManager({ projectName, projectPalettes, sceneSlot
           <button className="icon-button" aria-label="Close" title="Close · Esc" onClick={onClose}><X size={16} /></button>
         </nav>
         <div className="gbp-pm-list">
-          <div className="gbp-pm-head"><span className="eyebrow">{current.label}</span><input type="search" className="gbp-filter" placeholder="Filter" aria-label="Filter palettes by name" value={filter} onChange={(event) => setFilter(event.target.value)} /></div>
+          <div className="gbp-pm-head"><span className="eyebrow">{current.label}</span><input type="search" className="gbp-filter" placeholder="Filter" aria-label="Filter palettes by name" value={filter} onChange={(event) => setFilter(event.target.value)} />
+            {collection === "project" && usage && <label className="gbp-check" title="Show only palettes no scene uses, or with the same colors as another"><input type="checkbox" checked={onlyOdd} onChange={(event) => setOnlyOdd(event.target.checked)} />Only unused or same colors</label>}
+          </div>
           <div className="gbp-palettes gbp-pm-rows" role="listbox" aria-label={`${current.label} palettes`}>
             {groups.map((group) => group.rows.length > 0 && (
               <div key={group.label} className="gbp-pm-group">
                 {group.label && <span className="eyebrow">{group.label}</span>}
                 {group.rows.map(({ palette, index }) => (
-                  <button key={`${palette.id ?? ""}-${index}`} role="option" aria-selected={selected === index} className={selected === index ? "selected" : ""} onClick={() => choose(current.id, index)}>
+                  <button key={`${palette.id ?? ""}-${index}`} role="option" aria-selected={selected === index} className={selected === index ? "selected" : ""} onClick={() => choose(current.id, index)} title={collection === "project" && palette.id && onSlotMenu && sceneSlots.length ? "Right-click: put in a slot" : undefined} onContextMenu={(event) => { if (collection !== "project" || !palette.id || !onSlotMenu || !sceneSlots.length) return; event.preventDefault(); choose(current.id, index); onSlotMenu(palette.id, event.clientX, event.clientY); }}>
                     <span className="gbp-chips">{palette.colors.map((color, at) => <i key={at} style={{ background: color }} />)}</span>
                     <span>{palette.name}</span>
+                    {collection === "project" && unused(palette) && <small className="gbp-pm-tag" title="No scene uses it (not a default either); events may still pick it">unused</small>}
+                    {collection === "project" && twin(palette) && <small className="gbp-pm-tag" title="Another project palette has the same four colors">same colors</small>}
                     {slotOf(palette) >= 0 && collection === "project" && <small className="gbp-slot">{slotOf(palette) + 1}</small>}
                   </button>
                 ))}
@@ -258,10 +277,32 @@ export default function PaletteManager({ projectName, projectPalettes, sceneSlot
                 <span className="gbp-pm-note">{note || (collection === "project" ? "Rewrites this palette's file in the project · the old file goes to the backups folder" : projectName ? `Adds project/palettes/${fileNameFor(name.trim() || picked.name)}` : "")}</span>
               </div>
               {picture?.sprite && <p className="gbp-note">Sprite sheet: color 0 is see-through in GB Studio; colors 1–3 dress the shades.</p>}
+              {collection === "project" && picked.id && usage && <UsedBy usage={usage.get(picked.id)} names={new Map(projectPalettes.map((palette) => [palette.id ?? "", palette.name]))} />}
             </>
           ) : <p className="gbp-note">Pick a palette on the left.</p>}
         </div>
       </div>
+    </div>
+  );
+}
+
+interface PaletteUsage { id: string; uses: { kind: "background" | "sprite"; slot: number; scene: string | null; inherited?: boolean }[]; sameColors: string[] }
+
+/** Where a project palette is used: the defaults, each scene's own slots, and the scenes that inherit a default. */
+function UsedBy({ usage, names }: { usage: PaletteUsage | undefined; names: Map<string, string> }) {
+  if (!usage) return null;
+  const label = (use: PaletteUsage["uses"][number]) => `${use.kind === "sprite" ? "Sprite" : "Background"} slot ${use.slot + 1}`;
+  const defaults = usage.uses.filter((use) => use.scene === null);
+  const own = usage.uses.filter((use) => use.scene !== null && !use.inherited);
+  const inherited = usage.uses.filter((use) => use.inherited);
+  return (
+    <div className="gbp-pm-usage">
+      <span className="eyebrow">Used by</span>
+      {!usage.uses.length && <p className="gbp-note">No scene uses this palette, and it isn't a default. (An event may still switch to it.)</p>}
+      {defaults.length > 0 && <p><b>Project defaults</b> · {defaults.map(label).join(", ")}</p>}
+      {own.length > 0 && <p><b>Scenes</b> · {own.map((use) => `${use.scene} (${label(use).toLowerCase()})`).join(", ")}</p>}
+      {inherited.length > 0 && <p className="gbp-note">Through the defaults: {[...new Set(inherited.map((use) => use.scene))].join(", ")}</p>}
+      {usage.sameColors.length > 0 && <p className="gbp-note">Same four colors as {usage.sameColors.map((id) => names.get(id) ?? id).join(", ")}.</p>}
     </div>
   );
 }

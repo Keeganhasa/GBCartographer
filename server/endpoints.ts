@@ -15,6 +15,7 @@
  *   GET  /__cartographer/gbstudio-running     whether a GB Studio process is running (it may overwrite project JSON when it saves)
  *   POST /__cartographer/reveal               ?kind=&file= shows that asset in Finder / Explorer (no kind: the project folder;
  *                                             ?backups=1: this project's backups folder)
+ *   GET  /__cartographer/palette-usage        which scenes (and defaults) use each palette, and same-colored palettes
  *   POST /__cartographer/asset-times          { assets: [{ kind, file }] } their PNG and sidecar times (null: gone)
  *   GET  /__cartographer/backups              this project's backed-up files and their versions (?file= one file)
  *   GET  /__cartographer/backup               one version's bytes (?file=&version=; version=current: the file now)
@@ -26,7 +27,7 @@ import { execFileSync, spawn } from "node:child_process";
 import { dirname, resolve, sep } from "node:path";
 import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { AssetWriteError, assetInfo, assetPath, listAssets, listPalettes, projectName, renderPreview, writeAsset, writePalette, writePaletteSlot, writeSpritePalettes, writeTileColors, type AssetKind } from "./assets";
+import { AssetWriteError, paletteUsage, assetInfo, assetPath, listAssets, listPalettes, projectName, renderPreview, writeAsset, writePalette, writePaletteSlot, writeSpritePalettes, writeTileColors, type AssetKind } from "./assets";
 import { backupPath, listBackups, projectBackupDir, restoreBackup } from "./backups";
 import { demoProjectCopy, projectFolder, projectFolderFor, projectProblem, projectVersion, recentProjects, saveProjectFolder, setProjectFolder, versionNote } from "./project";
 
@@ -177,6 +178,10 @@ export async function handleCartographerRequest(req: IncomingMessage, res: Serve
         return { mtime: statSync(path).mtimeMs, metaMtime: existsSync(`${path}.gbsres`) ? statSync(`${path}.gbsres`).mtimeMs : null };
       });
       reply(res, 200, { ok: true, times });
+      return true;
+    }
+    if (url.pathname === "/__cartographer/palette-usage") {
+      reply(res, 200, { ok: true, palettes: paletteUsage(project) });
       return true;
     }
     if (url.pathname === "/__cartographer/gbstudio-assets") {

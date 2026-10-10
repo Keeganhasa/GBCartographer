@@ -500,3 +500,9 @@
 .gbp-disk-bar > span:first-child { flex: 1 1 220px; min-width: 0; }
 .gbp-disk-bar .gbp-spacer { display: none; }
 .gbp-disk-bar button { flex: none; }
+
+/* The palette manager's usage tags and "Used by". */
+.gbp-pm-tag { flex: none; padding: 0 5px; color: var(--muted); border: 1px solid var(--b-edge, var(--line)); border-radius: 4px; font-size: 9px; letter-spacing: .04em; }
+.gbp-pm-usage { display: flex; flex-direction: column; gap: 3px; padding: 8px 10px; border: 1px solid var(--b-edge, var(--line)); border-radius: 10px; font-size: var(--fs-sm); }
+.gbp-pm-usage p { margin: 0; line-height: 1.45; }
+.gbp-pm-head .gbp-check { margin: 4px 0 0; }

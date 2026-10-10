@@ -1484,6 +1484,7 @@ export default function PaintApp() {
           onClose={() => setShowPalettes(false)}
           onWriteProject={writeProjectPalette}
           onPick={(id) => { const index = docPalettes.findIndex((item) => item.id === id); if (index >= 0) { setActivePalette(index + 1); setTool("palette"); } }}
+          onSlotMenu={doc?.asset?.slots?.length ? (id, x, y) => { const index = docPalettes.findIndex((item) => item.id === id); if (index >= 0) setSlotMenu({ x, y, palette: index + 1 }); else say("Open a picture of this project to put its palettes in slots."); } : undefined}
         />
       )}
     </div>
