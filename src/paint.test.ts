@@ -1,7 +1,30 @@
 import { describe, expect, it } from "vitest";
-import { CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, clipRect, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, hexRgb, closeShades, colorDistance, paletteVariant, inPattern, linkGroups, syncLinked, mergeNearTiles, tileUsage, gbStudioShade, gbcCorrect, dropCells, flipFloat, lift, liftCells, linePoints, onTiles, replaceShade, rotateFloat, mirrorPoints, namedSlot, quantize, snapRect, toRgba } from "./paint";
+import { CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, clipRect, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, hexRgb, closeShades, colorDistance, fitPalettes, paletteVariant, inPattern, linkGroups, syncLinked, mergeNearTiles, tileUsage, gbStudioShade, gbcCorrect, dropCells, flipFloat, lift, liftCells, linePoints, onTiles, replaceShade, rotateFloat, mirrorPoints, namedSlot, quantize, snapRect, toRgba } from "./paint";
 
 describe("GB Cartographer pixels", () => {
+  it("fits colored art to four colors a tile and at most eight palettes, reporting what changed", () => {
+    // 10 tiles in a row, each in its own two colors: 10 palettes that can merge pairwise (four colors).
+    const width = 80, rgba = new Uint8ClampedArray(width * 8 * 4);
+    const hue = (n: number, light: boolean) => [light ? 200 + n * 5 : n * 20, light ? 180 : 20 + n * 10, light ? 160 - n * 3 : 40, 255];
+    for (let y = 0; y < 8; y += 1) for (let x = 0; x < width; x += 1) rgba.set(hue(x >> 3, (x + y) % 2 === 0), (y * width + x) * 4);
+    const fit = fitPalettes(rgba, width, 8, 8);
+    expect(fit.report.before).toBe(10);
+    expect(fit.report.after).toBeLessThanOrEqual(8);
+    expect(fit.report.changed).toBe(0);
+    expect(fit.palettes.every((palette) => palette.length === 4)).toBe(true);
+    expect([...fit.cells].every((wear) => wear >= 1 && wear <= fit.palettes.length)).toBe(true);
+    // Each pixel's shade points at its own color in its tile's palette.
+    const p = fit.palettes[fit.cells[3] - 1][fit.pixels[3 * 8]];
+    expect(p).toBe(`#${rgba.slice(3 * 8 * 4, 3 * 8 * 4 + 3).reduce((hex, value) => hex + value.toString(16).padStart(2, "0"), "").toUpperCase()}`);
+    // A tile with five colors keeps four and is reported; fewer palettes allowed means some colors move.
+    const five = new Uint8ClampedArray(8 * 8 * 4);
+    for (let at = 0; at < 64; at += 1) five.set([[255, 255, 255], [180, 180, 180], [100, 100, 100], [40, 40, 40], [250, 0, 0]][at % 5].concat(255), at * 4);
+    const fitFive = fitPalettes(five, 8, 8, 8);
+    expect(fitFive.report.overfull).toEqual([0]);
+    expect(fitFive.report.changed).toBeGreaterThan(0);
+    expect(fitPalettes(rgba, width, 8, 2).report.after).toBe(2);
+  });
+
   it("keeps a variable-width font's magenta columns: see-through here, magenta in the file", () => {
     const rgba = new Uint8ClampedArray([7, 24, 33, 255, 255, 0, 255, 255]);
     const font = quantize(rgba, 2, 1, [], false, true);

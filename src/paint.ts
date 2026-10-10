@@ -30,8 +30,11 @@ export interface Picture { pixels: Uint8Array; cells: Uint8Array; hasAlpha: bool
 export const cellsWide = (width: number) => Math.ceil(width / CELL);
 /** Per channel: a color this close to a GB green is that green (the same tolerance as the main app's shadeIndex). */
 export const NEAR_SHADE_TOLERANCE = 24;
-/** Palettes made up for tiles whose colors are in no library palette, so saving never loses them. */
-const FILE_PALETTE_LIMIT = 64;
+/**
+ * Palettes made up for tiles whose colors are in no library palette, so a picture keeps its colors as it opens
+ * (Picture tab → Fit to 8 palettes brings them within GB Studio's limits).
+ */
+const FILE_PALETTE_LIMIT = 1024;
 
 /**
  * GB Studio's own rule for reading a color as a shade (`tileDataIndexFn` in GB Studio's source): the green channel
@@ -628,7 +631,7 @@ export function gbcCorrect(rgba: Uint8ClampedArray): Uint8ClampedArray {
 }
 
 /** CIE L*a*b* of an sRGB "#RRGGBB" (D65). */
-function lab(hex: string): [number, number, number] {
+function labValues(hex: string): [number, number, number] {
   const linear = hexRgb(hex).map((value) => { const c = value / 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; });
   const [x, y, z] = [
     (linear[0] * 0.4124 + linear[1] * 0.3576 + linear[2] * 0.1805) / 0.95047,
@@ -640,7 +643,7 @@ function lab(hex: string): [number, number, number] {
 
 /** How different two colors look (CIE76 ΔE: about 2 is barely visible, under ~12 is hard to tell apart on a small screen). */
 export function colorDistance(a: string, b: string): number {
-  const [l1, a1, b1] = lab(a), [l2, a2, b2] = lab(b);
+  const [l1, a1, b1] = labValues(a), [l2, a2, b2] = labValues(b);
   return Math.hypot(l1 - l2, a1 - a2, b1 - b2);
 }
 
@@ -684,4 +687,145 @@ export function paletteVariant(colors: readonly string[], variant: "D" | "N" | "
     if (variant === "N") return fromHsl(pullHue(h, 240, 0.55), Math.min(1, s * (0.15 + 0.3 * at)), l * 0.5);
     return fromHsl(pullHue(h, 15, 0.45), Math.min(0.95, s * 1.25 + 0.08), l * 0.8);
   });
+}
+
+/** What fitting a colored picture to GB Studio's color limits changed. */
+export interface FitReport {
+  /** Tiles that had more than four colors (reduced to their four most important). */
+  overfull: number[];
+  /** How many different tile palettes the picture needed before merging, and after. */
+  before: number; after: number;
+  /** Pixels whose color changed. */
+  changed: number;
+}
+
+/**
+ * Fits a colored picture (RGBA) to GB Studio's color limits: four colors per 8 × 8 tile and at most `max` palettes.
+ * Tiles with more colors lose their least-used ones (each to its nearest kept color); palettes that fit together in
+ * four colors merge (as GB Studio's Automatic color does); while more than `max` remain, the pair whose merge changes
+ * the fewest pixels (by color distance) merges. Returns the palettes (each lightest first, four colors), each tile's
+ * palette, each pixel's shade (its color's place in the palette), and a report. See-through pixels stay CLEAR.
+ */
+export function fitPalettes(rgba: Uint8ClampedArray, width: number, height: number, max = 8): { palettes: string[][]; cells: Uint8Array; pixels: Uint8Array; report: FitReport } {
+  const cw = cellsWide(width), ch = Math.ceil(height / CELL), count = cw * ch;
+  const hexOf = (p: number) => `#${((rgba[p] << 16) | (rgba[p + 1] << 8) | rgba[p + 2]).toString(16).padStart(6, "0").toUpperCase()}`;
+  const near = (a: string, b: string) => colorDistance(a, b);
+  // Each tile's colors with how many pixels use them.
+  const tiles: Map<string, number>[] = Array.from({ length: count }, () => new Map());
+  for (let y = 0; y < height; y += 1) for (let x = 0; x < width; x += 1) {
+    const p = (y * width + x) * 4;
+    if (rgba[p + 3] < 128) continue;
+    const tile = tiles[(y >> 3) * cw + (x >> 3)], hex = hexOf(p);
+    tile.set(hex, (tile.get(hex) ?? 0) + 1);
+  }
+  /** Fewer colors: the closest pair (weighted by use) merges into the more used one, until `limit` are left. */
+  const reduce = (colors: Map<string, number>, limit: number): { kept: Map<string, number>; cost: number } => {
+    const kept = new Map(colors);
+    let cost = 0;
+    while (kept.size > limit) {
+      let best: [string, string, number] | null = null;
+      const list = [...kept.keys()];
+      for (let i = 0; i < list.length; i += 1) for (let j = 0; j < list.length; j += 1) {
+        if (i === j) continue;
+        const weight = kept.get(list[i])! * near(list[i], list[j]);
+        if (!best || weight < best[2]) best = [list[i], list[j], weight];
+      }
+      const [gone, into, weight] = best!;
+      kept.set(into, kept.get(into)! + kept.get(gone)!);
+      kept.delete(gone);
+      cost += weight;
+    }
+    return { kept, cost };
+  };
+  const overfull: number[] = [];
+  const tileSets = tiles.map((colors, cell) => {
+    if (colors.size > 4) overfull.push(cell);
+    return reduce(colors, 4).kept;
+  });
+  // Distinct tile palettes, then merge those that fit together in four colors (largest first, as GB Studio does).
+  let groups: { colors: Map<string, number>; cells: number[] }[] = [];
+  const bySet = new Map<string, number>();
+  tileSets.forEach((colors, cell) => {
+    if (!colors.size) return;
+    const key = [...colors.keys()].sort().join();
+    const at = bySet.get(key);
+    if (at !== undefined) { groups[at].cells.push(cell); for (const [hex, uses] of colors) groups[at].colors.set(hex, groups[at].colors.get(hex)! + uses); }
+    else { bySet.set(key, groups.length); groups.push({ colors: new Map(colors), cells: [cell] }); }
+  });
+  const before = groups.length;
+  const union = (a: Map<string, number>, b: Map<string, number>) => { const out = new Map(a); for (const [hex, uses] of b) out.set(hex, (out.get(hex) ?? 0) + uses); return out; };
+  groups.sort((a, b) => b.colors.size - a.colors.size);
+  // Sweeps until nothing more fits together: each palette takes in every later one whose colors fit with its own.
+  for (let merged = true; merged;) {
+    merged = false;
+    for (let i = 0; i < groups.length; i += 1) {
+      for (let j = i + 1; j < groups.length; j += 1) {
+        const both = union(groups[i].colors, groups[j].colors);
+        if (both.size > 4) continue;
+        groups[i] = { colors: both, cells: [...groups[i].cells, ...groups[j].cells] };
+        groups.splice(j, 1);
+        j -= 1;
+        merged = true;
+      }
+    }
+  }
+  // Still too many: merge the cheapest pair. A pair's cost is estimated as the pixels of each palette weighted by
+  // their distance to the nearest color of the other (cheap, with each color's Lab cached); after a merge only the
+  // merged palette's pairs are scored again, and each row keeps its best partner, so big pictures stay quick.
+  if (groups.length > Math.max(1, max)) {
+    const lab = new Map<string, [number, number, number]>();
+    const labOf = (hex: string) => { let value = lab.get(hex); if (!value) { const [l, a, b] = labValues(hex); value = [l, a, b]; lab.set(hex, value); } return value; };
+    const distance = (a: string, b: string) => { const [l1, a1, b1] = labOf(a), [l2, a2, b2] = labOf(b); return Math.hypot(l1 - l2, a1 - a2, b1 - b2); };
+    const estimate = (a: Map<string, number>, b: Map<string, number>) => {
+      const all = new Set([...a.keys(), ...b.keys()]);
+      if (all.size <= 4) return 0;
+      const side = (from: Map<string, number>, to: Map<string, number>) => { let cost = 0; for (const [hex, uses] of from) { let best = Infinity; for (const other of to.keys()) best = Math.min(best, distance(hex, other)); cost += uses * best; } return cost; };
+      return Math.min(side(a, b), side(b, a));
+    };
+    const n = groups.length, alive = new Array<boolean>(n).fill(true);
+    const cost = new Float64Array(n * n);
+    const best = new Int32Array(n).fill(-1);
+    const rowBest = (i: number) => { let pick = -1; for (let j = 0; j < n; j += 1) if (j !== i && alive[j] && (pick < 0 || cost[i * n + j] < cost[i * n + pick])) pick = j; best[i] = pick; };
+    for (let i = 0; i < n; i += 1) for (let j = i + 1; j < n; j += 1) cost[i * n + j] = cost[j * n + i] = estimate(groups[i].colors, groups[j].colors);
+    for (let i = 0; i < n; i += 1) rowBest(i);
+    for (let left = n; left > Math.max(1, max); left -= 1) {
+      let i = -1;
+      for (let k = 0; k < n; k += 1) if (alive[k] && best[k] >= 0 && (i < 0 || cost[k * n + best[k]] < cost[i * n + best[i]])) i = k;
+      const j = best[i];
+      groups[i] = { colors: reduce(union(groups[i].colors, groups[j].colors), 4).kept, cells: [...groups[i].cells, ...groups[j].cells] };
+      alive[j] = false;
+      for (let k = 0; k < n; k += 1) if (alive[k] && k !== i) cost[i * n + k] = cost[k * n + i] = estimate(groups[i].colors, groups[k].colors);
+      for (let k = 0; k < n; k += 1) if (alive[k] && (k === i || best[k] < 0 || best[k] === i || best[k] === j || cost[k * n + i] < cost[k * n + best[k]])) rowBest(k);
+    }
+    groups = groups.filter((_, index) => alive[index]);
+  }
+  groups = groups.filter((group) => group.colors.size);
+  // Palettes lightest first, four colors (a short one repeats its darkest).
+  const lightness = (hex: string) => colorDistance(hex, "#000000");
+  const palettes = groups.map((group) => {
+    const colors = [...group.colors.keys()].sort((a, b) => lightness(b) - lightness(a));
+    while (colors.length < 4) colors.push(colors[colors.length - 1]);
+    return colors;
+  });
+  const cells = new Uint8Array(count);
+  groups.forEach((group, index) => { for (const cell of group.cells) cells[cell] = index + 1; });
+  const pixels = new Uint8Array(width * height);
+  let changed = 0;
+  const nearestCache = new Map<string, number>();
+  for (let y = 0; y < height; y += 1) for (let x = 0; x < width; x += 1) {
+    const at = y * width + x, p = at * 4;
+    if (rgba[p + 3] < 128) { pixels[at] = CLEAR; continue; }
+    const wears = cells[(y >> 3) * cw + (x >> 3)];
+    if (!wears) continue;
+    const palette = palettes[wears - 1], hex = hexOf(p), key = `${wears}|${hex}`;
+    let shade = nearestCache.get(key);
+    if (shade === undefined) {
+      shade = 0;
+      for (let s = 1; s < 4; s += 1) if (near(hex, palette[s]) < near(hex, palette[shade])) shade = s;
+      nearestCache.set(key, shade);
+    }
+    pixels[at] = shade;
+    if (palette[shade] !== hex) changed += 1;
+  }
+  return { palettes, cells, pixels, report: { overfull, before, after: groups.length, changed } };
 }

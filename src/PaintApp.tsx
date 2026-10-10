@@ -23,6 +23,7 @@ import { HealthWindow } from "./app/HealthWindow";
 import { SpriteOnBackground } from "./app/SpriteOnBackground";
 import { DialoguePreview } from "./app/DialoguePreview";
 import { MapRoom } from "./app/MapRoom";
+import { FitWindow } from "./app/FitWindow";
 import { NewPictureWindow, ResizeWindow, type NewPicture } from "./app/NewPictureWindow";
 import { Menu } from "./app/Menu";
 import { StartScreen } from "./app/StartScreen";
@@ -85,6 +86,8 @@ export default function PaintApp() {
   const [showHealth, setShowHealth] = useState(false);
   const [showDialogue, setShowDialogue] = useState(false);
   const [showMapRoom, setShowMapRoom] = useState(false);
+  /** Fit to GB Studio's colors: the picture as shown (its colors), when open. */
+  const [fitting, setFitting] = useState<Uint8ClampedArray | null>(null);
   /** Try the sprite sheet's animation on one of the project's backgrounds: its frames, drawn when opened. */
   const [onBackground, setOnBackground] = useState<HTMLCanvasElement[] | null>(null);
   const [showNew, setShowNew] = useState(false);
@@ -330,7 +333,7 @@ export default function PaintApp() {
         const made = picture.palettes.length - palettesRef.current.length;
         if (info?.autoColor) say(`${asset?.name ?? file.name} uses GB Studio's Automatic color: GB Studio reads its colors from the PNG itself. Saving here writes the four greens and loses them; Save asks first.`);
         else if (picture.snapped) say(`${file.name}: ${picture.snapped} color${picture.snapped === 1 ? "" : "s"} read as the same shade as another color in their tile (GB Studio reads colors by their green), so they show alike, as in GB Studio.`);
-        else if (made) say(`${file.name}: tiles in colors outside the library keep them as ${made} palette${made === 1 ? "" : "s"} of the file. Each pixel's shade is the one GB Studio reads it as (by its green); Save writes those greens.`);
+        else if (made) say(`${file.name}: tiles in colors outside the library keep them as ${made} palette${made === 1 ? "" : "s"} of the file.${made > 8 ? " GB Studio allows 8 a scene: Picture tab → Fit to 8 palettes shows what fitting changes." : ""} Save writes the greens GB Studio reads the colors as.`);
         else if (dressed) say(`${asset?.name}: ${dressed} tile${dressed === 1 ? "" : "s"} wear the palettes GB Studio gives them.`);
         else if (picture.near) say(`${file.name}: ${picture.near} color${picture.near === 1 ? "" : "s"} a hair off the GB greens read as those greens.`);
       } catch {
@@ -1502,6 +1505,43 @@ export default function PaintApp() {
     doc.priority.forEach((on, cell) => { if (on) context.fillRect(cell % cw, Math.floor(cell / cw), 1, 1); });
   });
 
+  /**
+   * Applies a palette fit: the picture takes its shades, tile palettes and palettes (undoable). With `intoProject`,
+   * the palettes are first added to the project and then put in the picture's slots (1 onwards), so Save writes the
+   * tiles' slots too.
+   */
+  async function applyFit(fit: { palettes: string[][]; cells: Uint8Array; pixels: Uint8Array; report: { after: number } }, intoProject: boolean) {
+    const target = doc;
+    if (!target) return;
+    const base = target.name.replace(/\.png$/i, "");
+    const ids: (string | null)[] = [];
+    if (intoProject) {
+      if (!await okToWriteProjectJson()) return;
+      for (const [index, colors] of fit.palettes.entries()) ids.push(await writeProjectPalette({ name: `${base} ${index + 1}`, colors }));
+      if (ids.some((id) => !id)) return say("Not every palette could be added to the project; nothing else changed.");
+    }
+    dropFloat(target);
+    pushUndo(target);
+    // Each fitted palette in the picture's own list (a project palette by id, else added as a palette of the file).
+    const slots = fit.palettes.map((colors, index) => {
+      const id = ids[index];
+      let at = id ? target.palettes.findIndex((palette) => palette.id === id) : -1;
+      if (at < 0) at = target.palettes.push({ name: `${base} ${index + 1}`, colors: [...colors], ...(id ? { id } : {}) }) - 1;
+      return at + 1;
+    });
+    target.pixels = fit.pixels.slice();
+    target.cells = Uint8Array.from(fit.cells, (wear) => wear ? slots[wear - 1] : 0);
+    if (intoProject && target.asset) {
+      for (const [slot, id] of ids.entries()) {
+        await fetch(`./__cartographer/gbstudio-palette-slot?${assetQuery(target.asset)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slot, paletteId: id }) }).catch(() => null);
+      }
+      await rereadSlots();
+      setSlotsVersion((value) => value + 1);
+    }
+    touch(target);
+    say(intoProject ? `${fit.report.after} palettes added to the project and put in slots 1–${fit.report.after}. Save writes the picture and its tiles' slots.` : `Fitted to ${fit.report.after} palettes. Undo brings the old colors back.`);
+  }
+
   function mergeNear() {
     if (!doc || !shownUsage || !nearCount) return;
     if (!window.confirm(`Make ${nearCount} tile${nearCount === 1 ? "" : "s"} that differ from another tile in at most 3 pixels into copies of it? This saves ${nearCount} tile${nearCount === 1 ? "" : "s"} of the budget; undo brings them back.`)) return;
@@ -1908,6 +1948,7 @@ export default function PaintApp() {
                   <dt>Unique tiles</dt><dd>{tileCount} of {budget.limit}</dd>
                 </dl>
                 <button className="quiet-button" title="A new size in whole tiles" onClick={() => setShowResize(true)}>Resize…</button>
+                {!doc.keyGreen && <button className="quiet-button" title="Fit the picture's colors to GB Studio's limits: four colors a tile, at most eight palettes; see what changes first" onClick={() => { const flat = doc.pixels.slice(); if (doc.float) drop(flat, doc.width, doc.height, doc.float); setFitting(toRgba(flat, doc.cells, doc.width, doc.palettes)); }}>Fit to 8 palettes…</button>}
                 <div className="gbp-budget">
                   <span className="eyebrow">Where the tiles go</span>
                   {shownUsage ? <p className="gbp-note">{tileCount} different tiles; {usedOnce} used only once{nearCount ? `, ${nearCount} of them within 3 pixels of another tile` : ""}.</p> : <p className="gbp-note">Counting…</p>}
@@ -2024,6 +2065,7 @@ export default function PaintApp() {
       {showHelp && <HelpWindow onClose={() => setShowHelp(false)} onAbout={() => { setShowHelp(false); setShowAbout(true); }} />}
       {showAbout && <AboutWindow onClose={() => setShowAbout(false)} />}
       {onBackground && project && <SpriteOnBackground backgrounds={project.assets.filter((asset) => asset.kind === "backgrounds")} frames={onBackground} fps={fps} onClose={() => setOnBackground(null)} />}
+      {fitting && doc && <FitWindow name={doc.name} rgba={fitting} width={doc.width} height={doc.height} slotsTarget={doc.asset?.slots?.length && (doc.asset.kind === "backgrounds" || doc.asset.kind === "tilesets") ? doc.asset.slotScene ?? "the project's defaults" : null} onClose={() => setFitting(null)} onApply={applyFit} />}
       {showMapRoom && project && <MapRoom project={project} onClose={() => setShowMapRoom(false)} onOpen={(asset) => { setProjectKind("backgrounds"); void openAsset(asset); }} onProjectChanged={async () => { await loadProject(); setSlotsVersion((value) => value + 1); }} onExport={(blob, name) => saveBlob(blob, name, PNG_TYPES)} say={say} />}
       {showDialogue && project && <DialoguePreview backgrounds={project.assets.filter((asset) => asset.kind === "backgrounds")} hasFrame={project.assets.some((asset) => asset.kind === "ui" && asset.file === "frame.png")} onClose={() => setShowDialogue(false)} />}
       {showHealth && project && <HealthWindow projectName={project.name} onClose={() => setShowHealth(false)} onOpen={(kind, file) => { const asset = project.assets.find((item) => item.kind === kind && item.file === file); if (asset) { setProjectKind(kind); void openAsset(asset); } }} />}
