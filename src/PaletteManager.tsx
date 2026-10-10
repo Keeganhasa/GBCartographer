@@ -4,7 +4,7 @@
  * right with a live preview of the open picture; a palette can be added to the project (a new
  * project/palettes/<name>.gbsres) or, for a project palette, saved back into its file.
  */
-import { ArrowDown, ArrowUp, Download, FolderTree, Gamepad2, Layers, Plus, Star, Trash2, Upload, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Download, Globe, FolderTree, Gamepad2, Layers, Plus, Star, Trash2, Upload, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import library from "./palettes/library.json";
 import { closeShades, colorize, paletteVariant, shadeLut, spriteShades, type Palette } from "./paint";
@@ -83,9 +83,26 @@ export function parsePaletteFile(name: string, text: string): Palette[] {
     const hex = /^\s*#?([0-9a-f]{6})\b/i.exec(line);
     if (hex) colors.push(`#${hex[1].toUpperCase()}`);
   }
+  return groupsOfFour(base, colors);
+}
+
+/** Colors taken four at a time, each palette lightest first (GB Studio's order; Lospec lists them darkest first). */
+export function groupsOfFour(base: string, colors: string[]): Palette[] {
+  const light = (hex: string) => { const value = parseInt(hex.slice(1), 16); return 0.299 * (value >> 16) + 0.587 * ((value >> 8) & 255) + 0.114 * (value & 255); };
   const palettes: Palette[] = [];
-  for (let at = 0; at + 4 <= colors.length; at += 4) palettes.push({ name: colors.length > 4 ? `${base} ${at / 4 + 1}` : base, colors: colors.slice(at, at + 4) });
+  for (let at = 0; at + 4 <= colors.length; at += 4) palettes.push({ name: colors.length > 4 ? `${base} ${at / 4 + 1}` : base, colors: colors.slice(at, at + 4).sort((a, b) => light(b) - light(a)) });
   return palettes;
+}
+
+/** A Lospec palette by its link (lospec.com/palette-list/<name>) or name: fetched from Lospec (it allows it). */
+export async function fetchLospec(link: string): Promise<Palette[]> {
+  const slug = (/palette-list\/([a-z0-9-]+)/i.exec(link)?.[1] ?? link.trim().toLowerCase().replace(/\s+/g, "-")).replace(/\.json$/, "");
+  if (!/^[a-z0-9-]+$/.test(slug)) throw new Error("That doesn't look like a Lospec palette link.");
+  const response = await fetch(`https://lospec.com/palette-list/${slug}.json`);
+  if (!response.ok) throw new Error(response.status === 404 ? "Lospec has no palette by that name." : response.statusText);
+  const data = await response.json() as { name?: string; author?: string; colors?: string[] };
+  const colors = (data.colors ?? []).map((color) => normalize(color)).filter((color): color is string => Boolean(color));
+  return groupsOfFour(`${data.name ?? slug}${data.author ? ` (${data.author})` : ""}`, colors);
 }
 
 export default function PaletteManager({ projectName, projectPalettes, sceneSlots, picture, onClose, onWriteProject, onPick, onSlotMenu, onRemoveProject }: PaletteManagerProps) {
@@ -244,6 +261,22 @@ export default function PaletteManager({ projectName, projectPalettes, sceneSlot
     setNote(`Exported ${current.palettes.length} palette${current.palettes.length === 1 ? "" : "s"}.`);
   }
 
+  /** A palette from a Lospec link, into Mine (four colors a palette; the author goes in the name). */
+  async function importLospec() {
+    const link = window.prompt("A Lospec palette link (lospec.com/palette-list/…) or its name:");
+    if (!link?.trim()) return;
+    try {
+      const found = await fetchLospec(link);
+      if (!found.length) return setNote("That Lospec palette has fewer than four colors.");
+      const list = [...mine, ...found];
+      saveMine(list);
+      choose("mine", mine.length);
+      setNote(`Imported ${found.map((palette) => palette.name).join(", ")} from Lospec into Mine. Check its terms on Lospec before shipping it in a game.`);
+    } catch (error) {
+      setNote(`Could not get it from Lospec: ${(error as Error).message}`);
+    }
+  }
+
   /** Palettes from a file (JSON export, Lospec .hex, GIMP .gpl) into Mine. */
   function importFile() {
     const input = document.createElement("input");
@@ -326,6 +359,7 @@ export default function PaletteManager({ projectName, projectPalettes, sceneSlot
         <nav className="gbp-pm-rail" aria-label="Collections">
           {collections.map((group) => { const Icon = COLLECTION_ICONS[group.id] ?? Layers; return <button key={group.id} className={`icon-button ${collection === group.id ? "active-tool" : ""}`} aria-pressed={collection === group.id} aria-label={`${group.label} (${group.palettes.length})`} title={`${group.label} · ${group.palettes.length}`} onClick={() => choose(group.id, 0)}><Icon size={16} /><b>{group.palettes.length}</b></button>; })}
           <span className="gbp-spacer" />
+          <button className="icon-button" aria-label="Import from Lospec" title="Import a palette from a Lospec link into Mine" onClick={() => void importLospec()}><Globe size={16} /></button>
           <button className="icon-button" aria-label="Import palettes" title="Import palettes into Mine: a JSON export, a Lospec .hex or a GIMP .gpl (four colors a palette)" onClick={importFile}><Upload size={16} /></button>
           <button className="icon-button" aria-label="Export this collection" title="Export the palettes shown on the left as a JSON file" disabled={!current.palettes.length} onClick={exportCollection}><Download size={16} /></button>
           <button className="icon-button" aria-label="New palette" title="A new palette in Mine, in the GB greens" onClick={newPalette}><Plus size={16} /></button>
