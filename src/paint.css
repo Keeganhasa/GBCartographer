@@ -432,3 +432,10 @@
 :root .gbp-project-title:hover { color: var(--hover-ink); background: var(--hover-fill); border-color: var(--hover-edge); }
 :root .gbp-project-title .gbp-project-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 :root .gbp-project-title svg { flex: none; }
+
+/* The brand is the project menu (open, demo, recent, Show in Finder, close). */
+:root .gbp-brand { display: inline-flex; align-items: center; gap: 8px; padding: 4px 8px 4px 4px; color: var(--ink); background: transparent; border: 1px solid transparent; border-radius: 10px; font: inherit; cursor: pointer; }
+:root .gbp-brand:hover { color: var(--hover-ink); background: var(--hover-fill); border-color: var(--hover-edge); }
+:root .gbp-brand svg { flex: none; color: var(--muted); }
+:root .gbp-brand:hover svg { color: var(--hover-ink); }
+.gbp-menu-label { padding: 2px 10px 2px; color: var(--muted); font-size: var(--fs-xs); letter-spacing: .08em; text-transform: uppercase; }

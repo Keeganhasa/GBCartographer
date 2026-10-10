@@ -4,7 +4,7 @@
  * A tint only changes how the plain tiles look while painting. Saving writes one flat PNG, and for a project
  * picture also its tile palettes (see server/endpoints.ts).
  */
-import { ArrowLeftRight, BoxSelect, ChevronDown, Circle, CircleHelp, Download, DropletOff, Eraser, FlipHorizontal2, FolderOpen, FolderTree, Ghost, Grid3x3, Hand, Image, LayoutGrid, Magnet, Minus, Move, PaintBucket, Palette as PaletteIcon, Pause, Pencil, Pipette, Play, Plus, RectangleHorizontal, Redo2, Save, Slash, SprayCan, Square, Star, Type, Undo2, X } from "lucide-react";
+import { BoxSelect, ChevronDown, Circle, CircleHelp, Download, DropletOff, Eraser, FlipHorizontal2, FolderOpen, FolderTree, Ghost, Grid3x3, Hand, Image, LayoutGrid, Magnet, Minus, Move, PaintBucket, Palette as PaletteIcon, Pause, Pencil, Pipette, Play, Plus, RectangleHorizontal, Redo2, Save, Slash, SprayCan, Square, Star, Type, Undo2, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useReducer, useRef, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { LogoMark } from "./ui/LogoMark";
@@ -1116,7 +1116,7 @@ export default function PaintApp() {
   return (
     <div className="gbp-shell" onDragOver={(event) => event.preventDefault()} onDrop={(event) => void onDrop(event)}>
       <header className="gbp-bar">
-        <span className="gbp-brand"><LogoMark size={22} /><b>GB Cartographer</b></span>
+        <button className="gbp-brand" aria-haspopup="menu" title={served ? "Projects: open, switch or close" : "GB Cartographer"} onClick={(event) => { if (!served) return; const r = event.currentTarget.getBoundingClientRect(); setProjectMenu({ x: r.left, y: r.bottom + 6 }); }}><LogoMark size={22} /><b>GB Cartographer</b>{served && <ChevronDown size={14} />}</button>
         <span className="gbp-seg" role="group" aria-label="File">
           <button className="quiet-button" title="Open PNG files · Ctrl+O (or drop them on the window)" onClick={() => void pickFiles()}><FolderOpen size={14} />Open</button>
           <button className="quiet-button" disabled={!doc} title={`Save every changed picture · Ctrl+S${doc?.asset ? ` (this one over ${doc.asset.file} in the project; old files go to the backups folder)` : doc?.handle ? ` (this one over ${doc.name})` : " (this one asks where)"}`} onClick={() => void save(false)}><Save size={14} />Save</button>
@@ -1160,11 +1160,9 @@ export default function PaintApp() {
           <>
             <nav className="gbp-rail" aria-label="Asset folders">
               {ASSET_KINDS.map(([kind, label]) => { const Icon = KIND_ICONS[kind]; const count = project.assets.filter((asset) => asset.kind === kind).length; return <button key={kind} className={`icon-button ${projectKind === kind ? "active-tool" : ""}`} aria-pressed={projectKind === kind} aria-label={`${label} (${count})`} title={`${label} · ${count}`} onClick={() => setProjectKind(kind)}><Icon size={16} /><b>{count}</b></button>; })}
-              <span className="gbp-spacer" />
-              <button className="icon-button" aria-label="Switch project" title="Open another project, the demo or a recent one, or close this project" onClick={(event) => { const r = event.currentTarget.getBoundingClientRect(); setProjectMenu({ x: r.right + 6, y: r.bottom - 150 }); }}><ArrowLeftRight size={15} /></button>
             </nav>
             <aside className="gbp-project" aria-label="GB Studio project">
-              <h2 title={project.path}><button className="gbp-project-title" aria-haspopup="menu" title={`${project.path} · open another project, or close this one`} onClick={(event) => { const r = event.currentTarget.getBoundingClientRect(); setProjectMenu({ x: r.left, y: r.bottom + 4 }); }}><span className="gbp-project-name">{project.name}</span><ChevronDown size={14} /></button></h2>
+              <h2 title={project.path}><span className="gbp-project-name">{project.name}</span></h2>
               <input type="search" className="gbp-filter" placeholder={`Filter ${kindLabel.toLowerCase()}`} aria-label={`Filter ${kindLabel.toLowerCase()} by name`} value={projectFilter} onChange={(event) => setProjectFilter(event.target.value)} />
               <div className="gbp-assets" role="list">
                 {shownAssets.map((asset) => {
@@ -1365,11 +1363,13 @@ export default function PaintApp() {
           <div className="gbp-menu" role="menu" style={{ left: Math.min(projectMenu.x, window.innerWidth - 260), top: Math.max(8, Math.min(projectMenu.y, window.innerHeight - 260)) }} onMouseDown={(event) => event.stopPropagation()}>
             <button role="menuitem" onClick={() => { setProjectMenu(null); void chooseProject(); }}>Open another project…</button>
             <button role="menuitem" onClick={() => { setProjectMenu(null); void chooseProject(true); }}>Open the demo project</button>
-            {recent.filter((item) => item.path !== project?.path).length > 0 && <hr />}
+            {recent.filter((item) => item.path !== project?.path).length > 0 && <><hr /><span className="gbp-menu-label">Recent</span></>}
             {recent.filter((item) => item.path !== project?.path).slice(0, 5).map((item) => <button key={item.path} role="menuitem" title={item.path} onClick={() => { setProjectMenu(null); void openProjectPath(item.path); }}>{item.name}</button>)}
-            <hr />
-            <button role="menuitem" onClick={() => { setProjectMenu(null); void fetch("./__cartographer/reveal", { method: "POST" }); }}>{FILE_MANAGER_LABEL}</button>
-            <button role="menuitem" onClick={() => { setProjectMenu(null); void closeProject(); }}>Close project</button>
+            {project && <>
+              <hr />
+              <button role="menuitem" onClick={() => { setProjectMenu(null); void fetch("./__cartographer/reveal", { method: "POST" }); }}>{FILE_MANAGER_LABEL}</button>
+              <button role="menuitem" onClick={() => { setProjectMenu(null); void closeProject(); }}>Close project</button>
+            </>}
           </div>
         </div>
       )}

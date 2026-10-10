@@ -21,7 +21,7 @@ into PROGRESS.md when they deserve a note.
 
 - [x] One theme for now: OLED Game Boy green (mauve, then maroon, then the two Game Boy greens: pink felt too GB Studio).
       Other themes stay unlisted in theme.ts.
-- [x] Project menu (click the project name, or the arrows at the bottom of the rail): open another project, the demo,
+- [x] Project menu on the GB Cartographer name at the top left (it works on the start screen too): open another project, the demo,
       a recent one, Show in Finder, Close project. Unsaved pictures are offered a save first; the old project's tabs
       close; a picture never saves into a project it didn't come from.
 - [x] Hover is the Game Boy's dark green (`#306850`, light-green text) on buttons, tools, icon buttons, segmented
@@ -73,7 +73,7 @@ into PROGRESS.md when they deserve a note.
 
 - [ ] Rename the archived private repo on GitHub (`gh repo rename GBCartographer-archive --repo Keeganhasa/GBCartographer`)
       so the name is free, then `gh repo create Keeganhasa/GBCartographer --public --source . --push`.
-- [ ] README: a short GIF of painting and saving (a screenshot is in).
+- [ ] README: a short GIF of painting and saving (three screenshots are in: the demo, and two of GB Studio's MIT sample project).
 - [ ] Repo settings: description, topics (gbstudio, game-boy, pixel-art, electron), issues on, discussions off for now.
 - [ ] Tag `v0.1.0` once the builds below exist.
 

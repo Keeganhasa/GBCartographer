@@ -94,7 +94,7 @@ server layer (`server/`) and the Electron shell (`electron/`). Nothing from any 
   (`PREVIEW_VERSION`) so a change to the previews refreshes cached images. Right-click a card for Open, Show in
   Finder / Explorer (`POST /__cartographer/reveal`, the asset or the project folder), Copy file path.
 
-- Project menu on the project name (and the rail's arrows): Open another project…, the demo, recent projects, Show in
+- Project menu on the GB Cartographer name at the top left (it works on the start screen, where it lists open and recent): Open another project…, the demo, recent projects, Show in
   Finder, Close project (back to the start screen). Switching or closing first asks to save unsaved pictures of the
   current project (`readyToLeaveProject`), then closes that project's tabs (`closeDocsOf`). Each project picture
   records its project folder (`asset.project`) and Save refuses to write it into another project.

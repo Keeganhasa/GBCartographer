@@ -22,6 +22,13 @@ back into the project. It also opens any Game Boy PNG on its own.
   project's in place.
 - **Dark themes**, including ones built from Game Boy palettes, and a choice of fonts.
 
+GB Studio's own sample project opened in GB Cartographer: a font sheet with its live sample sentence, and a wide
+parallax background painted with its scene's palettes.
+
+![A GB Studio font sheet open, with "The quick brown fox" set in its glyphs above it](docs/screenshot-font.png)
+
+![A 640 × 144 background from GB Studio's sample project, painted in color](docs/screenshot-sample-background.png)
+
 ## Try it with the demo project
 
 The app ships with a small GB Studio 4 project in `demo/`: a winter scene, a cabin interior and a forest, a furniture
@@ -79,5 +86,7 @@ npm run build
 
 Code: MIT (see LICENSE). The logo is the author's pixel art, CC0. [Public Pixel](https://ggbot.itch.io/public-pixel-font)
 by GGBotNet (CC0, shipped in `public/fonts/`) is an optional UI font. Inter by Rasmus Andersson and JetBrains Mono are loaded from Google Fonts (SIL Open Font License 1.1).
-The demo project's art is credited in [demo/CREDITS.md](demo/CREDITS.md). GB Studio is by Chris Maltby and
+The demo project's art is credited in [demo/CREDITS.md](demo/CREDITS.md). The second and third screenshots show GB
+Studio's sample project (`appData/templates/gbs2` in the [GB Studio repository](https://github.com/chrismaltby/gb-studio)),
+Copyright (c) 2019-2026 Chris Maltby, used under the MIT license. GB Studio is by Chris Maltby and
 contributors; GB Cartographer is not affiliated with it.
