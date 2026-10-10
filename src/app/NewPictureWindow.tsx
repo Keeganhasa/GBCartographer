@@ -1,5 +1,7 @@
 import { X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { GB_SHADES } from "../paint";
+import { loadFontFile, renderFontSheet, type LoadedFont } from "./fontSheet";
 import { ASSET_KINDS, type AssetKind } from "./model";
 
 /** Sizes that suit each kind (all in whole 8 × 8 tiles); the first is the default. */
@@ -14,7 +16,7 @@ const PRESETS: Record<AssetKind | "file", [number, number, string][]> = {
   file: [[160, 144, "one screen"], [256, 256, "256 × 256"], [16, 16, "16 × 16"]],
 };
 
-export interface NewPicture { kind: AssetKind | null; name: string; width: number; height: number }
+export interface NewPicture { kind: AssetKind | null; name: string; width: number; height: number; /** Shades to start from (a font drawn from a font file); blank otherwise. */ pixels?: Uint8Array }
 
 /**
  * New picture: in the open project (a kind's folder) or just in GB Cartographer, a name and a size in whole tiles.
@@ -26,11 +28,44 @@ export function NewPictureWindow({ projectName, initialKind, onClose, onCreate }
   const [size, setSize] = useState<[number, number]>([presets[0][0], presets[0][1]]);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
+  // A font sheet can start with glyphs drawn from a font file.
+  const [font, setFont] = useState<LoadedFont | null>(null);
+  const [fontSize, setFontSize] = useState(8);
+  const [baseline, setBaseline] = useState(7);
+  const fromFont = where === "fonts" && font ? renderFontSheet(font, fontSize, baseline) : null;
+  const fontPreview = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const canvas = fontPreview.current;
+    if (!canvas || !fromFont) return;
+    Object.assign(canvas, { width: 128, height: 112 });
+    const context = canvas.getContext("2d")!;
+    const image = context.createImageData(128, 112);
+    fromFont.pixels.forEach((shade, at) => { const hex = GB_SHADES[shade]; image.data.set([parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16), 255], at * 4); });
+    context.putImageData(image, 0, 0);
+  });
+  async function pickFont() {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".ttf,.otf,.woff,.woff2";
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      try {
+        const loaded = await loadFontFile(file);
+        setFont(loaded);
+        setSize([128, 112]);
+        if (!name.trim()) setName(loaded.name);
+      } catch {
+        window.alert(`${file.name} could not be read as a font.`);
+      }
+    };
+    input.click();
+  }
   const valid = size[0] > 0 && size[1] > 0 && size[0] % 8 === 0 && size[1] % 8 === 0 && size[0] <= 2048 && size[1] <= 2048 && (where === "file" || /^[\w ()\-.]+$/.test(name.trim()));
   const pick = (next: AssetKind | "file") => { setWhere(next); setSize([PRESETS[next][0][0], PRESETS[next][0][1]]); };
   async function create() {
     setBusy(true);
-    const done = await onCreate({ kind: where === "file" ? null : where, name: name.trim() || "Untitled", width: size[0], height: size[1] });
+    const done = await onCreate({ kind: where === "file" ? null : where, name: name.trim() || "Untitled", width: size[0], height: size[1], ...(fromFont && size[0] === 128 && size[1] === 112 ? { pixels: fromFont.pixels } : {}) });
     setBusy(false);
     if (done) onClose();
   }
@@ -56,7 +91,23 @@ export function NewPictureWindow({ projectName, initialKind, onClose, onCreate }
               <small className="gbp-note">{size[0] % 8 || size[1] % 8 ? "Whole 8 × 8 tiles only." : `${size[0] / 8} × ${size[1] / 8} tiles`}</small>
             </span>
           </div>
-          <p className="gbp-note">{where === "file" ? "A blank picture in the GB greens. Save asks where to keep it." : `Writes one new file, assets/${where}/${(name.trim() || "…").replace(/\.png$/i, "")}.png, blank${where === "sprites" || where === "emotes" ? " (see-through)" : " (lightest shade)"}. GB Studio adds its own settings for it when it next reads the project. An existing file is never replaced.`}</p>
+          {where === "fonts" && (
+            <div className="gbp-field">Glyphs
+              <span className="gbp-budget-actions">
+                <button className={`quiet-button ${!font ? "active-tool" : ""}`} onClick={() => setFont(null)}>Blank</button>
+                <button className={`quiet-button ${font ? "active-tool" : ""}`} title="Draw characters 32–255 from a TTF or OTF font, 1 bit, 8 × 8 each" onClick={() => void pickFont()}>{font ? `From ${font.name}` : "From a font file…"}</button>
+              </span>
+              {fromFont && <>
+                <canvas ref={fontPreview} className="gbp-font-preview" />
+                <span className="gbp-size-row">
+                  <label className="gbp-inline">Size <input type="range" min={4} max={16} value={fontSize} onChange={(event) => setFontSize(Number(event.target.value))} /> {fontSize}px</label>
+                  <label className="gbp-inline">Baseline <input type="range" min={1} max={8} value={baseline} onChange={(event) => setBaseline(Number(event.target.value))} /> {baseline}</label>
+                </span>
+                <small className="gbp-note">{!font!.codes ? "This file's character list can't be read (WOFF fonts compress it), so missing characters may show in another font: use the TTF or OTF to check." : fromFont.missing.length ? `Not in the font (left blank): ${fromFont.missing.length} — ${fromFont.missing.slice(0, 40).map((code) => String.fromCharCode(code)).join(" ")}${fromFont.missing.length > 40 ? " …" : ""}` : "Every character 32–255 is in the font."} Pixel fonts look best at their own size.</small>
+              </>}
+            </div>
+          )}
+          <p className="gbp-note">{where === "file" ? "A blank picture in the GB greens. Save asks where to keep it." : `Writes one new file, assets/${where}/${(name.trim() || "…").replace(/\.png$/i, "")}.png, ${fromFont ? "with the glyphs drawn from the font file" : `blank${where === "sprites" || where === "emotes" ? " (see-through)" : " (lightest shade)"}`}. GB Studio adds its own settings for it when it next reads the project. An existing file is never replaced.`}</p>
           <div className="gbp-backup-actions"><span className="gbp-spacer" /><button className="quiet-button" onClick={onClose}>Cancel</button><button className="quiet-button primary" disabled={!valid || busy} onClick={() => void create()}>Create and open</button></div>
         </div>
       </div>

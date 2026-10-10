@@ -597,9 +597,9 @@ export default function PaintApp() {
    * A new blank picture: written into the project as a new PNG (then opened from there), or kept here as an
    * untitled picture that Save asks a place for. Resolves true when it was made.
    */
-  async function createPicture({ kind, name, width, height }: NewPicture): Promise<boolean> {
+  async function createPicture({ kind, name, width, height, pixels: start }: NewPicture): Promise<boolean> {
     const keyed = kind ? isKeyed(kind) : false;
-    const pixels = new Uint8Array(width * height).fill(keyed ? CLEAR : 0);
+    const pixels = start && start.length === width * height ? start.slice() : new Uint8Array(width * height).fill(keyed ? CLEAR : 0);
     const cells = new Uint8Array(cellsWide(width) * Math.ceil(height / CELL));
     if (!kind) {
       const id = newDocId(docs.current);

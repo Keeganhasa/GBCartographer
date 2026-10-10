@@ -608,3 +608,4 @@
 .gbp-maproom-facts { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 0; font-size: var(--fs-sm); } .gbp-maproom-facts dt { color: var(--muted); } .gbp-maproom-facts dd { margin: 0; overflow-wrap: anywhere; }
 .gbp-maproom-edge-row { display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-sm); }
 .gbp-inline { flex-direction: row !important; align-items: center; gap: 6px; font-size: var(--fs-xs); }
+.gbp-font-preview { width: 256px; height: 224px; image-rendering: pixelated; border-radius: 6px; box-shadow: 0 0 0 1px var(--b-edge, var(--line)); }
