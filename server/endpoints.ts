@@ -4,7 +4,7 @@
  *   POST /__cartographer/project              { path } opens another project folder (the desktop app also sets it from its dialog);
  *                                             { demo: true } opens a copy of the demo project that ships with the app
  *   GET  /__cartographer/gbstudio-assets      the project's asset PNGs and palettes
- *   GET  /__cartographer/gbstudio-asset       one PNG            ?kind=backgrounds|sprites|tilesets&file=name.png
+ *   GET  /__cartographer/gbstudio-asset       one PNG            ?kind=backgrounds|sprites|tilesets|fonts|emotes|avatars|ui&file=name.png
  *   GET  /__cartographer/gbstudio-asset-info  its size, times, per-cell palette slots and the slot palette ids
  *   GET  /__cartographer/gbstudio-asset-preview the PNG colored the way GB Studio shows it (thumbnails)
  *   POST /__cartographer/gbstudio-asset       overwrite that PNG (same size; ?mtime= guards against a file that changed; &force=1)

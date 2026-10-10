@@ -1,5 +1,5 @@
 /** The paint tools (with their icons and help) and the asset kinds' icons. */
-import { BoxSelect, Circle, DropletOff, Eraser, Ghost, Hand, Image, LayoutGrid, Move, PaintBucket, Palette as PaletteIcon, Pencil, Pipette, RectangleHorizontal, Slash, SprayCan, Square, Type } from "lucide-react";
+import { BoxSelect, Circle, DropletOff, Eraser, Ghost, Hand, Image, LayoutGrid, Move, PanelTop, Smile, UserRound, PaintBucket, Palette as PaletteIcon, Pencil, Pipette, RectangleHorizontal, Slash, SprayCan, Square, Type } from "lucide-react";
 
 /** id, label, icon, key, one-clause hint (status bar), the longer explanation (the ? help). */
 export const TOOLS = [
@@ -18,4 +18,4 @@ export const TOOLS = [
   ["move", "Move", Move, "V", "drag the selection or the whole picture", "Drag the selection, or the whole picture when nothing is selected (Alt copies)."],
   ["hand", "Pan", Hand, "H", "drag to pan · Space or middle button with any tool", "Drag to pan. Space or the middle mouse button pans with any tool."],
 ] as const;
-export const KIND_ICONS = { backgrounds: Image, sprites: Ghost, tilesets: LayoutGrid, fonts: Type } as const;
+export const KIND_ICONS = { backgrounds: Image, sprites: Ghost, tilesets: LayoutGrid, fonts: Type, emotes: Smile, avatars: UserRound, ui: PanelTop } as const;

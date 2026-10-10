@@ -35,10 +35,12 @@ export const ASSET_URL = "./__cartographer/gbstudio-asset";
 export const FILE_MANAGER_LABEL = /Mac/i.test(navigator.userAgent) ? "Show in Finder" : /Win/i.test(navigator.userAgent) ? "Show in Explorer" : "Show in folder";
 /** Bumped when the server's previews change, so cached thumbnails are fetched again (2: sprites show their first frame). */
 export const PREVIEW_VERSION = 2;
-export const ASSET_KINDS = [["backgrounds", "Backgrounds"], ["sprites", "Sprites"], ["tilesets", "Tilesets"], ["fonts", "Fonts"]] as const;
+export const ASSET_KINDS = [["backgrounds", "Backgrounds"], ["sprites", "Sprites"], ["tilesets", "Tilesets"], ["fonts", "Fonts"], ["emotes", "Emotes"], ["avatars", "Avatars"], ["ui", "UI (frame, cursor)"]] as const;
 export type AssetKind = typeof ASSET_KINDS[number][0];
 /** Backgrounds and sprite sheets carry palette slots GB Studio reads; tilesets and fonts are plain pictures. */
 export const hasSlots = (kind: AssetKind) => kind === "backgrounds" || kind === "sprites" || kind === "tilesets";
+/** Kinds GB Studio draws as sprites: key green is see-through in the file. */
+export const isKeyed = (kind: AssetKind) => kind === "sprites" || kind === "emotes";
 export const UNDO_LIMIT = 60;
 export const UNDO_BYTES = 96 * 1024 * 1024;
 

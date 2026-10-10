@@ -14,7 +14,11 @@ import { decodeTileColors, encodeTileColors, resolveScenePaletteIds } from "../s
 import { decodePng, encodePng } from "../src/gb/png";
 import { KEY_GREEN, assignSlots, quantize, spriteShades, toRgba } from "../src/paint";
 
-export const ASSET_KINDS = ["backgrounds", "sprites", "tilesets", "fonts"] as const;
+/** The picture folders under assets/. Emotes are read like sprites (key green see-through); avatars and the UI
+ * frame and cursor (assets/ui, no sidecars) like background tiles. Only backgrounds, sprites and tilesets carry palettes. */
+export const ASSET_KINDS = ["backgrounds", "sprites", "tilesets", "fonts", "emotes", "avatars", "ui"] as const;
+/** Kinds GB Studio draws as sprites: their key green is see-through. */
+export const KEYED_KINDS: readonly AssetKind[] = ["sprites", "emotes"];
 export type AssetKind = typeof ASSET_KINDS[number];
 
 /** Where backups go: the backups folder and the project the written file belongs to (see backups.ts). */
@@ -245,7 +249,7 @@ export function paletteUsage(project: string): PaletteUsage[] {
 /** What GB Cartographer needs besides the pixels: the file's time and size, and for backgrounds and sprites their palette slots. */
 export function assetInfo(project: string, kind: AssetKind, path: string): AssetInfo {
   const size = pngSizeOfFile(path) ?? { width: 0, height: 0 };
-  const hasSidecar = kind !== "fonts" && existsSync(`${path}.gbsres`);
+  const hasSidecar = kind !== "fonts" && kind !== "ui" && existsSync(`${path}.gbsres`);
   const sidecar = hasSidecar ? readJson(`${path}.gbsres`) : null;
   const id = typeof sidecar?.id === "string" ? sidecar.id : undefined;
   let tileColors: number[] = [];
@@ -398,8 +402,8 @@ export function renderPreview(project: string, kind: AssetKind, path: string): U
   const image = decodePng(readFileSync(path), (bytes) => inflateSync(bytes));
   const info = assetInfo(project, kind, path);
   const palettes = listPalettes(project).map(({ id, name, colors }) => ({ id, name, colors }));
-  const sprite = kind === "sprites";
-  const picture = quantize(image.pixels, image.width, image.height, palettes, sprite);
+  const sprite = kind === "sprites", keyed = KEYED_KINDS.includes(kind);
+  const picture = quantize(image.pixels, image.width, image.height, palettes, keyed);
   if (info.tileColors.length) assignSlots(picture.cells, info.tileColors, info.slots, picture.palettes);
   const shown = picture.palettes.map((palette) => ({ ...palette, colors: sprite ? spriteShades(palette.colors) : palette.colors }));
   const rgba = toRgba(picture.pixels, picture.cells, image.width, shown, sprite && !picture.hasAlpha ? KEY_GREEN : undefined);
