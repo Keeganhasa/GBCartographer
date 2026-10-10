@@ -20,3 +20,6 @@ demo-project/
 
 # Design mockups and review screenshots (local only)
 review/
+
+# The to-do list and planning notes stay local (not public)
+TODO.md
