@@ -35,7 +35,9 @@ palettes straight back into the project.
   see which scenes use each one (unused and duplicate palettes are marked, and an unused one can be taken out);
   import palettes from Lospec `.hex` or GIMP `.gpl` files and export your own as JSON.
 - **A store.** Credited palette sets to take into a project, a whole set or one palette at a time: the author's
-  Chorbi and Overworld sets (CC0), Game Boy screens, and SpicyGame's public-domain palettes.
+  Chorbi and Overworld sets (CC0), Game Boy screens, and SpicyGame's public-domain palettes, each with its license
+  and source. And a wireframe library (CC0): over 100 placeholder pieces to paint over: walking characters,
+  creatures, things, animated objects, emotes, avatars, window frames and cursors, tile sheets and whole scenes.
 - **Wizards and generators.** A picture to a background, day/sunset/night palettes, a palette set from Lospec or a
   picture, a tile budget fixer, a project check-up, and live cave/dungeon and overworld generators in placeholder
   art to paint over.

@@ -2024,7 +2024,15 @@ export default function PaintApp() {
       {showStore && (
         <StoreWindow projectName={project?.name ?? null} projectPalettes={project?.palettes ?? []} onClose={() => setShowStore(false)}
           onAddToProject={async (list) => { const written = await addPalettes(list); if (written) say(`Added ${written} palette${written === 1 ? "" : "s"} to the project.`); return written; }}
-          onAddToMine={(list) => { addToMine(list); say(`${list.length} palette${list.length === 1 ? "" : "s"} kept in Mine.`); }} />
+          onAddToMine={(list) => { addToMine(list); say(`${list.length} palette${list.length === 1 ? "" : "s"} kept in Mine.`); }}
+          onAddArt={(asset, art) => {
+            // A name the project doesn't use yet in that kind ("Hero", "Hero 2", …): new pictures never replace a file.
+            const taken = new Set(projectRef.current?.assets.filter((item) => item.kind === asset.kind).map((item) => item.name.toLowerCase()));
+            let name = asset.name, count = 1;
+            while (taken.has(name.toLowerCase())) name = `${asset.name} ${++count}`;
+            return createPicture({ kind: asset.kind, name, width: art.width, height: art.height, pixels: art.pixels });
+          }}
+          onOpenArt={(asset, art) => { void createPicture({ kind: null, name: asset.name, width: art.width, height: art.height, pixels: art.pixels }); setShowStore(false); }} />
       )}
       {(wizard === "cave" || wizard === "world") && (
         <GeneratorWizard mode={wizard} projectName={project?.name ?? null} limit={budget.limit} onClose={() => setWizard(null)}

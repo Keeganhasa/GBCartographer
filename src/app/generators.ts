@@ -6,6 +6,7 @@
  */
 
 import library from "../palettes/library.json";
+import { Pen } from "../wireframes/pen";
 
 /** A small seeded random generator (mulberry32): numbers in [0, 1). */
 export function seeded(seed: number): () => number {
@@ -30,31 +31,6 @@ function hash(x: number, y: number, seed: number): number {
   let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ Math.imul(seed, 2246822519);
   h = Math.imul(h ^ (h >>> 13), 1274126177);
   return (h ^ (h >>> 16)) >>> 0;
-}
-
-// ---- drawing primitives (into one cell of the picture) --------------------------------------------------------------
-
-class Pen {
-  constructor(readonly out: Generated, readonly x0: number, readonly y0: number, readonly size: number) {}
-  dot(x: number, y: number, shade: number) {
-    if (x < 0 || y < 0 || x >= this.size || y >= this.size) return;
-    this.out.pixels[(this.y0 + y) * this.out.width + this.x0 + x] = shade;
-  }
-  rect(x: number, y: number, w: number, h: number, shade: number) {
-    for (let yy = y; yy < y + h; yy += 1) for (let xx = x; xx < x + w; xx += 1) this.dot(xx, yy, shade);
-  }
-  box(x: number, y: number, w: number, h: number, shade: number) {
-    this.rect(x, y, w, 1, shade); this.rect(x, y + h - 1, w, 1, shade); this.rect(x, y, 1, h, shade); this.rect(x + w - 1, y, 1, h, shade);
-  }
-  fill(shade: number) { this.rect(0, 0, this.size, this.size, shade); }
-  /** A line along one side (0 top, 1 right, 2 bottom, 3 left). */
-  side(side: number, shade: number, inset = 0) {
-    const s = this.size;
-    if (side === 0) this.rect(0, inset, s, 1, shade);
-    else if (side === 1) this.rect(s - 1 - inset, 0, 1, s, shade);
-    else if (side === 2) this.rect(0, s - 1 - inset, s, 1, shade);
-    else this.rect(inset, 0, 1, s, shade);
-  }
 }
 
 // ---- cave and dungeon -------------------------------------------------------------------------------------------------

@@ -18,9 +18,10 @@ describe("store", () => {
     const shelves = storeShelves();
     const spicy = shelves.find((shelf) => shelf.name === "SpicyGame");
     expect(spicy?.license).toBe("Public domain");
-    expect(spicy?.sets.map((set) => set.name)).toEqual(["SpicyGame GB", "Vibrant-14", "VIBE-20", "CMYK Printer"]);
+    expect(spicy?.sets.map((set) => set.name)).toEqual(["SpicyGame GB", "Vibrant-14", "VIBE-20", "VIBE-21", "CMYK Printer"]);
     expect(spicy?.sets[2].palettes).toHaveLength(8);
     expect(shelves.find((shelf) => shelf.name === "Overworld")?.license).toBe("CC0");
+    expect(shelves.find((shelf) => shelf.name === "Chorbi")?.sets.map((set) => set.name).sort()).toEqual(["Diner", "Dustwatch Center", "Greenhouse"]);
   });
 
   it("knows a palette the project has by name and colors", () => {
