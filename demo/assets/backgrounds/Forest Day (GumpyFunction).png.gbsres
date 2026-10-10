@@ -1,10 +1,10 @@
 {
   "_resourceType": "background",
   "id": "7b8ecf44-2770-4597-9843-fab1ed84eb83",
-  "name": "Forest Day",
+  "name": "Forest Day (GumpyFunction)",
   "symbol": "bg_forest_day",
   "tileColors": "00168+",
-  "filename": "Forest Day.png",
+  "filename": "Forest Day (GumpyFunction).png",
   "width": 20,
   "height": 18,
   "imageWidth": 160,

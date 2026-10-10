@@ -42,6 +42,7 @@ beforeAll(async () => {
   writeFileSync(join(project, "assets/sprites/hero.png.gbsres"), JSON.stringify({ _resourceType: "sprite", id: "spr-hero", name: "Hero", states: [{ id: "s", name: "", animations: [{ id: "a", frames: [{ id: "f1", tiles: [slice(0, 2), slice(8, 0)] }, { id: "f2", tiles: [slice(8, 0)] }] }] }], numTiles: 2 }));
   writeFileSync(join(project, "assets/tilesets/props.png"), encodePng(new Uint8ClampedArray(8 * 8 * 4).fill(255), 8, 8, deflateSync));
   writeFileSync(join(project, "assets/tilesets/notes.txt"), "not a picture");
+  writeFileSync(join(project, "assets/tilesets/props.png.gbsres"), JSON.stringify({ _resourceType: "tileset", id: "ts-props", name: "props", tileColors: "02!" }));
   setProjectFolder(null);
   server = createServer((req, res) => { void handleCartographerRequest(req, res, { root, backupDir: join(root, "backups"), settingsFile: join(root, "settings.json") }); });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -110,7 +111,9 @@ describe("assets", () => {
     expect(sprite.animations[0].frames.map((frame) => frame.tiles.map((tile) => tile.sliceX))).toEqual([[0, 8], [8]]);
     expect(sprite.slots).toEqual(["spr-a", "spr-b", "spr-c", "spr-d", "spr-e", "spr-f", "spr-g", "spr-h"]);
     const tileset = await json<{ tileColors: number[]; slots: string[]; metaMtime: number | null }>(await fetch(`${base}/gbstudio-asset-info?kind=tilesets&file=props.png`));
-    expect([tileset.tileColors, tileset.slots, tileset.metaMtime]).toEqual([[], [], null]);
+    // Tilesets carry tileColors like backgrounds, with the project's default background palettes as their slots.
+    expect([tileset.tileColors, tileset.slots]).toEqual([[2], ["pal-default", "pal-default", "pal-default", "pal-default", "pal-default", "pal-default", "pal-default", "pal-ui"]]);
+    expect(tileset.metaMtime).toBeGreaterThan(0);
     for (const query of ["kind=backgrounds&file=..%2F..%2Fproject%2Fsettings.gbsres", "kind=scenes&file=town.png", "kind=tilesets&file=notes.txt", "kind=backgrounds&file=missing.png"]) {
       expect((await fetch(`${base}/gbstudio-asset?${query}`)).status).toBe(404);
     }
@@ -192,7 +195,12 @@ describe("tile palettes", () => {
     expect(readFileSync(join(root, "backups/gbstudio/backgrounds/town.png.gbsres"), "utf8")).toContain("81!00167+");
     expect((await post({ slots: [0] }, `&metaMtime=${metaMtime}`)).status).toBe(409);
     expect((await post({ slots: [0] }, `&metaMtime=${metaMtime}&force=1`)).status).toBe(200);
-    expect((await fetch(`${base}/gbstudio-tile-colors?kind=tilesets&file=props.png`, { method: "POST", body: "{}" })).status).toBe(404);
+    expect((await fetch(`${base}/gbstudio-tile-colors?kind=fonts&file=props.png`, { method: "POST", body: "{}" })).status).toBe(404);
+    // A tileset's tile colors are written the same way, backed up under tilesets.
+    const ts = await json<{ changed: boolean }>(await fetch(`${base}/gbstudio-tile-colors?kind=tilesets&file=props.png`, { method: "POST", body: JSON.stringify({ slots: [5] }) }));
+    expect(ts.changed).toBe(true);
+    expect(JSON.parse(readFileSync(join(project, "assets/tilesets/props.png.gbsres"), "utf8")).tileColors).toBe("05!");
+    expect(readFileSync(join(root, "backups/gbstudio/tilesets/props.png.gbsres"), "utf8")).toContain("02!");
   });
 
   it("writes a sprite sheet's slots as paletteIndex on every slice covering a painted cell", async () => {

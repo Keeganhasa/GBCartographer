@@ -439,3 +439,6 @@
 :root .gbp-brand svg { flex: none; color: var(--muted); }
 :root .gbp-brand:hover svg { color: var(--hover-ink); }
 .gbp-menu-label { padding: 2px 10px 2px; color: var(--muted); font-size: var(--fs-xs); letter-spacing: .08em; text-transform: uppercase; }
+
+/* Unsaved pictures: italic, with a * after the name (tabs and cards). */
+.gbp-unsaved { font-style: italic; }

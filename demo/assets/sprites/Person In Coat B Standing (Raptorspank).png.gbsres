@@ -1,23 +1,23 @@
 {
   "_resourceType": "sprite",
-  "id": "9fe2bcee-06d3-4c3a-86ba-88b1b467a8e3",
-  "name": "Reindeer Standing",
-  "symbol": "sprite_reindeer_standing",
+  "id": "39b33ba9-ae4b-4fba-9583-d900590dbba2",
+  "name": "Person In Coat B Standing (Raptorspank)",
+  "symbol": "sprite_person_in_coat_b_standing",
   "states": [
     {
-      "id": "46a77bf6-3eb3-42ee-894c-3a8bbeb61985",
+      "id": "dea7076e-0675-4354-853c-779d78a368fa",
       "name": "",
       "animationType": "fixed",
       "flipLeft": false,
       "animations": [
         {
-          "id": "3d540e2d-832f-4059-9a94-e88e4b54012e",
+          "id": "01f0d6ff-0503-41bf-a0c0-00c8d7e178c8",
           "frames": [
             {
-              "id": "656d4969-b5f4-47a3-a41f-37d11ef722ba",
+              "id": "9b7c6ee1-4742-459c-a460-7d8f41283e55",
               "tiles": [
                 {
-                  "id": "b8f330a5-08c7-4cc7-b90e-51fdd50da260",
+                  "id": "ae1ce070-b503-4647-aa72-bbbf8f62a854",
                   "x": 0,
                   "y": 0,
                   "sliceX": 0,
@@ -30,7 +30,7 @@
                   "priority": false
                 },
                 {
-                  "id": "cfb229e9-eee8-4a7e-b135-096d0e49aa1c",
+                  "id": "0cb964aa-0284-4abb-a26d-6916d0c50d42",
                   "x": 8,
                   "y": 0,
                   "sliceX": 8,
@@ -45,10 +45,10 @@
               ]
             },
             {
-              "id": "3a017d72-1dac-41f4-a7d8-20f00e91af3e",
+              "id": "3ebdc314-61ca-42b3-b430-ef7e0bef1197",
               "tiles": [
                 {
-                  "id": "8a63911b-713c-4f2b-9164-85b57181eb1d",
+                  "id": "0a78126a-5904-43ea-918b-195eb006068d",
                   "x": 0,
                   "y": 0,
                   "sliceX": 16,
@@ -61,7 +61,7 @@
                   "priority": false
                 },
                 {
-                  "id": "545c3974-e608-471b-8fb5-24bf05abbd3a",
+                  "id": "3f628878-67d1-42de-a88f-498c0b60ac59",
                   "x": 8,
                   "y": 0,
                   "sliceX": 24,
@@ -76,10 +76,10 @@
               ]
             },
             {
-              "id": "30ad519b-6e70-4ced-8d89-d118ab5dcb52",
+              "id": "7e890692-a12b-44d4-923b-624e8dd4aaf4",
               "tiles": [
                 {
-                  "id": "6a375fed-f602-44b9-8dd9-0635d8c728e6",
+                  "id": "7a8121a0-19ba-4a89-a4ff-b707e8c88353",
                   "x": 0,
                   "y": 0,
                   "sliceX": 32,
@@ -92,7 +92,7 @@
                   "priority": false
                 },
                 {
-                  "id": "2a4d35b8-40ae-45d1-9d53-492d858015ab",
+                  "id": "bccada35-3ef1-4170-a353-411aa078537b",
                   "x": 8,
                   "y": 0,
                   "sliceX": 40,
@@ -121,7 +121,7 @@
   "boundsWidth": 16,
   "boundsHeight": 16,
   "animSpeed": 15,
-  "filename": "Reindeer Standing.png",
+  "filename": "Person In Coat B Standing (Raptorspank).png",
   "width": 48,
   "height": 16
 }

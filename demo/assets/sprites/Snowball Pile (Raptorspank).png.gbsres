@@ -1,7 +1,7 @@
 {
   "_resourceType": "sprite",
   "id": "9a7727f0-3197-441a-abd2-ec048e28c828",
-  "name": "Snowball Pile",
+  "name": "Snowball Pile (Raptorspank)",
   "symbol": "sprite_snowball_pile",
   "states": [
     {
@@ -59,7 +59,7 @@
   "boundsWidth": 16,
   "boundsHeight": 16,
   "animSpeed": 15,
-  "filename": "Snowball Pile.png",
+  "filename": "Snowball Pile (Raptorspank).png",
   "width": 16,
   "height": 16
 }

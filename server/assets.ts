@@ -199,12 +199,13 @@ function spriteSlots(project: string, spriteId: string | undefined): string[] {
 /** What GB Cartographer needs besides the pixels: the file's time and size, and for backgrounds and sprites their palette slots. */
 export function assetInfo(project: string, kind: AssetKind, path: string): AssetInfo {
   const size = pngSizeOfFile(path) ?? { width: 0, height: 0 };
-  const hasSidecar = (kind === "backgrounds" || kind === "sprites") && existsSync(`${path}.gbsres`);
+  const hasSidecar = kind !== "fonts" && existsSync(`${path}.gbsres`);
   const sidecar = hasSidecar ? readJson(`${path}.gbsres`) : null;
   const id = typeof sidecar?.id === "string" ? sidecar.id : undefined;
   let tileColors: number[] = [];
   let slots: string[] = [];
-  if (kind === "backgrounds") {
+  if (kind === "backgrounds" || kind === "tilesets") {
+    // GB Studio 4 tilesets carry tileColors like backgrounds; they belong to no scene, so the slots are the project's defaults.
     if (typeof sidecar?.tileColors === "string" && sidecar.tileColors) {
       try {
         tileColors = decodeTileColors(sidecar.tileColors);
@@ -212,7 +213,7 @@ export function assetInfo(project: string, kind: AssetKind, path: string): Asset
         tileColors = [];
       }
     }
-    slots = backgroundSlots(project, id);
+    slots = backgroundSlots(project, kind === "backgrounds" ? id : undefined);
   } else if (kind === "sprites") {
     if (sidecar) tileColors = spriteCellColors(sidecar, Math.ceil(size.width / 8), Math.ceil(size.height / 8));
     slots = spriteSlots(project, id);
@@ -355,8 +356,8 @@ export class AssetWriteError extends Error {
  * every other field of the sidecar are kept; the file is written back as GB Studio writes it (two-space JSON, no
  * trailing newline). The old sidecar is copied to the backup folder first. Returns whether anything changed.
  */
-export function writeTileColors(path: string, slots: readonly (number | null)[], backupDir: string, expectedMtime: number | null, force: boolean): { mtime: number; changed: boolean; cells: number } {
-  const { sidecar, meta, mtime } = openSidecar(path, "background", expectedMtime, force);
+export function writeTileColors(path: string, slots: readonly (number | null)[], backupDir: string, expectedMtime: number | null, force: boolean, kind: "backgrounds" | "tilesets" = "backgrounds"): { mtime: number; changed: boolean; cells: number } {
+  const { sidecar, meta, mtime } = openSidecar(path, kind === "tilesets" ? "tileset" : "background", expectedMtime, force);
   const size = pngSizeOfFile(path) ?? { width: 0, height: 0 };
   const count = Math.ceil(size.width / 8) * Math.ceil(size.height / 8);
   const current = typeof meta.tileColors === "string" && meta.tileColors ? decodeTileColors(meta.tileColors) : [];
@@ -370,7 +371,7 @@ export function writeTileColors(path: string, slots: readonly (number | null)[],
   });
   const encoded = encodeTileColors(values);
   if (encoded === (typeof meta.tileColors === "string" ? meta.tileColors : "")) return { mtime, changed: false, cells: 0 };
-  return { mtime: writeSidecar(sidecar, "backgrounds", { ...meta, tileColors: encoded }, backupDir), changed: true, cells };
+  return { mtime: writeSidecar(sidecar, kind, { ...meta, tileColors: encoded }, backupDir), changed: true, cells };
 }
 
 /**

@@ -60,7 +60,7 @@ const PREVIEW_VERSION = 2;
 const ASSET_KINDS = [["backgrounds", "Backgrounds"], ["sprites", "Sprites"], ["tilesets", "Tilesets"], ["fonts", "Fonts"]] as const;
 type AssetKind = typeof ASSET_KINDS[number][0];
 /** Backgrounds and sprite sheets carry palette slots GB Studio reads; tilesets and fonts are plain pictures. */
-const hasSlots = (kind: AssetKind) => kind === "backgrounds" || kind === "sprites";
+const hasSlots = (kind: AssetKind) => kind === "backgrounds" || kind === "sprites" || kind === "tilesets";
 const UNDO_LIMIT = 60;
 const UNDO_BYTES = 96 * 1024 * 1024;
 
@@ -1001,7 +1001,7 @@ export default function PaintApp() {
     return () => { detachWheel(); detachPan(); };
   }, []);
 
-  useEffect(() => { document.title = doc ? `${doc.dirty ? "• " : ""}${doc.name} · GB Cartographer` : "GB Cartographer"; });
+  useEffect(() => { document.title = doc ? `${doc.name}${doc.dirty ? " *" : ""} · GB Cartographer` : "GB Cartographer"; });
   useEffect(() => { store(TINT_KEY, tint); store(CUSTOM_TINT_KEY, customTint); store(GRID_KEY, grid); store(BUDGET_KEY, budgetId); store(PROJECT_PANEL_KEY, showProject); store(PROJECT_KIND_KEY, projectKind); }, [tint, customTint, grid, budgetId, showProject, projectKind]);
 
   const budget = BUDGETS.find((item) => item.id === budgetId) ?? BUDGETS[0];
@@ -1024,6 +1024,18 @@ export default function PaintApp() {
   const frames = animation?.frames ?? [];
   const current = frames[Math.min(frame.index, Math.max(0, frames.length - 1))];
   useEffect(() => { setFrame({ animation: 0, index: 0 }); setPlaying(false); }, [activeId]);
+  // Pictures restored from an older session (or tilesets opened before they had palette slots) learn their slots now.
+  useEffect(() => {
+    if (!project) return;
+    const missing = docs.current.filter((item) => item.asset && hasSlots(item.asset.kind) && !item.asset.slots && (!item.asset.project || item.asset.project === project.path));
+    if (!missing.length) return;
+    void Promise.all(missing.map(async (item) => {
+      const asset = item.asset!;
+      const info = await fetch(`${ASSET_URL}-info?${assetQuery(asset)}`, { cache: "no-cache" }).then((response) => response.ok ? response.json() as Promise<AssetInfo> : null).catch(() => null);
+      if (!info) return;
+      Object.assign(asset, { slots: info.slots, metaMtime: info.metaMtime, opened: info.tileColors.map((value) => value < 0 ? -1 : value & 7), project: project.path });
+    })).then(() => bump());
+  }, [project]);
   useEffect(() => {
     if (!playing || frames.length < 2) return;
     const timer = window.setInterval(() => setFrame((at) => ({ ...at, index: (at.index + 1) % frames.length })), 125);
@@ -1111,7 +1123,7 @@ export default function PaintApp() {
     .filter(({ palette, index }) => index === activePalette || matches(palette.name, paletteFilter))
     .sort((a, b) => (a.index === 0 ? -1 : b.index === 0 ? 1 : a.slot >= 0 && b.slot >= 0 ? a.slot - b.slot : a.slot >= 0 ? -1 : b.slot >= 0 ? 1 : a.index - b.index));
   const pickPalette = (index: number) => { setActivePalette(index); if (index && tool !== "palette") setTool("palette"); };
-  const paletteHelp = doc?.asset?.kind === "sprites" && sceneSlots.length ? "Each 8 × 16 sprite tile wears one of the scene's eight sprite palettes; a palette's colors 1–3 dress the shades and color 0 is see-through. Save writes the sheet in the GB greens and each tile's palette as its slot." : doc?.asset?.kind === "backgrounds" && sceneSlots.length ? "Each 8 × 8 tile wears one of the scene's eight palettes. Save writes the picture in the GB greens and each tile's palette into GB Studio as its slot. None leaves a tile's slot as it is." : "Each 8 × 8 tile wears one palette, or none. Palettes are only for looking here: saving always writes the GB greens.";
+  const paletteHelp = doc?.asset?.kind === "tilesets" && sceneSlots.length ? "Each 8 × 8 tile wears one of the project's eight default background palettes. Save writes the tileset in the GB greens and each tile's palette into GB Studio as its slot. None leaves a tile's slot as it is." : doc?.asset?.kind === "sprites" && sceneSlots.length ? "Each 8 × 16 sprite tile wears one of the scene's eight sprite palettes; a palette's colors 1–3 dress the shades and color 0 is see-through. Save writes the sheet in the GB greens and each tile's palette as its slot." : doc?.asset?.kind === "backgrounds" && sceneSlots.length ? "Each 8 × 8 tile wears one of the scene's eight palettes. Save writes the picture in the GB greens and each tile's palette into GB Studio as its slot. None leaves a tile's slot as it is." : "Each 8 × 8 tile wears one palette, or none. Palettes are only for looking here: saving always writes the GB greens.";
 
   return (
     <div className="gbp-shell" onDragOver={(event) => event.preventDefault()} onDrop={(event) => void onDrop(event)}>
@@ -1149,7 +1161,7 @@ export default function PaintApp() {
       <div className="map-tabs" role="tablist" aria-label="Open pictures">
         {docs.current.map((item) => (
           <div key={item.id} role="tab" aria-selected={item.id === activeId} className={`map-tab ${item.id === activeId ? "active" : ""}`} title={`${item.name} · ${item.width} × ${item.height} px`} onClick={() => setActiveId(item.id)}>
-            <span>{item.dirty ? "• " : ""}{item.name}</span>
+            <span className={item.dirty ? "gbp-unsaved" : ""}>{item.name}{item.dirty ? " *" : ""}</span>
             <button aria-label={`Close ${item.name}`} onClick={(event) => { event.stopPropagation(); closeDoc(item); }}><X size={12} /></button>
           </div>
         ))}
@@ -1170,7 +1182,7 @@ export default function PaintApp() {
                   return (
                     <button key={asset.file} role="listitem" onContextMenu={(event) => { event.preventDefault(); setAssetMenu({ x: event.clientX, y: event.clientY, asset }); }} className={`gbp-asset ${openDoc && openDoc.id === activeId ? "selected" : openDoc ? "open" : ""}`} title={`${asset.file} · ${asset.width} × ${asset.height} px${openDoc ? " · open" : ""}`} onClick={() => void openAsset(asset)}>
                       <img className="gbp-asset-thumb" loading="lazy" decoding="async" alt="" src={`${ASSET_URL}-preview?${assetQuery(asset)}&v=${Math.round(asset.mtime)}&pv=${PREVIEW_VERSION}`} />
-                      <span className="gbp-asset-meta"><span className="gbp-asset-name">{openDoc?.dirty ? "• " : ""}{asset.name}</span><span className="gbp-asset-size">{asset.width}×{asset.height}</span></span>
+                      <span className="gbp-asset-meta"><span className={`gbp-asset-name ${openDoc?.dirty ? "gbp-unsaved" : ""}`}>{asset.name}{openDoc?.dirty ? " *" : ""}</span><span className="gbp-asset-size">{asset.width}×{asset.height}</span></span>
                     </button>
                   );
                 })}

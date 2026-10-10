@@ -1,23 +1,23 @@
 {
   "_resourceType": "sprite",
-  "id": "97709197-39ff-492c-8c8b-996e3225e1e1",
-  "name": "Fox",
-  "symbol": "sprite_fox",
+  "id": "f54fa102-9fc2-4d24-8cc8-dd6c63930b8c",
+  "name": "Person In Coat A Moving (Raptorspank)",
+  "symbol": "sprite_person_in_coat_a_moving",
   "states": [
     {
-      "id": "2d303cb3-2c02-4443-9bec-b4e1f07ab88b",
+      "id": "ab75c6b2-352e-40f5-bfc2-d82ddf90e49a",
       "name": "",
       "animationType": "fixed",
       "flipLeft": false,
       "animations": [
         {
-          "id": "368c1ec3-f3ab-4e4a-88ca-d76baab08445",
+          "id": "8a5cd19b-2b54-4d86-9459-b1a4c8918c87",
           "frames": [
             {
-              "id": "37e5e1c7-5985-40ec-9377-77610aa48672",
+              "id": "177126d5-00da-4cac-b37e-c7ebe33f80e6",
               "tiles": [
                 {
-                  "id": "6f2bf038-994a-46b0-8783-c6726d2fd221",
+                  "id": "dff82237-9e0e-4a78-846a-84e556a4ab0f",
                   "x": 0,
                   "y": 0,
                   "sliceX": 0,
@@ -30,7 +30,7 @@
                   "priority": false
                 },
                 {
-                  "id": "37a0ea3b-d1a8-4815-a340-8a99df8ef7b3",
+                  "id": "f423a080-72fa-4b1a-be6f-1cc959433877",
                   "x": 8,
                   "y": 0,
                   "sliceX": 8,
@@ -45,10 +45,10 @@
               ]
             },
             {
-              "id": "7e60ad37-1e3f-48a0-b19e-8b6f3c17ec43",
+              "id": "216adbe2-6dbe-4007-b865-152c77ca1053",
               "tiles": [
                 {
-                  "id": "25883db7-dce5-409b-8fe1-cf6b36a5127e",
+                  "id": "0d90da94-bb38-49f7-b507-d05649e5d92f",
                   "x": 0,
                   "y": 0,
                   "sliceX": 16,
@@ -61,7 +61,7 @@
                   "priority": false
                 },
                 {
-                  "id": "cf88e565-05ea-4cb4-a39d-4868e77a9c31",
+                  "id": "9d9e0b76-0ace-42e0-8c55-3d7ac07da318",
                   "x": 8,
                   "y": 0,
                   "sliceX": 24,
@@ -76,10 +76,10 @@
               ]
             },
             {
-              "id": "efb72d35-16b6-4873-8bf1-2bcd4f2f68a7",
+              "id": "edeb2890-82f4-4999-93ae-ba7924b7746d",
               "tiles": [
                 {
-                  "id": "56ce2b64-8a97-45ce-80da-8dd3a765462b",
+                  "id": "77974018-df6f-4008-811a-646121f4fccc",
                   "x": 0,
                   "y": 0,
                   "sliceX": 32,
@@ -92,7 +92,7 @@
                   "priority": false
                 },
                 {
-                  "id": "63e84a5b-0bd2-4e90-8417-82c460740d6f",
+                  "id": "07f5448b-3db9-49e7-82a1-fe2eb0f4bdf2",
                   "x": 8,
                   "y": 0,
                   "sliceX": 40,
@@ -107,10 +107,10 @@
               ]
             },
             {
-              "id": "4e30669b-c724-44fc-8cc5-21cf0e0a6c7c",
+              "id": "1838d9df-0a8d-47c1-9257-552bc95c94e9",
               "tiles": [
                 {
-                  "id": "41da5ebc-cd27-4614-827f-b0b36002903c",
+                  "id": "4315456d-76c0-4a01-8956-297ded39db2a",
                   "x": 0,
                   "y": 0,
                   "sliceX": 48,
@@ -123,7 +123,7 @@
                   "priority": false
                 },
                 {
-                  "id": "93695d87-c835-46c8-929d-03a66ffe6f94",
+                  "id": "1408b976-51fc-473b-8300-2d81b4502fe2",
                   "x": 8,
                   "y": 0,
                   "sliceX": 56,
@@ -138,10 +138,10 @@
               ]
             },
             {
-              "id": "6f50d7c7-3462-4dee-8201-33bd111a6955",
+              "id": "32c8e2b2-98d9-4a5c-a5db-7779ee6f9fe8",
               "tiles": [
                 {
-                  "id": "da82cde1-b881-422b-b295-4bc3e8346d2f",
+                  "id": "b2901a5e-78f4-4d25-b908-ce17ef1b3c98",
                   "x": 0,
                   "y": 0,
                   "sliceX": 64,
@@ -154,7 +154,7 @@
                   "priority": false
                 },
                 {
-                  "id": "50b860cb-8a4f-40d1-8111-f64a92f504bf",
+                  "id": "e73c112f-bf9b-4ad7-ac6a-8e5900bd2cdb",
                   "x": 8,
                   "y": 0,
                   "sliceX": 72,
@@ -169,10 +169,10 @@
               ]
             },
             {
-              "id": "26cb11c8-e65f-4502-bde5-c37cd8df8b3a",
+              "id": "d21a678f-2d75-43c3-ba36-bf231b73eab9",
               "tiles": [
                 {
-                  "id": "49dff3c7-d768-45af-8330-4fde1933bf1e",
+                  "id": "2f8af6f6-f344-4e8a-a8e1-a9a4bd843ec4",
                   "x": 0,
                   "y": 0,
                   "sliceX": 80,
@@ -185,7 +185,7 @@
                   "priority": false
                 },
                 {
-                  "id": "69c4ec2b-8115-477c-9adb-3a00fcaa576e",
+                  "id": "984fd304-4559-448f-9ab6-4611b9fbcb6c",
                   "x": 8,
                   "y": 0,
                   "sliceX": 88,
@@ -214,7 +214,7 @@
   "boundsWidth": 16,
   "boundsHeight": 16,
   "animSpeed": 15,
-  "filename": "Fox.png",
+  "filename": "Person In Coat A Moving (Raptorspank).png",
   "width": 96,
   "height": 16
 }

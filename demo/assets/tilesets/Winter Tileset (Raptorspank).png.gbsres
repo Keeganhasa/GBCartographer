@@ -1,11 +1,11 @@
 {
   "_resourceType": "tileset",
   "id": "9a85c6d2-ce14-4f0c-b689-41d87c7bc96e",
-  "name": "Winter Tileset",
+  "name": "Winter Tileset (Raptorspank)",
   "symbol": "tileset_winter_tileset",
   "width": 10,
   "height": 10,
   "imageWidth": 80,
   "imageHeight": 80,
-  "filename": "Winter Tileset.png"
+  "filename": "Winter Tileset (Raptorspank).png"
 }

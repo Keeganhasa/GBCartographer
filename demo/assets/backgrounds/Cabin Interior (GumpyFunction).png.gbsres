@@ -1,10 +1,10 @@
 {
   "_resourceType": "background",
   "id": "402f4501-dc5e-41a5-867a-282e9faa34bc",
-  "name": "Cabin Interior",
+  "name": "Cabin Interior (GumpyFunction)",
   "symbol": "bg_cabin_interior",
   "tileColors": "0115+0612+012+002+062+002+062+004+062+002+062+012+006+062+004+066+012+062+002+06e+012+062+002+06e+012+0612+01a+068+002+01a+068+002+012+002+056+06a+012+002+06a+006+012+006+066+006+012+06e+004+012+066+002+068+002+012+0610+002+01a+062+0112+002+011d+",
-  "filename": "Cabin Interior.png",
+  "filename": "Cabin Interior (GumpyFunction).png",
   "width": 20,
   "height": 18,
   "imageWidth": 160,

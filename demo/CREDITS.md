@@ -11,29 +11,29 @@ which is how GB Studio reads them anyway).
 By Spencer "Raptorspank" Gerowe. CC0 1.0. https://opengameart.org/content/wintery-pixel-art-pack
 (also https://raptorspank.itch.io/wintery-pixel-art-pack).
 
-- `assets/backgrounds/Winter Example.png` (the pack's `World/Example-Background.png`)
-- `assets/tilesets/Winter Tileset.png`
-- `assets/sprites/Person In Coat A Moving.png`, `Person In Coat A Standing.png`, `Person In Coat B Moving.png`,
-  `Person In Coat B Standing.png`, `Snowman Moving.png`, `Snowman Standing.png`, `Reindeer Standing.png`,
-  `Snowball.png`, `Snowball Pile.png`
+- `assets/backgrounds/Winter Example (Raptorspank).png` (the pack's `World/Example-Background.png`)
+- `assets/tilesets/Winter Tileset (Raptorspank).png`
+- `assets/sprites/Person In Coat A Moving (Raptorspank).png`, `Person In Coat A Standing (Raptorspank).png`, `Person In Coat B Moving (Raptorspank).png`,
+  `Person In Coat B Standing (Raptorspank).png`, `Snowman Moving (Raptorspank).png`, `Snowman Standing (Raptorspank).png`, `Reindeer Standing (Raptorspank).png`,
+  `Snowball (Raptorspank).png`, `Snowball Pile (Raptorspank).png`
 
 ## GB Studio Community Assets
 
 From https://github.com/DeerTears/GB-Studio-Community-Assets (maintained by Ember Bland / DeerTears and Paige
 Ashlynn), MIT license; the repository asks that each asset's maker be credited.
 
-- `assets/backgrounds/Cabin Interior.png`, `Forest Day.png`: by **GumpyFunction**.
-- `assets/tilesets/Free Furniture.png`: by **yoanqwp**.
-- `assets/sprites/Cat.png`, `Fox.png`, `Kangaroo.png`, `Trout.png`: by **krümel** (GB Studio Discord), from
+- `assets/backgrounds/Cabin Interior (GumpyFunction).png`, `Forest Day (GumpyFunction).png`: by **GumpyFunction**.
+- `assets/tilesets/Free Furniture (yoanqwp).png`: by **yoanqwp**.
+- `assets/sprites/Cat (krumel).png`, `Fox (krumel).png`, `Kangaroo (krumel).png`, `Trout (krumel).png`: by **krümel** (GB Studio Discord), from
   the Animated Sprites package.
-- `assets/fonts/DotGothic8.png`: by **Paige Ashlynn**, a slim font adapted from Fontworks Inc.'s DotGothic16
+- `assets/fonts/DotGothic8 (Paige Ashlynn).png`: by **Paige Ashlynn**, a slim font adapted from Fontworks Inc.'s DotGothic16
   (SIL Open Font License).
-- `assets/fonts/thinrpg.png`: by **Anima / Animaloser / SodoDev**.
-- `assets/fonts/CompaqThin.png`: by **Santiago Crespo**, based on a custom DOS font made by Compaq
+- `assets/fonts/thinrpg (Anima).png`: by **Anima / Animaloser / SodoDev**.
+- `assets/fonts/CompaqThin (Santiago Crespo).png`: by **Santiago Crespo**, based on a custom DOS font made by Compaq
   (https://int10h.org/oldschool-pc-fonts/fontlist/font?compaqthin_8x8).
-- `assets/fonts/ACM-VGA.png`: by **Santiago Crespo**, based on the Chromatic Research MPACT 2 VGA BIOS font
+- `assets/fonts/ACM-VGA (Santiago Crespo).png`: by **Santiago Crespo**, based on the Chromatic Research MPACT 2 VGA BIOS font
   (https://int10h.org/oldschool-pc-fonts/fontlist/font?acm_vga_8x8).
-- `assets/fonts/ascii_thick_italic.png`, `ascii_thick_italic_inverted.png`: by **KizulEmeraldfire**.
+- `assets/fonts/ascii_thick_italic (KizulEmeraldfire).png`, `ascii_thick_italic_inverted (KizulEmeraldfire).png`: by **KizulEmeraldfire**.
 
 ## Palettes
 

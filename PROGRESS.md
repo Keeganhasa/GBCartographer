@@ -99,6 +99,13 @@ server layer (`server/`) and the Electron shell (`electron/`). Nothing from any 
   current project (`readyToLeaveProject`), then closes that project's tabs (`closeDocsOf`). Each project picture
   records its project folder (`asset.project`) and Save refuses to write it into another project.
 
+- Tilesets have tile colors like backgrounds: GB Studio 4's tileset sidecar has a `tileColors` field (same encoding).
+  A tileset belongs to no scene, so its slots are the project's default background palettes. Pictures restored from
+  an older session learn their slots when the project loads.
+- Unsaved pictures: italic name with a trailing `*` (tabs, cards, window title).
+- The demo's credited files are named `<Name> (<Author>).png` (ASCII in file names, the sidecar `name` keeps "krümel").
+  The demo generator lives outside the repo; the demo is edited by hand from here on.
+
 ### Known issues
 - Inter and JetBrains Mono load from Google Fonts: offline, the app falls back to the system font.
 - GB Studio's animation speed is not read yet: the frames strip plays at a fixed 8 fps.

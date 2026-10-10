@@ -1,23 +1,23 @@
 {
   "_resourceType": "sprite",
-  "id": "32ed470d-0c99-4c65-8b4d-278cf54df0bc",
-  "name": "Snowman Moving",
-  "symbol": "sprite_snowman_moving",
+  "id": "c66b2dd2-3888-41e7-b8a6-01e33ec16e25",
+  "name": "Kangaroo (kr\u00fcmel)",
+  "symbol": "sprite_kangaroo",
   "states": [
     {
-      "id": "7faf4b43-0b29-47e1-a976-e8d274ccc7b6",
+      "id": "d9c6f686-63c2-44d8-8069-5b4d1f96b0d4",
       "name": "",
       "animationType": "fixed",
       "flipLeft": false,
       "animations": [
         {
-          "id": "57366b59-8ff2-4d5d-83bd-9f78e452aee0",
+          "id": "3d4f6cdc-4c81-4205-92b6-8caa22ca6ce1",
           "frames": [
             {
-              "id": "eaa079ff-5e66-4a8f-9446-ff1f42268466",
+              "id": "b4ba053e-5477-46e5-91a5-64c865c30064",
               "tiles": [
                 {
-                  "id": "561ba753-d660-4a86-8b17-e1b309b4235a",
+                  "id": "f29b1112-24e5-4008-a332-a13311c0cec0",
                   "x": 0,
                   "y": 0,
                   "sliceX": 0,
@@ -30,7 +30,7 @@
                   "priority": false
                 },
                 {
-                  "id": "b2484890-53dc-405b-96bf-b592b2b57a3a",
+                  "id": "91d4fc83-69b1-4423-ba71-da08cab1a925",
                   "x": 8,
                   "y": 0,
                   "sliceX": 8,
@@ -45,10 +45,10 @@
               ]
             },
             {
-              "id": "b179d011-3445-46a6-982e-6a69240be46b",
+              "id": "c88200f7-be2d-4b5c-af63-3b88e12734ac",
               "tiles": [
                 {
-                  "id": "98a85a37-766d-4408-8036-62d3b3b08c19",
+                  "id": "71f20454-0e8d-4fa0-8097-d8ce0d58ddcc",
                   "x": 0,
                   "y": 0,
                   "sliceX": 16,
@@ -61,7 +61,7 @@
                   "priority": false
                 },
                 {
-                  "id": "6b285b66-fa0b-428a-a2a4-16b6cf629594",
+                  "id": "339f761c-0069-4e74-8b07-ebbf98509c63",
                   "x": 8,
                   "y": 0,
                   "sliceX": 24,
@@ -76,10 +76,10 @@
               ]
             },
             {
-              "id": "227efe35-dd04-40e6-b287-4035e0ea313f",
+              "id": "7d515dc7-a14d-4b09-b4e9-77de23ee4912",
               "tiles": [
                 {
-                  "id": "4f90a813-b00c-4175-9d52-15f9b7758162",
+                  "id": "0a462ef3-e1b7-4cb5-9b49-022373fdfc12",
                   "x": 0,
                   "y": 0,
                   "sliceX": 32,
@@ -92,7 +92,7 @@
                   "priority": false
                 },
                 {
-                  "id": "1fdb70ee-5bd9-422f-a761-7944ea696428",
+                  "id": "0493e34b-1ef5-4733-851a-2a4cd4135389",
                   "x": 8,
                   "y": 0,
                   "sliceX": 40,
@@ -107,10 +107,10 @@
               ]
             },
             {
-              "id": "41a6ffc4-3ecb-48f7-a7bf-5566cbd663fa",
+              "id": "7a6f6953-0bc9-45cb-bf55-f0ccbf7731b1",
               "tiles": [
                 {
-                  "id": "fdcf5976-c239-491c-b79f-dea8b1bd991f",
+                  "id": "ee1c007c-b3a5-4738-8155-0371b5800e33",
                   "x": 0,
                   "y": 0,
                   "sliceX": 48,
@@ -123,7 +123,7 @@
                   "priority": false
                 },
                 {
-                  "id": "5ebd1b27-0d6c-488d-9559-b34e7e0e9705",
+                  "id": "1df895d4-b24e-4793-b823-101ee40feb03",
                   "x": 8,
                   "y": 0,
                   "sliceX": 56,
@@ -138,10 +138,10 @@
               ]
             },
             {
-              "id": "5929f45b-a119-4c78-b932-3964273b3fa2",
+              "id": "eb06575e-b18d-4333-aa35-99eb11536be3",
               "tiles": [
                 {
-                  "id": "30979e18-a086-43c2-a56c-74ffb0072026",
+                  "id": "994da9d5-fad3-4870-a634-133bc793495a",
                   "x": 0,
                   "y": 0,
                   "sliceX": 64,
@@ -154,7 +154,7 @@
                   "priority": false
                 },
                 {
-                  "id": "8ed5c2a5-2767-4a65-99bd-cecd6f3ed96d",
+                  "id": "fb525d09-54ca-44a1-89b3-f06cdc03a165",
                   "x": 8,
                   "y": 0,
                   "sliceX": 72,
@@ -169,10 +169,10 @@
               ]
             },
             {
-              "id": "2453ce5d-aee3-49be-b8bc-9afc48e219fc",
+              "id": "4568ecc5-60d3-4166-b73f-a8ca2d16f9c6",
               "tiles": [
                 {
-                  "id": "38e59d0f-4818-4158-9901-b6aa7f8b0a57",
+                  "id": "f48239c7-3469-4325-9d68-edcdb0a1baee",
                   "x": 0,
                   "y": 0,
                   "sliceX": 80,
@@ -185,7 +185,7 @@
                   "priority": false
                 },
                 {
-                  "id": "cd15a0b0-1e05-4d22-a85e-778e1f4d910b",
+                  "id": "89a0fd05-c9e9-4da5-980b-daae7b8336ff",
                   "x": 8,
                   "y": 0,
                   "sliceX": 88,
@@ -214,7 +214,7 @@
   "boundsWidth": 16,
   "boundsHeight": 16,
   "animSpeed": 15,
-  "filename": "Snowman Moving.png",
+  "filename": "Kangaroo (krumel).png",
   "width": 96,
   "height": 16
 }

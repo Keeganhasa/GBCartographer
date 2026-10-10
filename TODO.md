@@ -21,6 +21,11 @@ into PROGRESS.md when they deserve a note.
 
 - [x] One theme for now: OLED Game Boy green (mauve, then maroon, then the two Game Boy greens: pink felt too GB Studio).
       Other themes stay unlisted in theme.ts.
+- [x] Tilesets carry tile colors like backgrounds (GB Studio 4 stores `tileColors` on tilesets too; the slots are the
+      project's default background palettes): painted in the app, saved on Save, shown on the thumbnails.
+- [x] Unsaved pictures show in italics with a * after the name (tabs, cards, window title).
+- [x] The demo's credited files carry their author in the file name and in GB Studio's name, e.g. `Winter Tileset (Raptorspank)`.
+- [ ] Bake the author's tileset colors into the demo once saved from the app.
 - [x] Project menu on the GB Cartographer name at the top left (it works on the start screen too): open another project, the demo,
       a recent one, Show in Finder, Close project. Unsaved pictures are offered a save first; the old project's tabs
       close; a picture never saves into a project it didn't come from.

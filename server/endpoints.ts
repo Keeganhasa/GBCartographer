@@ -174,7 +174,7 @@ export async function handleCartographerRequest(req: IncomingMessage, res: Serve
     }
     if (url.pathname === "/__cartographer/gbstudio-tile-colors" && req.method === "POST") {
       const kind = url.searchParams.get("kind") ?? "backgrounds";
-      const path = kind === "backgrounds" || kind === "sprites" ? assetPath(project, kind, url.searchParams.get("file") ?? "") : null;
+      const path = kind === "backgrounds" || kind === "sprites" || kind === "tilesets" ? assetPath(project, kind, url.searchParams.get("file") ?? "") : null;
       if (!path) {
         reply(res, 404, { error: "No such background or sprite sheet" });
         return true;
@@ -186,8 +186,9 @@ export async function handleCartographerRequest(req: IncomingMessage, res: Serve
       }
       const expected = url.searchParams.get("metaMtime");
       try {
-        const write = kind === "sprites" ? writeSpritePalettes : writeTileColors;
-        reply(res, 200, { ok: true, ...write(path, body.slots as (number | null)[], options.backupDir, expected === null ? null : Number(expected), url.searchParams.get("force") === "1") });
+        const slots = body.slots as (number | null)[], expectedMtime = expected === null ? null : Number(expected), force = url.searchParams.get("force") === "1";
+        const written = kind === "sprites" ? writeSpritePalettes(path, slots, options.backupDir, expectedMtime, force) : writeTileColors(path, slots, options.backupDir, expectedMtime, force, kind as "backgrounds" | "tilesets");
+        reply(res, 200, { ok: true, ...written });
       } catch (error) {
         if (error instanceof AssetWriteError) reply(res, error.status, { error: error.message, mtime: error.mtime });
         else throw error;
