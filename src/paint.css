@@ -562,3 +562,10 @@
 .gbp-seamless { position: relative; top: auto; z-index: 1; flex-wrap: wrap; align-items: center; }
 .gbp-seamless canvas { image-rendering: pixelated; border-radius: 4px; box-shadow: 0 0 0 1px var(--b-edge, var(--line)); }
 .gbp-about-update { display: flex; align-items: center; gap: 10px; }
+
+/* A sprite on a background. */
+.gbp-sprite-bg { display: flex; flex-direction: column; }
+.gbp-sprite-bg .gbp-modal-head select { max-width: 260px; }
+.gbp-sprite-bg-stage { flex: 1; min-height: 0; overflow: auto; display: grid; place-items: center; padding: 16px; background: #0a0b0d; }
+.gbp-sprite-bg-stage canvas { image-rendering: pixelated; cursor: grab; box-shadow: 0 0 0 1px var(--b-edge, var(--line)); }
+.gbp-sprite-bg-foot { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-top: 1px solid var(--b-edge, var(--line)); color: var(--muted); font-size: var(--fs-sm); }

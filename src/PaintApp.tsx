@@ -20,6 +20,7 @@ import { HelpTip } from "./app/HelpTip";
 import { HelpWindow } from "./app/HelpWindow";
 import { AboutWindow } from "./app/AboutWindow";
 import { HealthWindow } from "./app/HealthWindow";
+import { SpriteOnBackground } from "./app/SpriteOnBackground";
 import { NewPictureWindow, ResizeWindow, type NewPicture } from "./app/NewPictureWindow";
 import { Menu } from "./app/Menu";
 import { StartScreen } from "./app/StartScreen";
@@ -75,6 +76,8 @@ export default function PaintApp() {
   const [showHelp, setShowHelp] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const [showHealth, setShowHealth] = useState(false);
+  /** Try the sprite sheet's animation on one of the project's backgrounds: its frames, drawn when opened. */
+  const [onBackground, setOnBackground] = useState<HTMLCanvasElement[] | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [showResize, setShowResize] = useState(false);
   /** Whether the user was warned this session that GB Studio is open (it may overwrite project JSON when it saves). */
@@ -860,18 +863,16 @@ export default function PaintApp() {
    * The sprite sheet's current animation as a looping GIF, frames put together from their slices as shown here
    * (palettes, screen look), at GB Studio's speed, enlarged `scale` times with hard pixel edges.
    */
-  async function exportGif(scale: number) {
+  /** The current animation's frames put together from their slices as shown here, all on one size of canvas. */
+  function composeFrames(): HTMLCanvasElement[] {
     const sheet = canvasRef.current;
-    if (!doc || !sheet || !frames.length) return;
+    if (!sheet || !frames.length) return [];
     const left = Math.min(0, ...frames.flatMap((item) => item.tiles.map((tile) => tile.x))), top = Math.min(0, ...frames.flatMap((item) => item.tiles.map((tile) => tile.y)));
     const width = Math.max(16, ...frames.flatMap((item) => item.tiles.map((tile) => tile.x + 8))) - left, height = Math.max(16, ...frames.flatMap((item) => item.tiles.map((tile) => tile.y + 16))) - top;
-    const small = document.createElement("canvas"), big = document.createElement("canvas");
-    Object.assign(small, { width, height });
-    Object.assign(big, { width: width * scale, height: height * scale });
-    const context = small.getContext("2d")!, wide = big.getContext("2d", { willReadFrequently: true })!;
-    wide.imageSmoothingEnabled = false;
-    const images = frames.map((item) => {
-      context.clearRect(0, 0, width, height);
+    return frames.map((item) => {
+      const canvas = document.createElement("canvas");
+      Object.assign(canvas, { width, height });
+      const context = canvas.getContext("2d", { willReadFrequently: true })!;
       for (const tile of item.tiles) {
         context.save();
         context.translate(tile.x - left + (tile.flipX ? 8 : 0), tile.y - top + (tile.flipY ? 16 : 0));
@@ -879,8 +880,20 @@ export default function PaintApp() {
         context.drawImage(sheet, tile.sliceX, tile.sliceY, 8, 16, 0, 0, 8, 16);
         context.restore();
       }
+      return canvas;
+    });
+  }
+
+  async function exportGif(scale: number) {
+    const composed = composeFrames();
+    if (!doc || !composed.length) return;
+    const big = document.createElement("canvas");
+    Object.assign(big, { width: composed[0].width * scale, height: composed[0].height * scale });
+    const wide = big.getContext("2d", { willReadFrequently: true })!;
+    wide.imageSmoothingEnabled = false;
+    const images = composed.map((frameCanvas) => {
       wide.clearRect(0, 0, big.width, big.height);
-      wide.drawImage(small, 0, 0, big.width, big.height);
+      wide.drawImage(frameCanvas, 0, 0, big.width, big.height);
       return wide.getImageData(0, 0, big.width, big.height).data;
     });
     try {
@@ -1582,6 +1595,7 @@ export default function PaintApp() {
                 ))}
               </div>
               <span className="gbp-frames-label">{animations.length > 1 ? animation.name : "frame"} {frame.index + 1} of {frames.length}</span>
+              {project && project.assets.some((asset) => asset.kind === "backgrounds") && <button className="quiet-button" title="See this animation on one of the project's backgrounds, to check contrast and palette clashes" onClick={() => setOnBackground(composeFrames())}>On a background…</button>}
             </div>
           )}
           {doc?.changedOnDisk && !doc.changedOnDisk.kept && (
@@ -1819,6 +1833,7 @@ export default function PaintApp() {
       )}
       {showHelp && <HelpWindow onClose={() => setShowHelp(false)} onAbout={() => { setShowHelp(false); setShowAbout(true); }} />}
       {showAbout && <AboutWindow onClose={() => setShowAbout(false)} />}
+      {onBackground && project && <SpriteOnBackground backgrounds={project.assets.filter((asset) => asset.kind === "backgrounds")} frames={onBackground} fps={fps} onClose={() => setOnBackground(null)} />}
       {showHealth && project && <HealthWindow projectName={project.name} onClose={() => setShowHealth(false)} onOpen={(kind, file) => { const asset = project.assets.find((item) => item.kind === kind && item.file === file); if (asset) { setProjectKind(kind); void openAsset(asset); } }} />}
       {showNew && <NewPictureWindow projectName={project?.name ?? null} initialKind={projectKind} onClose={() => setShowNew(false)} onCreate={createPicture} />}
       {showResize && doc && <ResizeWindow width={doc.width} height={doc.height} sprite={doc.asset?.kind === "sprites"} inProject={Boolean(doc.asset)} onClose={() => setShowResize(false)} onResize={resizePicture} />}
