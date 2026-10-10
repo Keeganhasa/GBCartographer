@@ -113,6 +113,20 @@ server layer (`server/`) and the Electron shell (`electron/`). Nothing from any 
   were lost on quit. The session now uses its own database, `gb-cartographer-session`, and failures are logged.
   Lesson: a test browser that has had its databases cleared hides this kind of clash; reproduce with the old data.
 
+### Palette slots (2026-10-09, late)
+- **Put in slot**: right-click a palette (list or slot strip, or Slot… under it) → slot 1–8. Writes the scene's
+  `paletteIds` / `spritePaletteIds`, or the project's default palettes for tilesets and for backgrounds or sprites
+  no scene claims (the author approved these writes). Backups go to `backups/gbstudio/scenes|settings/`.
+  `server/assets.ts` `slotSource` is the one place that decides where an asset's slots come from.
+- **Named slots** option: Chorbi-style names (`DWC-2-Computer D`, `WIN-1-Snow`) save as their base palette's slot,
+  else the number in the name.
+- The demo's tilesets got the 40 tiles of `docs/demo-tile-palettes.json` that changed under that rule (28 on the
+  Winter Tileset, 12 on Free Furniture); every tile already in a slot matched the record. The record stays the full
+  truth (GB Studio stores only slots).
+- Restored pictures reread their slots on load, so a scene changed on disk (or by Put in slot) shows up.
+- README: a painting GIF (`docs/demo.gif`, made from the author's screen recording with ffmpeg) at the top,
+  features and planned features. GitHub description and topics set.
+
 ### Known issues
 - Inter and JetBrains Mono load from Google Fonts: offline, the app falls back to the system font.
 - GB Studio's animation speed is not read yet: the frames strip plays at a fixed 8 fps.

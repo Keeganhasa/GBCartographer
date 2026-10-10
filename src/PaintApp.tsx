@@ -5,13 +5,13 @@
  * picture also its tile palettes (see server/endpoints.ts).
  */
 import { BoxSelect, ChevronDown, Circle, CircleHelp, Download, DropletOff, Eraser, FlipHorizontal2, FolderOpen, FolderTree, Ghost, Grid3x3, Hand, Image, LayoutGrid, Magnet, Minus, Move, PaintBucket, Palette as PaletteIcon, Pause, Pencil, Pipette, Play, Plus, RectangleHorizontal, Redo2, Save, Slash, SprayCan, Square, Star, Type, Undo2, X } from "lucide-react";
-import { useEffect, useLayoutEffect, useReducer, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useReducer, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { LogoMark } from "./ui/LogoMark";
 import { FONTS, applyFont, loadFont, type FontChoice } from "./ui/theme";
 import PaletteManager from "./PaletteManager";
 import { attachMiddlePan, attachWheelZoom, nextStep } from "./ui/wheelZoom";
-import { CELL, CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, cellsWide, clipRect, colorize, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, lift, linePoints, mirrorPoints, quantize, rectFrom, shadeLut, snapRect, spray, toRgba, type Floating, type Mirror, type Palette, type Rect } from "./paint";
+import { CELL, CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, cellsWide, clipRect, colorize, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, lift, linePoints, mirrorPoints, namedSlot, quantize, rectFrom, shadeLut, snapRect, spray, toRgba, type Floating, type Mirror, type Palette, type Rect } from "./paint";
 
 type ToolId = "pencil" | "eraser" | "spray" | "line" | "rect" | "rectFill" | "ellipse" | "fill" | "fillErase" | "eyedropper" | "palette" | "select" | "move" | "hand";
 
@@ -50,6 +50,7 @@ const BUDGETS = [{ id: "colorOnly", label: "Color Only · 384", limit: 384, flip
 const CUSTOM_TINT_KEY = "gb-cartographer.custom-tint";
 const PROJECT_PANEL_KEY = "gb-cartographer.project-panel";
 const PROJECT_KIND_KEY = "gb-cartographer.project-kind";
+const NAMED_SLOTS_KEY = "gb-cartographer.named-slots";
 /** The dev server and the desktop app serve the open GB Studio project (server/endpoints.ts). */
 const PROJECT_URL = "./__cartographer/gbstudio-assets";
 const ASSET_URL = "./__cartographer/gbstudio-asset";
@@ -82,7 +83,7 @@ interface Project { name: string; path: string; assets: Asset[]; palettes: Palet
 interface SpriteFrame { tiles: { x: number; y: number; sliceX: number; sliceY: number; flipX: boolean; flipY: boolean }[] }
 interface SpriteAnimation { name: string; frames: SpriteFrame[] }
 /** What the server knows about an asset besides its pixels (see assetInfo in server/assets.ts). */
-interface AssetInfo { mtime: number; tileColors: number[]; slots: string[]; metaMtime: number | null; animations?: SpriteAnimation[] }
+interface AssetInfo { mtime: number; tileColors: number[]; slots: string[]; slotScene?: string | null; metaMtime: number | null; animations?: SpriteAnimation[] }
 /** A picture to open: a file (with a handle to save back to), or a project asset with its info. */
 interface Opening { file: File; handle?: FileHandle; asset?: Asset; info?: AssetInfo }
 
@@ -104,7 +105,7 @@ interface Doc extends Snapshot {
    * A background or sprite sheet also carries its eight palette slot ids and its sidecar's time: Save writes each
    * tile's palette into the sidecar (a background's tileColors, a sprite's slices' paletteIndex) as a slot.
    */
-  asset?: { kind: AssetKind; file: string; name: string; mtime: number; slots?: string[]; metaMtime?: number | null; /** Each cell's slot when the picture was opened (-1 unknown): only cells moved off it are written back. */ opened?: number[]; /** A sprite sheet's animations, for the frames strip. */ animations?: SpriteAnimation[]; /** The project folder it came from: Save refuses to write it into another project. */ project?: string };
+  asset?: { kind: AssetKind; file: string; name: string; mtime: number; slots?: string[]; /** The scene whose palette list the slots are; null: the project's default palettes. */ slotScene?: string | null; metaMtime?: number | null; /** Each cell's slot when the picture was opened (-1 unknown): only cells moved off it are written back. */ opened?: number[]; /** A sprite sheet's animations, for the frames strip. */ animations?: SpriteAnimation[]; /** The project folder it came from: Save refuses to write it into another project. */ project?: string };
   /** A sprite sheet: see-through pixels are GB Studio's key green in the file. */
   keyGreen?: boolean;
   zoom: number;
@@ -218,6 +219,14 @@ export default function PaintApp() {
   const [assetMenu, setAssetMenu] = useState<{ x: number; y: number; asset: Asset } | null>(null);
   /** The project menu (open another, the demo, recent, close), anchored under the button that opened it. */
   const [projectMenu, setProjectMenu] = useState<{ x: number; y: number } | null>(null);
+  /** The "Put in slot" menu for a palette of the open picture (its index in the picture's palettes, from 1). */
+  const [slotMenu, setSlotMenu] = useState<{ x: number; y: number; palette: number } | null>(null);
+  /** Palettes named like DWC-2-Computer D save as their base palette's slot (or the number in the name). */
+  const [namedSlots, setNamedSlots] = useState<boolean>(() => readStored(NAMED_SLOTS_KEY, false));
+  const namedSlotsRef = useRef(namedSlots);
+  namedSlotsRef.current = namedSlots;
+  /** Bumped when palette slots change, so thumbnails are drawn again. */
+  const [slotsVersion, setSlotsVersion] = useState(0);
   const projectRef = useRef<Project | null>(null);
   /** The frames strip: which animation and frame of the open sprite sheet is current, and whether it plays. */
   const [frame, setFrame] = useState({ animation: 0, index: 0 });
@@ -397,7 +406,7 @@ export default function PaintApp() {
         // A background's tile colors (GB Studio's per-tile palettes) dress the cells when the scene's palettes are known.
         const dressed = info?.tileColors.length ? assignSlots(picture.cells, info.tileColors, info.slots, picture.palettes) : 0;
         last = nextDocId++;
-        docs.current.push({ id: last, name: asset?.name ?? file.name, width: bitmap.width, height: bitmap.height, pixels: picture.pixels, cells: picture.cells, hasAlpha: picture.hasAlpha || keyGreen, palettes: picture.palettes, undo: [], redo: [], dirty: false, handle, asset: asset && info ? { kind: asset.kind, file: asset.file, name: asset.name, mtime: info.mtime, ...(hasSlots(asset.kind) ? { slots: info.slots, metaMtime: info.metaMtime, opened: info.tileColors.map((value) => value < 0 ? -1 : value & 7) } : {}), ...(asset.kind === "sprites" && info.animations?.length ? { animations: info.animations } : {}), project: projectRef.current?.path } : undefined, keyGreen: keyGreen || undefined, zoom: fitZoom(bitmap.width, bitmap.height), sel: null, float: null });
+        docs.current.push({ id: last, name: asset?.name ?? file.name, width: bitmap.width, height: bitmap.height, pixels: picture.pixels, cells: picture.cells, hasAlpha: picture.hasAlpha || keyGreen, palettes: picture.palettes, undo: [], redo: [], dirty: false, handle, asset: asset && info ? { kind: asset.kind, file: asset.file, name: asset.name, mtime: info.mtime, ...(hasSlots(asset.kind) ? { slots: info.slots, slotScene: info.slotScene ?? null, metaMtime: info.metaMtime, opened: info.tileColors.map((value) => value < 0 ? -1 : value & 7) } : {}), ...(asset.kind === "sprites" && info.animations?.length ? { animations: info.animations } : {}), project: projectRef.current?.path } : undefined, keyGreen: keyGreen || undefined, zoom: fitZoom(bitmap.width, bitmap.height), sel: null, float: null });
         const made = picture.palettes.length - palettesRef.current.length;
         if (picture.snapped) say(`${file.name}: ${picture.snapped} color${picture.snapped === 1 ? "" : "s"} in tiles of more than four colors became the nearest shade.`);
         else if (made) say(`${file.name}: tiles in colors outside the library keep them as ${made} palette${made === 1 ? "" : "s"} of the file.${asset ? " Save writes them as GB greens in order of brightness, which may differ from how GB Studio reads the colors." : ""}`);
@@ -634,14 +643,20 @@ export default function PaintApp() {
 
   /**
    * Writes a background's or sprite sheet's tile palettes into GB Studio as palette slots: a tile wearing one of
-   * the eight palettes gets that slot; "None" and palettes outside the eight leave the tile's slot as it is. Only
+   * the eight palettes gets that slot (with named slots on, a Chorbi-style variant gets its base palette's);
+   * "None" and palettes outside the eight leave the tile's slot as it is. Only
    * cells whose slot differs from the one they were opened with are sent, so a sprite slice that several frames
    * show in different palettes keeps them unless the user paints it.
    */
   async function saveTileColors(target: Doc): Promise<string[]> {
     const asset = target.asset!;
     const slotOf = new Map<number, number>();
-    target.palettes.forEach((palette, index) => { const slot = palette.id ? asset.slots!.indexOf(palette.id) : -1; if (slot >= 0) slotOf.set(index + 1, slot); });
+    const slotNames = asset.slots!.map((id) => target.palettes.find((palette) => palette.id === id)?.name);
+    target.palettes.forEach((palette, index) => {
+      const slot = palette.id ? asset.slots!.indexOf(palette.id) : -1;
+      const named = slot < 0 && namedSlotsRef.current ? namedSlot(palette.name, slotNames) : -1;
+      if (slot >= 0 || named >= 0) slotOf.set(index + 1, slot >= 0 ? slot : named);
+    });
     let outside = 0;
     const slots = Array.from(target.cells, (wear, cell) => {
       if (!wear) return null;
@@ -663,6 +678,55 @@ export default function PaintApp() {
     if (result.changed) notes.push(`${result.cells} tile palette${result.cells === 1 ? "" : "s"} written to GB Studio`);
     if (outside) notes.push(`${outside} tile${outside === 1 ? "" : "s"} wear palettes outside the eight slots and keep their slot`);
     return notes;
+  }
+
+  /**
+   * Open pictures of the current project reread their palette slots (a scene's palette list may have changed since
+   * the session was kept); those from an older session, or tilesets opened before they had palette slots, also
+   * learn their tile slots as opened.
+   */
+  async function rereadSlots() {
+    const path = projectRef.current?.path;
+    if (!path) return;
+    const ours = docs.current.filter((item) => item.asset && hasSlots(item.asset.kind) && (!item.asset.project || item.asset.project === path));
+    await Promise.all(ours.map(async (item) => {
+      const asset = item.asset!;
+      const info = await fetch(`${ASSET_URL}-info?${assetQuery(asset)}`, { cache: "no-cache" }).then((response) => response.ok ? response.json() as Promise<AssetInfo> : null).catch(() => null);
+      if (!info) return;
+      if (!asset.slots) Object.assign(asset, { metaMtime: info.metaMtime, opened: info.tileColors.map((value) => value < 0 ? -1 : value & 7), project: path });
+      Object.assign(asset, { slots: info.slots, slotScene: info.slotScene ?? null });
+    }));
+    if (ours.length) bump();
+  }
+
+  /**
+   * Puts one of the open picture's palettes into slot `slot` (0–7) in GB Studio: the scene's palette list, or the
+   * project's default palettes. Open pictures that take their slots from the same place learn the new ones, and
+   * the toast says how many tiles wore the palette that was moved out.
+   */
+  async function putInSlot(paletteIndex: number, slot: number) {
+    const target = doc, asset = target?.asset, palette = target?.palettes[paletteIndex - 1];
+    if (!target || !asset?.slots || !palette) return;
+    if (!palette.id) return say(`${palette.name} is not in the project yet: add it from the palette manager first.`);
+    if (asset.project && asset.project !== projectRef.current?.path) return say(`${asset.name} belongs to ${asset.project}. Open that project to change its slots.`);
+    if (!await okToWriteProjectJson()) return;
+    const old = asset.slots[slot];
+    const oldPalette = target.palettes.find((item) => item.id === old);
+    try {
+      const response = await fetch(`./__cartographer/gbstudio-palette-slot?${assetQuery(asset)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slot, paletteId: palette.id }) });
+      const result = await response.json() as { ok?: boolean; error?: string; slots?: string[]; scene?: string | null };
+      if (!response.ok || !result.ok || !result.slots) return say(`Could not put ${palette.name} in slot ${slot + 1}: ${result.error ?? response.statusText}`);
+      await rereadSlots();
+      const where = result.scene ? `${result.scene}'s palettes` : `the project's default ${asset.kind === "sprites" ? "sprite" : "background"} palettes`;
+      const oldIndex = oldPalette ? target.palettes.indexOf(oldPalette) + 1 : 0;
+      const left = oldIndex && !result.slots.includes(old) ? target.cells.reduce((count, wear) => count + (wear === oldIndex ? 1 : 0), 0) : 0;
+      say(`${palette.name} is in slot ${slot + 1} of ${where}${oldPalette && oldPalette !== palette ? ` (it held ${oldPalette.name})` : ""}.${left ? ` ${left} tile${left === 1 ? "" : "s"} here wear ${oldPalette!.name}, now outside the eight: in GB Studio they show slot ${slot + 1} until repainted.` : ""} Save to write this picture's tiles.`);
+      setSlotsVersion((version) => version + 1);
+      scheduleSession();
+      bump();
+    } catch (error) {
+      say(`Could not put ${palette.name} in slot ${slot + 1}: ${(error as Error).message}`);
+    }
   }
 
   function pngBlob(target: Doc): Promise<Blob> {
@@ -988,6 +1052,7 @@ export default function PaintApp() {
         if (!session?.docs?.length || docs.current.length) return;
         docs.current = session.docs.map((saved) => ({ ...saved, palettes: saved.palettes ?? clonePalettes(palettesRef.current), id: nextDocId++, undo: [], redo: [], sel: null, float: null }));
         setActiveId(docs.current[Math.max(0, session.active)]?.id ?? docs.current[0].id);
+        void rereadSlots();
       });
     const onKeyDown = (event: KeyboardEvent) => latest.current.keyDown(event);
     const onKeyUp = (event: KeyboardEvent) => { if (event.key === " ") spaceDown.current = false; };
@@ -1042,18 +1107,7 @@ export default function PaintApp() {
   const frames = animation?.frames ?? [];
   const current = frames[Math.min(frame.index, Math.max(0, frames.length - 1))];
   useEffect(() => { setFrame({ animation: 0, index: 0 }); setPlaying(false); }, [activeId]);
-  // Pictures restored from an older session (or tilesets opened before they had palette slots) learn their slots now.
-  useEffect(() => {
-    if (!project) return;
-    const missing = docs.current.filter((item) => item.asset && hasSlots(item.asset.kind) && !item.asset.slots && (!item.asset.project || item.asset.project === project.path));
-    if (!missing.length) return;
-    void Promise.all(missing.map(async (item) => {
-      const asset = item.asset!;
-      const info = await fetch(`${ASSET_URL}-info?${assetQuery(asset)}`, { cache: "no-cache" }).then((response) => response.ok ? response.json() as Promise<AssetInfo> : null).catch(() => null);
-      if (!info) return;
-      Object.assign(asset, { slots: info.slots, metaMtime: info.metaMtime, opened: info.tileColors.map((value) => value < 0 ? -1 : value & 7), project: project.path });
-    })).then(() => bump());
-  }, [project]);
+  useEffect(() => { void rereadSlots(); }, [project]);
   useEffect(() => {
     if (!playing || frames.length < 2) return;
     const timer = window.setInterval(() => setFrame((at) => ({ ...at, index: (at.index + 1) % frames.length })), 125);
@@ -1136,7 +1190,13 @@ export default function PaintApp() {
   const sceneSlots = doc?.asset?.slots ?? [];
   const slotOf = (palette: Palette) => palette.id ? sceneSlots.indexOf(palette.id) : -1;
   const slotPalettes = sceneSlots.map((id) => docPalettes.findIndex((palette) => palette.id === id));
-  const paletteList = [{ name: "None (GB greens)", colors: [...GB_SHADES] } as Palette, ...docPalettes].map((palette, index) => ({ palette, index, slot: index ? slotOf(palette) : -1 }));
+  const slotNames = slotPalettes.map((index) => index >= 0 ? docPalettes[index].name : undefined);
+  const paletteList = [{ name: "None (GB greens)", colors: [...GB_SHADES] } as Palette, ...docPalettes].map((palette, index) => {
+    const slot = index ? slotOf(palette) : -1;
+    return { palette, index, slot, named: index && slot < 0 && namedSlots && sceneSlots.length ? namedSlot(palette.name, slotNames) : -1 };
+  });
+  const slotWhere = doc?.asset?.slotScene ? `${doc.asset.slotScene}'s palettes` : doc?.asset?.kind === "sprites" ? "the project's default sprite palettes (every scene without its own)" : "the project's default background palettes (every scene without its own)";
+  const openSlotMenu = (event: ReactMouseEvent, palette: number) => { if (!sceneSlots.length || !palette) return; event.preventDefault(); setSlotMenu({ x: event.clientX, y: event.clientY, palette }); };
   const shownPalettes = paletteList
     .filter(({ palette, index }) => index === activePalette || matches(palette.name, paletteFilter))
     .sort((a, b) => (a.index === 0 ? -1 : b.index === 0 ? 1 : a.slot >= 0 && b.slot >= 0 ? a.slot - b.slot : a.slot >= 0 ? -1 : b.slot >= 0 ? 1 : a.index - b.index));
@@ -1199,7 +1259,7 @@ export default function PaintApp() {
                   const openDoc = docs.current.find((item) => item.asset?.kind === asset.kind && item.asset.file === asset.file);
                   return (
                     <button key={asset.file} role="listitem" onContextMenu={(event) => { event.preventDefault(); setAssetMenu({ x: event.clientX, y: event.clientY, asset }); }} className={`gbp-asset ${openDoc && openDoc.id === activeId ? "selected" : openDoc ? "open" : ""}`} title={`${asset.file} · ${asset.width} × ${asset.height} px${openDoc ? " · open" : ""}`} onClick={() => void openAsset(asset)}>
-                      <img className="gbp-asset-thumb" loading="lazy" decoding="async" alt="" src={`${ASSET_URL}-preview?${assetQuery(asset)}&v=${Math.round(asset.mtime)}&pv=${PREVIEW_VERSION}`} />
+                      <img className="gbp-asset-thumb" loading="lazy" decoding="async" alt="" src={`${ASSET_URL}-preview?${assetQuery(asset)}&v=${Math.round(asset.mtime)}&pv=${PREVIEW_VERSION}&s=${slotsVersion}`} />
                       <span className="gbp-asset-meta"><span className={`gbp-asset-name ${openDoc?.dirty ? "gbp-unsaved" : ""}`}>{asset.name}{openDoc?.dirty ? " *" : ""}</span><span className="gbp-asset-size">{asset.width}×{asset.height}</span></span>
                     </button>
                   );
@@ -1312,7 +1372,7 @@ export default function PaintApp() {
                   {slotPalettes.map((paletteIndex, slot) => {
                     const palette = paletteIndex >= 0 ? docPalettes[paletteIndex] : null;
                     return (
-                      <button key={slot} className={`gbp-slot-button ${palette && activePalette === paletteIndex + 1 ? "selected" : ""}`} disabled={!palette} title={palette ? `Slot ${slot + 1} · ${palette.name}` : `Slot ${slot + 1}: no palette`} onClick={() => palette && pickPalette(paletteIndex + 1)}>
+                      <button key={slot} className={`gbp-slot-button ${palette && activePalette === paletteIndex + 1 ? "selected" : ""}`} disabled={!palette} title={palette ? `Slot ${slot + 1} · ${palette.name}` : `Slot ${slot + 1}: no palette`} onClick={() => palette && pickPalette(paletteIndex + 1)} onContextMenu={(event) => openSlotMenu(event, paletteIndex + 1)}>
                         <b>{slot + 1}</b>
                         <span className="gbp-chips">{(palette?.colors ?? ["#222", "#222", "#222", "#222"]).map((color, at) => <i key={at} style={{ background: color }} />)}</span>
                         <span className="gbp-slot-name">{palette?.name ?? "—"}</span>
@@ -1321,16 +1381,23 @@ export default function PaintApp() {
                   })}
                 </div>
               )}
+              {sceneSlots.length > 0 && (
+                <label className="gbp-check" title="Palettes named like DWC-2-Computer D (a D / N / S variant) save as their base palette's slot, or the number in the name (WIN-1-Snow saves as slot 1)">
+                  <input type="checkbox" checked={namedSlots} onChange={(event) => { setNamedSlots(event.target.checked); store(NAMED_SLOTS_KEY, event.target.checked); }} />
+                  Named slots: variants save as their base's
+                </label>
+              )}
               <div className="gbp-side-row">
                 <input type="search" className="gbp-filter" placeholder="Filter palettes" aria-label="Filter palettes by name" value={paletteFilter} onChange={(event) => setPaletteFilter(event.target.value)} />
                 <HelpTip label="About the palette brush">{paletteHelp}</HelpTip>
               </div>
               <div className="gbp-palettes" role="listbox" aria-label="Palettes">
-                {shownPalettes.map(({ palette, index, slot }) => (
-                  <button key={`${index}-${palette.name}`} role="option" aria-selected={activePalette === index} className={activePalette === index ? "selected" : ""} onClick={() => pickPalette(index)}>
+                {shownPalettes.map(({ palette, index, slot, named }) => (
+                  <button key={`${index}-${palette.name}`} role="option" aria-selected={activePalette === index} className={activePalette === index ? "selected" : ""} title={index && sceneSlots.length ? "Right-click: put in a slot" : undefined} onClick={() => pickPalette(index)} onContextMenu={(event) => openSlotMenu(event, index)}>
                     <span className="gbp-chips">{palette.colors.map((color, at) => <i key={at} style={{ background: color }} />)}</span>
                     <span>{palette.name}</span>
                     {slot >= 0 && <small className="gbp-slot" title={doc?.asset?.kind === "sprites" ? `Sprite palette slot ${slot + 1}` : `Palette slot ${slot + 1} of this background's scene`}>{slot + 1}</small>}
+                    {named >= 0 && <small className="gbp-slot named" title={`Saves as slot ${named + 1} (named slots)`}>{named + 1}</small>}
                   </button>
                 ))}
               </div>
@@ -1342,6 +1409,7 @@ export default function PaintApp() {
                   </div>
                   <div className="gbp-palette-actions">
                     {picked.id && project && <button className="quiet-button primary" disabled={!libraryColors || libraryColors.join() === picked.colors.join()} title={`Rewrite ${picked.name} in the GB Studio project with these colors (Save does this too)`} onClick={() => void (async () => { if (await okToWriteProjectJson() && await writeProjectPalette({ id: picked.id, name: picked.name, colors: [...picked.colors] })) say(`${picked.name} written to the project`); })()}>Save to project</button>}
+                    {sceneSlots.length > 0 && <button className="quiet-button" title={`Put ${picked.name} in one of ${slotWhere}`} onClick={(event) => { const r = event.currentTarget.getBoundingClientRect(); setSlotMenu({ x: r.left, y: r.bottom + 4, palette: activePalette }); }}>Slot…</button>}
                     <button className="quiet-button" disabled={!libraryColors || libraryColors.join() === picked.colors.join()} title="Back to the colors the project has" onClick={() => libraryColors && recolorPalette(libraryColors)}>Revert</button>
                     <button className="quiet-button" title="Copy these four colors, to paste onto a palette here or in another tab" onClick={() => { setCopiedColors([...picked.colors]); say(`Copied the colors of ${picked.name}`); }}>Copy values</button>
                     <button className="quiet-button" disabled={!copiedColors} title="Replace these four colors with the copied ones" onClick={() => copiedColors && recolorPalette(copiedColors)}>Paste values</button>
@@ -1404,6 +1472,26 @@ export default function PaintApp() {
           </div>
         </div>
       )}
+      {slotMenu && doc && docPalettes[slotMenu.palette - 1] && (
+        <div className="gbp-menu-backdrop" onMouseDown={() => setSlotMenu(null)} onContextMenu={(event) => { event.preventDefault(); setSlotMenu(null); }}>
+          <div className="gbp-menu gbp-slot-menu" role="menu" style={{ left: Math.min(slotMenu.x, window.innerWidth - 300), top: Math.max(8, Math.min(slotMenu.y, window.innerHeight - 450)) }} onMouseDown={(event) => event.stopPropagation()}>
+            <span className="gbp-menu-label">Put {docPalettes[slotMenu.palette - 1].name} in slot</span>
+            {slotPalettes.map((index, slot) => {
+              const holder = index >= 0 ? docPalettes[index] : null;
+              const here = index === slotMenu.palette - 1;
+              return (
+                <button key={slot} role="menuitem" disabled={here || !docPalettes[slotMenu.palette - 1].id} onClick={() => { const palette = slotMenu.palette; setSlotMenu(null); void putInSlot(palette, slot); }}>
+                  <b>{slot + 1}</b>
+                  <span className="gbp-chips">{(holder?.colors ?? ["#222", "#222", "#222", "#222"]).map((color, at) => <i key={at} style={{ background: color }} />)}</span>
+                  <span>{holder?.name ?? "—"}{here ? " (here)" : ""}</span>
+                </button>
+              );
+            })}
+            <hr />
+            <p className="gbp-menu-note">{docPalettes[slotMenu.palette - 1].id ? `Writes ${slotWhere} in GB Studio right away. Tiles wearing the palette moved out show the new one there.` : "Add this palette to the project first (palette manager)."}</p>
+          </div>
+        </div>
+      )}
       {assetMenu && (
         <div className="gbp-menu-backdrop" onMouseDown={() => setAssetMenu(null)} onContextMenu={(event) => { event.preventDefault(); setAssetMenu(null); }}>
           <div className="gbp-menu" role="menu" style={{ left: Math.min(assetMenu.x, window.innerWidth - 220), top: Math.min(assetMenu.y, window.innerHeight - 130) }} onMouseDown={(event) => event.stopPropagation()}>
@@ -1429,7 +1517,7 @@ export default function PaintApp() {
                   <tr><td /><td><b>Files</b></td><td><kbd>Ctrl+O</kbd> <kbd>Ctrl+S</kbd> <kbd>Ctrl+E</kbd></td><td>Open PNGs, save, export a copy. Ctrl+Z / Ctrl+Shift+Z undo and redo; Ctrl+C / X / V and Ctrl+A work on the selection; Ctrl+= / Ctrl+- zoom; Esc drops the selection.</td></tr>
                 </tbody>
               </table>
-              <p className="gbp-note">What Save writes into a GB Studio project: the PNG (same size), a background's tile palettes (<code>tileColors</code>), a sprite sheet's slice palettes (<code>paletteIndex</code>), and palette files from the palette manager. Nothing else. The old file is copied to the backups folder first.</p>
+              <p className="gbp-note">What Save writes into a GB Studio project: the PNG (same size), a background's tile palettes (<code>tileColors</code>), a sprite sheet's slice palettes (<code>paletteIndex</code>), palette files from the palette manager, and when you put a palette in a slot, the scene's palette list or the project's default palettes. Nothing else. The old file is copied to the backups folder first.</p>
             </div>
           </div>
         </div>

@@ -5,7 +5,7 @@
  */
 import { closeSync, copyFileSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
-import { basename, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { deflateSync, inflateSync } from "node:zlib";
 import { decodeTileColors, encodeTileColors, resolveScenePaletteIds } from "../src/gb/gbstudio";
 import { decodePng, encodePng } from "../src/gb/png";
@@ -22,7 +22,7 @@ export interface ProjectPalette { id: string; name: string; colors: string[] }
  * the two cells it covers, -1 on cells no slice uses). `slots`: the eight palette ids those slots mean (the
  * scene's background palettes, or the project's sprite palettes). `metaMtime`: the sidecar's time, or null.
  */
-export interface AssetInfo { mtime: number; width: number; height: number; tileColors: number[]; slots: string[]; metaMtime: number | null; /** A sprite sheet's animations (every state's), each a list of frames made of 8 × 16 slices. */ animations: SpriteAnimation[] }
+export interface AssetInfo { mtime: number; width: number; height: number; tileColors: number[]; slots: string[]; /** The scene whose palette list the slots are (null: the project's defaults). */ slotScene: string | null; metaMtime: number | null; /** A sprite sheet's animations (every state's), each a list of frames made of 8 × 16 slices. */ animations: SpriteAnimation[] }
 export interface SpriteFrame { tiles: { x: number; y: number; sliceX: number; sliceY: number; flipX: boolean; flipY: boolean }[] }
 export interface SpriteAnimation { name: string; frames: SpriteFrame[] }
 
@@ -159,41 +159,46 @@ export function listPalettes(project: string): ProjectPalette[] {
   return palettes.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/** The eight background palette ids of the first scene that shows this background, else the project defaults. */
-function backgroundSlots(project: string, backgroundId: string | undefined): string[] {
-  const settings = readJson(join(project, "project/settings.gbsres"));
-  const defaults = Array.isArray(settings?.defaultBackgroundPaletteIds) ? settings.defaultBackgroundPaletteIds as string[] : [];
+/**
+ * Where an asset's eight palette slots come from. A background: the first scene (by folder name) that shows it.
+ * A sprite sheet: the first scene with an actor using it that overrides sprite palettes. Otherwise, and always for
+ * tilesets (they belong to no scene), the project's default palettes in settings.gbsres. GB Studio 3 keeps actors
+ * in the scene file, GB Studio 4 in the scene folder's actors/.
+ */
+interface SlotSource { file: string; field: string; scene: string | null; ids: string[]; defaults: string[] }
+
+const idList = (value: unknown): string[] => Array.isArray(value) ? value.map((id) => typeof id === "string" ? id : "") : [];
+
+function slotSource(project: string, kind: AssetKind, assetId: string | undefined): SlotSource {
+  const settingsFile = join(project, "project/settings.gbsres");
+  const sprite = kind === "sprites";
+  const defaultsField = sprite ? "defaultSpritePaletteIds" : "defaultBackgroundPaletteIds";
+  const defaults = idList(readJson(settingsFile)?.[defaultsField]);
   const scenesDir = join(project, "project/scenes");
-  if (backgroundId && existsSync(scenesDir)) {
+  if (assetId && kind !== "tilesets" && existsSync(scenesDir)) {
     for (const folder of readdirSync(scenesDir).sort()) {
-      const scene = readJson(join(scenesDir, folder, "scene.gbsres"));
-      if (scene?.backgroundId === backgroundId) return resolveScenePaletteIds(Array.isArray(scene.paletteIds) ? scene.paletteIds as string[] : [], defaults);
+      const file = join(scenesDir, folder, "scene.gbsres");
+      const scene = readJson(file);
+      if (!scene) continue;
+      const name = typeof scene.name === "string" && scene.name ? scene.name : folder;
+      if (!sprite) {
+        if (scene.backgroundId === assetId) return { file, field: "paletteIds", scene: name, ids: idList(scene.paletteIds), defaults };
+        continue;
+      }
+      const overrides = idList(scene.spritePaletteIds);
+      if (!overrides.some(Boolean)) continue;
+      const actors: Record<string, unknown>[] = Array.isArray(scene.actors) ? scene.actors as Record<string, unknown>[] : [];
+      const actorsDir = join(scenesDir, folder, "actors");
+      if (existsSync(actorsDir)) for (const entry of readdirSync(actorsDir)) { const actor = readJson(join(actorsDir, entry)); if (actor) actors.push(actor); }
+      if (actors.some((actor) => actor.spriteSheetId === assetId)) return { file, field: "spritePaletteIds", scene: name, ids: overrides, defaults };
     }
   }
-  return resolveScenePaletteIds([], defaults);
+  return { file: settingsFile, field: defaultsField, scene: null, ids: [], defaults };
 }
 
-/**
- * The eight sprite palette ids a sprite sheet is shown with: the first scene (by folder name) with an actor using
- * it that overrides sprite palettes, else the project's default sprite palettes. GB Studio 3 keeps actors in the
- * scene file, GB Studio 4 in the scene folder's actors/.
- */
-function spriteSlots(project: string, spriteId: string | undefined): string[] {
-  const settings = readJson(join(project, "project/settings.gbsres"));
-  const defaults = Array.isArray(settings?.defaultSpritePaletteIds) ? settings.defaultSpritePaletteIds as string[] : [];
-  const scenesDir = join(project, "project/scenes");
-  if (spriteId && existsSync(scenesDir)) {
-    for (const folder of readdirSync(scenesDir).sort()) {
-      const scene = readJson(join(scenesDir, folder, "scene.gbsres"));
-      const overrides = Array.isArray(scene?.spritePaletteIds) ? scene.spritePaletteIds as string[] : [];
-      if (!overrides.some(Boolean)) continue;
-      const actors: Record<string, unknown>[] = Array.isArray(scene?.actors) ? scene.actors as Record<string, unknown>[] : [];
-      const actorsDir = join(scenesDir, folder, "actors");
-      if (existsSync(actorsDir)) for (const file of readdirSync(actorsDir)) { const actor = readJson(join(actorsDir, file)); if (actor) actors.push(actor); }
-      if (actors.some((actor) => actor.spriteSheetId === spriteId)) return resolveScenePaletteIds(overrides, defaults);
-    }
-  }
-  return resolveScenePaletteIds([], defaults);
+function assetId(path: string): string | undefined {
+  const id = readJson(`${path}.gbsres`)?.id;
+  return typeof id === "string" ? id : undefined;
 }
 
 /** What GB Cartographer needs besides the pixels: the file's time and size, and for backgrounds and sprites their palette slots. */
@@ -203,7 +208,7 @@ export function assetInfo(project: string, kind: AssetKind, path: string): Asset
   const sidecar = hasSidecar ? readJson(`${path}.gbsres`) : null;
   const id = typeof sidecar?.id === "string" ? sidecar.id : undefined;
   let tileColors: number[] = [];
-  let slots: string[] = [];
+  let source: SlotSource | null = null;
   if (kind === "backgrounds" || kind === "tilesets") {
     // GB Studio 4 tilesets carry tileColors like backgrounds; they belong to no scene, so the slots are the project's defaults.
     if (typeof sidecar?.tileColors === "string" && sidecar.tileColors) {
@@ -213,12 +218,13 @@ export function assetInfo(project: string, kind: AssetKind, path: string): Asset
         tileColors = [];
       }
     }
-    slots = backgroundSlots(project, kind === "backgrounds" ? id : undefined);
+    source = slotSource(project, kind, id);
   } else if (kind === "sprites") {
     if (sidecar) tileColors = spriteCellColors(sidecar, Math.ceil(size.width / 8), Math.ceil(size.height / 8));
-    slots = spriteSlots(project, id);
+    source = slotSource(project, kind, id);
   }
-  return { mtime: statSync(path).mtimeMs, width: size.width, height: size.height, tileColors, slots, metaMtime: hasSidecar ? statSync(`${path}.gbsres`).mtimeMs : null, animations: kind === "sprites" && sidecar ? spriteAnimations(sidecar) : [] };
+  const slots = source ? resolveScenePaletteIds(source.ids, source.defaults) : [];
+  return { mtime: statSync(path).mtimeMs, width: size.width, height: size.height, tileColors, slots, slotScene: source?.scene ?? null, metaMtime: hasSidecar ? statSync(`${path}.gbsres`).mtimeMs : null, animations: kind === "sprites" && sidecar ? spriteAnimations(sidecar) : [] };
 }
 
 /** Reads a sidecar for writing: it must exist and be unchanged since `expectedMtime` (unless forced). */
@@ -233,9 +239,9 @@ function openSidecar(path: string, what: string, expectedMtime: number | null, f
 }
 
 /** Writes a sidecar back as GB Studio writes it (two-space JSON, no trailing newline), after copying the old one to the backup folder. */
-function writeSidecar(sidecar: string, kind: AssetKind, meta: Record<string, unknown>, backupDir: string): number {
+function writeSidecar(sidecar: string, kind: string, meta: Record<string, unknown>, backupDir: string, backupName = basename(sidecar)): number {
   mkdirSync(join(backupDir, "gbstudio", kind), { recursive: true });
-  copyFileSync(sidecar, join(backupDir, "gbstudio", kind, basename(sidecar)));
+  copyFileSync(sidecar, join(backupDir, "gbstudio", kind, backupName));
   const text = JSON.stringify(meta, null, 2);
   const temp = `${sidecar}.saving`;
   try {
@@ -268,6 +274,28 @@ export function writeSpritePalettes(path: string, slots: readonly (number | null
   }
   if (!cells) return { mtime, changed: false, cells: 0 };
   return { mtime: writeSidecar(sidecar, "sprites", meta, backupDir), changed: true, cells };
+}
+
+/**
+ * Puts a project palette into one of an asset's eight slots (`slot` 0–7): the scene's palette list
+ * (`paletteIds` / `spritePaletteIds`) when a scene shows the asset, else the project's default palettes in
+ * settings.gbsres. Every other field is kept; the old file is copied to the backup folder first. Returns the
+ * asset's new slots and the scene written (null: the defaults).
+ */
+export function writePaletteSlot(project: string, kind: AssetKind, path: string, slot: number, paletteId: string, backupDir: string): { slots: string[]; scene: string | null } {
+  if (kind === "fonts") throw new AssetWriteError("Fonts have no palette slots.", 400);
+  if (!Number.isInteger(slot) || slot < 0 || slot > 7) throw new AssetWriteError("slot must be 0–7", 400);
+  if (!listPalettes(project).some((palette) => palette.id === paletteId)) throw new AssetWriteError("No palette with that id in the project.", 404);
+  const source = slotSource(project, kind, assetId(path));
+  const meta = readJson(source.file);
+  if (!meta) throw new AssetWriteError(source.scene ? `The scene file of ${source.scene} could not be read.` : "The project's settings.gbsres could not be read.", 400);
+  const ids = Array.from({ length: 8 }, (_, at) => source.ids[at] ?? (source.scene ? "" : source.defaults[at] ?? ""));
+  if (ids[slot] !== paletteId) {
+    ids[slot] = paletteId;
+    writeSidecar(source.file, source.scene ? "scenes" : "settings", { ...meta, [source.field]: ids }, backupDir, source.scene ? `${basename(dirname(source.file))}.scene.gbsres` : "settings.gbsres");
+  }
+  const after = slotSource(project, kind, assetId(path));
+  return { slots: resolveScenePaletteIds(after.ids, after.defaults), scene: after.scene };
 }
 
 /** A GB Studio palette file name: lowercase, spaces as "_", other odd characters dropped (like GB Studio's own). */

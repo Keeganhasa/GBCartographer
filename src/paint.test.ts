@@ -1,7 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, clipRect, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, hexRgb, lift, linePoints, mirrorPoints, quantize, snapRect, toRgba } from "./paint";
+import { CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, clipRect, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, hexRgb, lift, linePoints, mirrorPoints, namedSlot, quantize, snapRect, toRgba } from "./paint";
 
 describe("GB Cartographer pixels", () => {
+  it("gives Chorbi-style palette names a slot: the base palette's, else the number in the name", () => {
+    const slots = ["DWC-1-Cliffs", "DWC-4-Foliage", undefined];
+    expect(namedSlot("DWC-1-Cliffs D", slots)).toBe(0);
+    expect(namedSlot("DWC-4-Foliage N", slots)).toBe(1);
+    expect(namedSlot("DWC-6-MauveBldg S", slots)).toBe(5);
+    expect(namedSlot("WIN-2-Sky", slots)).toBe(1);
+    expect(namedSlot("DWC-SP6-Fire", slots)).toBe(-1);
+    expect(namedSlot("Town day", slots)).toBe(-1);
+  });
+
   it("reads the GB greens exactly and writes them back unchanged", () => {
     const shades = new Uint8Array([0, 1, 2, 3, CLEAR, 3]);
     const rgba = toRgba(shades, new Uint8Array(1), 3);

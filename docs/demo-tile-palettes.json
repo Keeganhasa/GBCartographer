@@ -1,5 +1,5 @@
 {
- "about": "The author's palette for every tile of the demo's two tilesets, recovered from the app's session on 2026-10-09. GB Studio can only store a slot (1-8) per tile, so tiles wearing a palette outside the project's eight default background palettes are kept here in full. Keys are tile indexes (row by row, 8 x 8 tiles).",
+ "about": "The author's palette for every tile of the demo's two tilesets, recovered from the app's session on 2026-10-09. GB Studio can only store a slot (1-8) per tile, so tiles wearing a palette outside the project's eight default background palettes are kept here in full. Keys are tile indexes (row by row, 8 x 8 tiles). Since 2026-10-09 the demo's tilesets save these tiles by the app's named-slots rule: a D / N / S variant takes its base palette's slot (DWC-2-Computer D is slot 2) and WIN-1-Snow, WIN-2-Sky and WIN-5-Ice take slots 1, 2 and 5 (the Winter Example scene's Snow, Sky and Ice).",
  "files": {
   "Free Furniture (yoanqwp).png": {
    "0": "DWC-4-Foliage",

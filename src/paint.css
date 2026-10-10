@@ -446,3 +446,15 @@
 /* Alpha release badge (brand and start screen) and the start screen's note. */
 .gbp-alpha { display: inline-block; padding: 1px 6px; color: var(--on-acc); background: var(--acc); border-radius: 999px; font: 700 10px var(--ui); letter-spacing: .06em; text-transform: uppercase; vertical-align: middle; }
 .gbp-start-alpha { width: 714px; margin: -2px 0 6px; padding: 8px 12px; color: var(--ink); background: rgba(var(--acc-rgb), .1); border: 1px solid rgba(var(--acc-rgb), .35); border-radius: 10px; font-size: var(--fs-sm); line-height: 1.5; text-align: center; }
+
+/* Put in slot: the palette list's right-click menu, and the named-slots switch. */
+.gbp-slot.named { color: var(--ink); background: transparent; border: 1px dashed var(--muted); }
+.gbp-slot-menu { min-width: 260px; max-height: calc(100vh - 16px); overflow: auto; }
+.gbp-slot-menu button { display: grid; grid-template-columns: 14px auto 1fr; align-items: center; gap: 8px; }
+.gbp-slot-menu button b { font: 700 10px var(--mono); color: var(--muted); }
+.gbp-slot-menu button:hover b { color: inherit; }
+.gbp-slot-menu button:disabled { opacity: .5; cursor: default; background: transparent; color: var(--ink); }
+.gbp-slot-menu .gbp-chips i { width: 9px; height: 12px; }
+.gbp-menu-note { max-width: 260px; margin: 2px 10px 4px; color: var(--muted); font-size: var(--fs-xs); line-height: 1.4; }
+.gbp-check { display: flex; align-items: center; gap: 6px; margin: 2px 0 6px; color: var(--muted); font-size: var(--fs-xs); cursor: pointer; }
+.gbp-check input { accent-color: var(--acc); margin: 0; }

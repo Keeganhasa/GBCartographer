@@ -30,9 +30,12 @@ into PROGRESS.md when they deserve a note.
 - [x] The author's tile colors baked into the demo (both tilesets, cabin, forest); every tile's palette, including
       those outside the eight slots, is kept in `docs/demo-tile-palettes.json`.
 - [x] Alpha release notice: README banner, an Alpha badge by the name, a note on the start screen, version 0.1.0-alpha.1.
-- [ ] Palette slots: right-click a palette → Put in slot 1–8 (scene palettes for backgrounds, project defaults for
+- [x] Palette slots: right-click a palette → Put in slot 1–8 (scene palettes for backgrounds, project defaults for
       tilesets and sprites), and an option to treat Chorbi-style variants (D / N / S) as their base palette's slot.
       Then apply `docs/demo-tile-palettes.json` to the demo's 44 Winter Tileset tiles that wear palettes outside the eight.
+- [x] README: painting GIF at the top, features and planned features; GitHub description ("Alpha: pixel painting and
+      color palette companion app…") and topics.
+- [ ] Put in slot from the palette manager too (right-click there); today it is the sidebar list and slot strip.
 - [x] Project menu on the GB Cartographer name at the top left (it works on the start screen too): open another project, the demo,
       a recent one, Show in Finder, Close project. Unsaved pictures are offered a save first; the old project's tabs
       close; a picture never saves into a project it didn't come from.
@@ -85,8 +88,8 @@ into PROGRESS.md when they deserve a note.
 
 - [ ] Rename the archived private repo on GitHub (`gh repo rename GBCartographer-archive --repo Keeganhasa/GBCartographer`)
       so the name is free, then `gh repo create Keeganhasa/GBCartographer --public --source . --push`.
-- [ ] README: a short GIF of painting and saving (three screenshots are in: the demo, and two of GB Studio's MIT sample project).
-- [ ] Repo settings: description, topics (gbstudio, game-boy, pixel-art, electron), issues on, discussions off for now.
+- [x] README: a short GIF of painting (`docs/demo.gif`), plus three screenshots: the demo, and two of GB Studio's MIT sample project.
+- [x] Repo settings: description, topics (gbstudio, game-boy, pixel-art, electron), issues on, discussions off for now.
 - [ ] Tag `v0.1.0` once the builds below exist.
 
 ## Builds

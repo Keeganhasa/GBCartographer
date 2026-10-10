@@ -171,6 +171,18 @@ export function toRgba(pixels: Uint8Array, cells: Uint8Array, width: number, pal
 }
 
 /**
+ * The slot a palette saves as by its name, for palettes outside the eight: a Chorbi-style name
+ * "<Set>-<n>-<Name>", with or without a D / N / S variant letter, takes the slot of its base palette when that is
+ * in the slots, else slot n. Returns -1 for any other name. `slotNames` are the eight slot palettes' names.
+ */
+export function namedSlot(name: string, slotNames: readonly (string | undefined)[]): number {
+  const match = /^(.+?-([1-8])-.+?)(?: [DNS])?$/.exec(name.trim());
+  if (!match) return -1;
+  const base = slotNames.indexOf(match[1]);
+  return base >= 0 ? base : Number(match[2]) - 1;
+}
+
+/**
  * Gives each cell the palette of its GB Studio tile color: the low three bits of `tileColors[cell]` pick one of
  * the scene's eight `slots` (palette ids), found by id among `palettes` (cell value = position + 1, 0 when the
  * palette is not in the list). Cells beyond the tile colors, and cells whose value is negative (a sprite sheet's

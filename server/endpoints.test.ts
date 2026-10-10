@@ -220,4 +220,27 @@ describe("tile palettes", () => {
     expect(readFileSync(join(root, "backups/gbstudio/sprites/hero.png.gbsres"), "utf8")).toBe(before);
     expect((await post({ slots: [1] }, `&metaMtime=${metaMtime}`)).status).toBe(409);
   });
+
+  it("puts a palette in a slot: the scene's list for a background, the project defaults for tilesets and unclaimed sprites", async () => {
+    const put = (kind: string, file: string, body: object) => fetch(`${base}/gbstudio-palette-slot?kind=${kind}&file=${file}`, { method: "POST", body: JSON.stringify(body) });
+    expect((await json<{ slotScene: string | null }>(await fetch(`${base}/gbstudio-asset-info?kind=backgrounds&file=town.png`))).slotScene).toBe("Town");
+    const sceneFile = join(project, "project/scenes/town/scene.gbsres");
+    const sceneBefore = readFileSync(sceneFile, "utf8");
+    const bg = await json<{ slots: string[]; scene: string | null }>(await put("backgrounds", "town.png", { slot: 3, paletteId: "pal-town" }));
+    expect(bg).toMatchObject({ scene: "Town", slots: ["pal-default", "pal-town", "pal-default", "pal-town", "pal-default", "pal-default", "pal-default", "pal-ui"] });
+    const scene = JSON.parse(readFileSync(sceneFile, "utf8")) as { name: string; backgroundId: string; paletteIds: string[] };
+    expect(scene).toMatchObject({ name: "Town", backgroundId: "bg-town", paletteIds: ["", "pal-town", "", "pal-town", "", "", "", ""] });
+    expect(readFileSync(join(root, "backups/gbstudio/scenes/town.scene.gbsres"), "utf8")).toBe(sceneBefore);
+    const settingsFile = join(project, "project/settings.gbsres");
+    const ts = await json<{ slots: string[]; scene: string | null }>(await put("tilesets", "props.png", { slot: 0, paletteId: "pal-town" }));
+    expect(ts).toMatchObject({ scene: null, slots: ["pal-town", "pal-default", "pal-default", "pal-default", "pal-default", "pal-default", "pal-default", "pal-ui"] });
+    const sp = await json<{ slots: string[]; scene: string | null }>(await put("sprites", "hero.png", { slot: 7, paletteId: "pal-town" }));
+    expect(sp).toMatchObject({ scene: null, slots: ["spr-a", "spr-b", "spr-c", "spr-d", "spr-e", "spr-f", "spr-g", "pal-town"] });
+    const settings = JSON.parse(readFileSync(settingsFile, "utf8")) as { defaultBackgroundPaletteIds: string[]; defaultSpritePaletteIds: string[] };
+    expect(settings.defaultBackgroundPaletteIds[0]).toBe("pal-town");
+    expect(settings.defaultSpritePaletteIds[7]).toBe("pal-town");
+    expect((await put("backgrounds", "town.png", { slot: 2, paletteId: "nope" })).status).toBe(404);
+    expect((await put("backgrounds", "town.png", { slot: 8, paletteId: "pal-town" })).status).toBe(400);
+    expect((await put("fonts", "tiny.png", { slot: 0, paletteId: "pal-town" })).status).toBe(404);
+  });
 });
