@@ -4,7 +4,7 @@
  * A tint only changes how the plain tiles look while painting. Saving writes one flat PNG, and for a project
  * picture also its tile palettes (see server/endpoints.ts).
  */
-import { ChevronDown, Clock, Copy, ImagePlus, FolderArchive, FolderSearch, FolderX, Gamepad2, History, Info, MessageSquare, RotateCcw, FilePlus, FolderOpen, FolderTree, Grid3x3, Magnet, Map as MapIcon, Minus, SwatchBook, Plus, Redo2, Rocket, Save, Undo2, X } from "lucide-react";
+import { Mountain, Pickaxe, ChevronDown, Clock, Copy, ImagePlus, FolderArchive, FolderSearch, FolderX, Gamepad2, History, Info, MessageSquare, RotateCcw, FilePlus, FolderOpen, FolderTree, Grid3x3, Magnet, Map as MapIcon, Minus, SwatchBook, Plus, Redo2, Rocket, Save, Undo2, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { LogoMark } from "./ui/LogoMark";
@@ -29,7 +29,12 @@ import { BudgetFixer } from "./app/BudgetFixer";
 import { CheckupWizard } from "./app/CheckupWizard";
 import { NewBackgroundWizard, type NewBackground } from "./app/NewBackgroundWizard";
 import { PaletteSetWizard } from "./app/PaletteSetWizard";
+import { GeneratorWizard, type GeneratorMode } from "./app/GeneratorWizard";
+import type { Generated } from "./app/generators";
 import type { FitResult } from "./app/pictureFit";
+
+/** A finished picture from a wizard: shades, each tile's palette (1-based, 0 none) and those palettes. */
+type FittedPicture = Pick<FitResult, "width" | "height" | "pixels" | "cells" | "palettes">;
 import { NewPictureWindow, ResizeWindow, type NewPicture } from "./app/NewPictureWindow";
 import { Button, Chip, IconButton, Kbd, Menu, MenuAt, TabList, Tabs, Tooltip, type MenuEntry } from "./ui/kit";
 import "./app/shell.css";
@@ -98,7 +103,7 @@ export default function PaintApp() {
   const [showHealth, setShowHealth] = useState(false);
   const [showPictureWizard, setShowPictureWizard] = useState(false);
   /** The wizard open (W2…W8 from the Wizards menu), if any. */
-  const [wizard, setWizard] = useState<"dns" | "paletteSet" | "newBackground" | "budget" | "checkup" | null>(null);
+  const [wizard, setWizard] = useState<"dns" | "paletteSet" | "newBackground" | "budget" | "checkup" | GeneratorMode | null>(null);
   const [stampSave, setStampSave] = useState<{ hint: string; resolve: (save: StampSave | null) => void } | null>(null);
   const [showDialogue, setShowDialogue] = useState(false);
   const [showMapRoom, setShowMapRoom] = useState(false);
@@ -818,7 +823,7 @@ export default function PaintApp() {
   // ---- Picture to background (W1, 2026-10-10) ----------------------------------------------------------------------
 
   /** The wizard's result as an untitled picture here: its palettes are palettes of the file. */
-  async function openFittedPicture(result: FitResult, name: string) {
+  async function openFittedPicture(result: FittedPicture, name: string) {
     await palettesReady.current;
     const id = newDocId(docs.current);
     const palettes = clonePalettes(palettesRef.current);
@@ -829,19 +834,19 @@ export default function PaintApp() {
     setShowPictureWizard(false);
     scheduleSession();
     bump();
-    say(`${name}: ${result.palettes.length} palettes of the file. Save asks where it goes.`);
+    say(result.palettes.length ? `${name}: ${result.palettes.length} palettes of the file. Save asks where it goes.` : `${name}: a new picture. Save asks where it goes.`);
   }
 
   /**
    * The wizard's result as a new background in the project: the PNG (in GB greens) goes to assets/backgrounds, the
    * palettes are added to the project and put in the default slots 1…n, and the tiles' slots are written.
    */
-  async function saveFittedBackground(result: FitResult, name: string): Promise<boolean> {
+  async function saveFittedBackground(result: FittedPicture, name: string): Promise<boolean> {
     if (!projectRef.current) return false;
     // The default slots are what every scene without its own palettes uses: say so before changing them.
     const count = result.palettes.length;
-    if (!window.confirm(`Make assets/backgrounds/${name}.png and add its ${count} palette${count === 1 ? "" : "s"} to the project?\n\nThey go in the project's default background slots 1–${count}, which every scene without its own palettes uses (the old defaults are backed up). Put them in a scene's own slots later with Put in slot.`)) return false;
-    if (!await okToWriteProjectJson()) return false;
+    if (count && !window.confirm(`Make assets/backgrounds/${name}.png and add its ${count} palette${count === 1 ? "" : "s"} to the project?\n\nThey go in the project's default background slots 1–${count}, which every scene without its own palettes uses (the old defaults are backed up). Put them in a scene's own slots later with Put in slot.`)) return false;
+    if (count && !await okToWriteProjectJson()) return false;
     const ids: string[] = [];
     for (const [index, colors] of result.palettes.entries()) {
       const id = await writeProjectPalette({ name: `${name} ${index + 1}`, colors: [...colors] });
@@ -859,6 +864,7 @@ export default function PaintApp() {
     setProjectKind("backgrounds");
     const asset = projectRef.current?.assets.find((item) => item.kind === "backgrounds" && item.file === made.file);
     if (!asset) { say(`Made assets/backgrounds/${made.file}, but it could not be opened.`); return true; }
+    if (!count) { await openAsset(asset); say(`Made assets/backgrounds/${made.file}.`); return true; }
     await putInSlots(asset, ids);
     await openAsset(asset);
     const target = docs.current.find((item) => item.asset?.kind === "backgrounds" && item.asset.file === made.file);
@@ -873,6 +879,9 @@ export default function PaintApp() {
     say(`Made assets/backgrounds/${made.file} with ${ids.length} palettes in slots 1–${ids.length}.${target?.dirty ? " Its tile palettes wait until GB Studio has read the project once: then Save it here again." : ""}`);
     return true;
   }
+
+  /** A generated map as a fitted picture: no palettes, every tile in the greens. */
+  const generatedPicture = (picture: Generated): FittedPicture => ({ ...picture, cells: new Uint8Array(cellsWide(picture.width) * Math.ceil(picture.height / CELL)), palettes: [] });
 
   // ---- the text tool (W5) ------------------------------------------------------------------------------------------
 
@@ -1837,6 +1846,8 @@ export default function PaintApp() {
     { label: "A palette set…", icon: <SwatchBook />, disabled: noProject, title: "Eight palettes from a Lospec palette, a picture or the library", onSelect: () => setWizard("paletteSet") },
     { label: "New background…", icon: <FilePlus />, disabled: noProject, title: "A blank background in screens, with a palette set in its slots", onSelect: () => setWizard("newBackground") },
     { label: "Tile budget fixer…", icon: <PhPiggyBank size={15} />, disabled: !doc, title: "Get the open picture under GB Studio's tile limit, one merge at a time", onSelect: () => setWizard("budget") },
+    { label: "Cave or dungeon…", icon: <Pickaxe />, title: "A cave or dungeon in placeholder art, 2 × 2 screens to start; sliders redraw it live", onSelect: () => setWizard("cave") },
+    { label: "Overworld…", icon: <Mountain />, title: "An RPG-style overworld in placeholder art: water, forest, mountains, castles and roads", onSelect: () => setWizard("world") },
     { label: "New map…", icon: <MapIcon />, disabled: noProject, title: "An adventure-style grid of screens, in the Map Room", onSelect: () => setShowMapRoom(true) },
     { label: "Project check-up…", icon: <PxHeart size={15} />, disabled: noProject, title: "The health report one issue at a time, each with its fix", onSelect: () => setWizard("checkup") },
   ];
@@ -2004,6 +2015,10 @@ export default function PaintApp() {
         <PaletteSetWizard projectName={project.name} slotsWhere={setSlotsAsset()?.where ?? null}
           picture={doc ? { name: doc.name, width: doc.width, height: doc.height, rgba: (() => { const flat = doc.pixels.slice(); if (doc.float) drop(flat, doc.width, doc.height, doc.float); return toRgba(flat, doc.cells, doc.width, doc.palettes); })() } : null}
           onClose={() => setWizard(null)} onAddToProject={addPaletteSet} onAddToMine={(list) => { addToMine(list); say(`Added ${list.length} palettes to Mine (the palette manager).`); }} />
+      )}
+      {(wizard === "cave" || wizard === "world") && (
+        <GeneratorWizard mode={wizard} projectName={project?.name ?? null} limit={budget.limit} onClose={() => setWizard(null)}
+          onOpen={(picture, name) => void openFittedPicture(generatedPicture(picture), name)} onSave={(picture, name) => saveFittedBackground(generatedPicture(picture), name)} />
       )}
       {wizard === "newBackground" && project && <NewBackgroundWizard projectName={project.name} palettes={project.palettes} onClose={() => setWizard(null)} onCreate={createBackground} />}
       {wizard === "budget" && doc && (

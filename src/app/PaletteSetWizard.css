@@ -32,3 +32,8 @@
 .psw-name { display: flex; align-items: center; gap: var(--k-2); }
 .psw-name .psw-strip { width: 72px; flex: none; height: 22px; }
 .psw-base { max-width: 280px; }
+
+/* A picture source: its thumbnail, what it is, and a button (or a drop) to pick another. */
+.psw-drop { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px dashed var(--k-edge-2); border-radius: 12px; }
+.psw-drop.is-over { border-color: var(--k-acc); background: color-mix(in srgb, var(--k-acc) 8%, transparent); }
+.psw-thumb { display: block; max-width: 100%; max-height: 140px; align-self: flex-start; border-radius: 8px; image-rendering: pixelated; background: var(--k-sunk); }

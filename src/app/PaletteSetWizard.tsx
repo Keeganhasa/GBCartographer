@@ -5,8 +5,8 @@
  * Name (a base name, "<base>-1" … "<base>-8", each optionally renamed). The parent writes them: into the project
  * (optionally into slots 1–8 of a scene or the defaults) or into "Mine".
  */
-import { ArrowDownWideNarrow, ArrowLeft, ArrowRight, Check, Palette as PaletteIcon, RotateCcw, TriangleAlert } from "lucide-react";
-import { useMemo, useState, type JSX } from "react";
+import { ArrowDownWideNarrow, ArrowLeft, ArrowRight, Check, ImageUp, Palette as PaletteIcon, RotateCcw, TriangleAlert } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type JSX } from "react";
 import { fetchLospecColors } from "../PaletteManager";
 import library from "../palettes/library.json";
 import { closeShades, fitPalettes } from "../paint";
@@ -35,6 +35,33 @@ interface Made { palettes: string[][]; base: string; names: string[] }
 const STEPS = ["Source", "Group", "Name"];
 const SETS = librarySets(library.collections);
 
+type Picture = { rgba: Uint8ClampedArray; width: number; height: number; name: string };
+
+/** A picture file as RGBA, big photos scaled down to 640 pixels on their longer side (plenty to find eight palettes in). */
+async function readPicture(file: File): Promise<Picture> {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, 640 / Math.max(bitmap.width, bitmap.height));
+  const width = Math.max(1, Math.round(bitmap.width * scale)), height = Math.max(1, Math.round(bitmap.height * scale));
+  const canvas = document.createElement("canvas");
+  Object.assign(canvas, { width, height });
+  const context = canvas.getContext("2d")!;
+  context.imageSmoothingEnabled = scale < 1;
+  context.drawImage(bitmap, 0, 0, width, height);
+  bitmap.close();
+  return { rgba: context.getImageData(0, 0, width, height).data, width, height, name: file.name };
+}
+
+/** The picture the set comes from, small. */
+function Thumb({ picture }: { picture: Picture }) {
+  const [canvas, setCanvas] = useState<HTMLCanvasElement | null>(null);
+  useEffect(() => {
+    if (!canvas) return;
+    Object.assign(canvas, { width: picture.width, height: picture.height });
+    canvas.getContext("2d")!.putImageData(new ImageData(new Uint8ClampedArray(picture.rgba), picture.width, picture.height), 0, 0);
+  }, [picture, canvas]);
+  return <canvas ref={setCanvas} className="psw-thumb" aria-label={picture.name} />;
+}
+
 const Strip = ({ colors }: { colors: readonly string[] }) => <div className="psw-strip">{colors.map((color, at) => <i key={at} style={{ background: color }} title={color} />)}</div>;
 const Mini = ({ palettes }: { palettes: string[][] }) => <div className="psw-mini">{palettes.map((colors, index) => <span key={index} title={`Palette ${index + 1}: ${colors.join(" ")}`}>{colors.map((color, at) => <i key={at} style={{ background: color }} />)}</span>)}</div>;
 
@@ -56,10 +83,19 @@ export function PaletteSetWizard({ projectName, slotsWhere, picture, onClose, on
   // What was added, so each button is pressed once per version of the set (an edit clears it).
   const [done, setDone] = useState<{ project?: string; mine?: string }>({});
   const [loadedFrom, setLoadedFrom] = useState<Made | null>(null);
+  // A picture chosen here instead of the open one.
+  const [chosen, setChosen] = useState<Picture | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const source = chosen ?? picture;
+  async function choose(file: File | undefined) {
+    if (!file) return;
+    try { setChosen(await readPicture(file)); setError(""); } catch { setError(`${file.name} could not be read as a picture.`); }
+  }
 
   // Each source's set, worked out only while it is the chosen one (fitting a picture takes a moment).
   const grouped = useMemo<Made | null>(() => lospec ? { palettes: groupColors(lospec.colors), base: lospec.base, names: [] } : null, [lospec]);
-  const fitted = useMemo<Made | null>(() => kind === "picture" && picture ? { palettes: fitPalettes(picture.rgba, picture.width, picture.height, 8).palettes, base: baseFromFile(picture.name), names: [] } : null, [kind, picture]);
+  const fitted = useMemo<Made | null>(() => kind === "picture" && source ? { palettes: fitPalettes(source.rgba, source.width, source.height, 8).palettes, base: baseFromFile(source.name), names: [] } : null, [kind, source]);
   const chosenSet = SETS.find((set) => set.id === setId);
   const fromLibrary = useMemo<Made | null>(() => chosenSet ? { palettes: chosenSet.palettes.map((palette) => palette.colors), base: chosenSet.base, names: chosenSet.palettes.map((palette) => palette.name) } : null, [chosenSet]);
   const made = kind === "lospec" ? grouped : kind === "picture" ? fitted : fromLibrary;
@@ -114,7 +150,7 @@ export function PaletteSetWizard({ projectName, slotsWhere, picture, onClose, on
   };
   const addToMine = () => { onAddToMine(result()); setDone((was) => ({ ...was, mine: `Added ${palettes.length} to Mine` })); };
 
-  const sources = [{ value: "lospec" as const, label: "Lospec link" }, ...(picture ? [{ value: "picture" as const, label: "A picture" }] : []), { value: "library" as const, label: "Library" }];
+  const sources = [{ value: "lospec" as const, label: "Lospec link" }, { value: "picture" as const, label: "A picture" }, { value: "library" as const, label: "Library" }];
   const last = palettes.length;
 
   return (
@@ -149,7 +185,18 @@ export function PaletteSetWizard({ projectName, slotsWhere, picture, onClose, on
               {lospec ? <><Strip colors={lospec.colors} /><span className="k-muted k-xs">{lospec.colors.length} colors from Lospec</span></>
                 : <span className="k-muted k-xs">A palette's link or name on lospec.com, such as sweetie-16.</span>}
             </>}
-            {kind === "picture" && picture && <span className="k-muted k-small">The open picture, <b>{picture.name}</b>: up to eight palettes that cover its colors, four a tile.</span>}
+            {kind === "picture" && <div className={`psw-drop${dragging ? " is-over" : ""}`}
+              onDragOver={(event) => { event.preventDefault(); event.stopPropagation(); setDragging(true); }} onDragLeave={() => setDragging(false)}
+              onDrop={(event) => { event.preventDefault(); event.stopPropagation(); setDragging(false); void choose(event.dataTransfer.files[0]); }}>
+              {source && <Thumb picture={source} />}
+              <span className="k-muted k-small">{source ? <>{chosen ? "The chosen picture" : "The open picture"}, <b>{source.name}</b>: up to eight palettes that cover its colors, four a tile.</> : "Choose a picture, or drop one here: up to eight palettes that cover its colors, four a tile."}</span>
+              <span className="k-row">
+                <Button size="sm" icon={<ImageUp />} onClick={() => fileInput.current?.click()}>{source ? "Another picture…" : "Choose a picture…"}</Button>
+                {chosen && picture && <Button size="sm" variant="ghost" onClick={() => setChosen(null)}>Use the open picture</Button>}
+              </span>
+              <input ref={fileInput} type="file" accept="image/*" hidden onChange={(event) => { void choose(event.target.files?.[0]); event.target.value = ""; }} />
+              {error && <p className="psw-error" role="alert">{error}</p>}
+            </div>}
             {kind === "library" && <>
               <Select label="Library set" value={setId} onChange={setSetId} options={SETS.map((set) => ({ value: set.id, label: set.label }))} />
               <span className="k-muted k-xs">The bundled palettes: Game Boy classics and the Chorbi sets (CC0).</span>

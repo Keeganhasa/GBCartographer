@@ -1,0 +1,15 @@
+/* The map generators: settings on the left, the map (with screen edges) filling the rest. */
+.gw { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: var(--k-4); height: 100%; min-height: 0; }
+.gw-controls { overflow: auto; padding-right: 4px; }
+.gw-setting { display: flex; flex-direction: column; gap: 6px; }
+.gw-setting-head { display: flex; justify-content: space-between; align-items: baseline; }
+.gw-stage { display: flex; flex-direction: column; gap: var(--k-2); min-width: 0; min-height: 0; }
+.gw-stage > .k-row { flex-wrap: wrap; }
+.gw-map { position: relative; max-width: 100%; max-height: 100%; margin: auto; flex: 1 1 auto; min-height: 0; border-radius: 10px; overflow: hidden; background: var(--k-sunk); box-shadow: 0 0 0 1px var(--k-edge-2); }
+.gw-map canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+/* Screen edges: dashed lines every 1 / columns and 1 / rows of the map. */
+.gw-screens { position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    repeating-linear-gradient(90deg, transparent 0 calc(100% / var(--gw-cols) - 1px), rgba(224, 72, 72, .7) calc(100% / var(--gw-cols) - 1px) calc(100% / var(--gw-cols))),
+    repeating-linear-gradient(180deg, transparent 0 calc(100% / var(--gw-rows) - 1px), rgba(224, 72, 72, .7) calc(100% / var(--gw-rows) - 1px) calc(100% / var(--gw-rows))); }
+.gw-name { width: 180px; }
