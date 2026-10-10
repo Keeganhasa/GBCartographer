@@ -119,7 +119,7 @@
 .k-meter-count { color: var(--k-ink); font-variant-numeric: tabular-nums; white-space: nowrap; } .k-meter-count small { color: var(--k-ink-3); }
 
 /* ---- floating layers: menus, select lists, tooltips, popovers, dialogs ------------------------------------ */
-.k-menu { min-width: 220px; padding: 5px; background: var(--k-ctl); border: 1px solid var(--k-edge-2); border-radius: var(--k-r-group); box-shadow: var(--k-float); font: var(--k-text-md) var(--k-font); color: var(--k-ink); z-index: 50; }
+.k-menu { max-height: var(--radix-dropdown-menu-content-available-height, 80vh); overflow-y: auto; min-width: 220px; padding: 5px; background: var(--k-ctl); border: 1px solid var(--k-edge-2); border-radius: var(--k-r-group); box-shadow: var(--k-float); font: var(--k-text-md) var(--k-font); color: var(--k-ink); z-index: 50; }
 .k-menu-item { display: flex; align-items: center; gap: var(--k-2); height: 30px; padding: 0 var(--k-2); border-radius: 6px; outline: none; cursor: pointer; user-select: none; }
 .k-menu-item svg { width: 15px; height: 15px; flex: none; opacity: .8; }
 .k-menu-item[data-highlighted] { color: var(--k-on-acc); background: var(--k-acc); } .k-menu-item[data-highlighted] svg { opacity: 1; }
@@ -127,6 +127,7 @@
 .k-menu-item .k-kbd { margin-left: auto; }
 .k-menu-item--indent { padding-left: 31px; color: var(--k-ink-2); }
 .k-menu-label { padding: 6px var(--k-2) 2px; color: var(--k-ink-3); font: 600 var(--k-text-xs) var(--k-font); letter-spacing: .08em; text-transform: uppercase; }
+.k-menu-note { max-width: 280px; margin: 4px var(--k-2) 6px; color: var(--k-ink-3); font-size: var(--k-text-xs); line-height: 1.45; }
 .k-menu-sep { height: 1px; margin: 4px 2px; background: var(--k-edge-2); }
 .k-tooltip { padding: 6px 10px; max-width: 280px; color: var(--k-ink); background: #1a1d22; border: 1px solid var(--k-edge-2); border-radius: var(--k-r-ctl); box-shadow: var(--k-float); font: var(--k-text-sm) var(--k-font); line-height: 1.4; z-index: 60; }
 .k-tooltip .k-kbd { margin-left: 6px; }

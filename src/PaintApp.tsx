@@ -24,7 +24,8 @@ import { DialoguePreview } from "./app/DialoguePreview";
 import { MapRoom } from "./app/MapRoom";
 import { FitWindow } from "./app/FitWindow";
 import { NewPictureWindow, ResizeWindow, type NewPicture } from "./app/NewPictureWindow";
-import { Menu } from "./app/Menu";
+import { Button, Chip, IconButton, Kbd, Menu, MenuAt, TabList, Tabs, Tooltip, type MenuEntry } from "./ui/kit";
+import "./app/shell.css";
 import { StartScreen } from "./app/StartScreen";
 import { ProjectPanel } from "./app/ProjectPanel";
 import { encodeGif } from "./gb/gif";
@@ -1501,45 +1502,111 @@ export default function PaintApp() {
     );
   }
 
+  const otherRecent = recent.filter((item) => item.path !== project?.path);
+  const projectItems: MenuEntry[] = [
+    { label: "Open another project…", icon: <FolderOpen />, onSelect: () => void chooseProject() },
+    { label: "Open the demo project", icon: <Gamepad2 />, onSelect: () => void chooseProject(true) },
+    ...(project && /[\\/]demo-project$/.test(project.path) ? [{ label: "Reset the demo project…", icon: <RotateCcw />, title: "Your painted copy goes to the backups folder; a fresh copy of the demo opens", onSelect: () => void chooseProject(true, true) }] : []),
+    ...(otherRecent.length ? [{ separator: true } as MenuEntry, { heading: <><Clock size={11} /> Recent</> } as MenuEntry, ...otherRecent.slice(0, 5).map((item) => ({ label: item.name, indent: true, title: item.path, onSelect: () => void openProjectPath(item.path) }))] : []),
+    ...(project ? [
+      { separator: true } as MenuEntry,
+      { label: "Map Room…", icon: <MapIcon />, onSelect: () => setShowMapRoom(true) },
+      { label: "Project health…", icon: <PxHeart size={15} />, onSelect: () => setShowHealth(true) },
+      { label: "Dialogue box…", icon: <MessageSquare />, onSelect: () => setShowDialogue(true) },
+      { label: "Backups…", icon: <History />, onSelect: () => setBackups({}) },
+      { separator: true } as MenuEntry,
+      { label: FILE_MANAGER_LABEL, icon: <FolderSearch />, onSelect: () => void fetch("./__cartographer/reveal", { method: "POST" }) },
+      { label: "Show backups folder", icon: <FolderArchive />, onSelect: () => void fetch("./__cartographer/reveal?backups=1", { method: "POST" }) },
+      { separator: true } as MenuEntry,
+      { label: "Close project", icon: <FolderX />, onSelect: () => void closeProject() },
+    ] : []),
+    { separator: true },
+    { label: "About GB Cartographer", icon: <Info />, onSelect: () => setShowAbout(true) },
+  ];
+  // Three sizes (the author's pick, R17): the file's own size, and two scaled up for sharing.
+  const EXPORT_SCALES = [[1, "Original"], [4, "4×"], [8, "8×"]] as const;
+  const exportItems: MenuEntry[] = doc ? [
+    { label: "Copy of the file, in the GB greens", icon: <Save />, keys: "Ctrl+E", onSelect: () => void save(true) },
+    { separator: true },
+    { heading: "Image as shown, in its palettes" },
+    ...EXPORT_SCALES.map(([scale, name]) => ({ label: <>{name}<span className="k-muted k-xs" style={{ marginLeft: "auto" }}>{doc.width * scale} × {doc.height * scale}</span></>, indent: true, onSelect: () => void exportImage(scale, true) })),
+    ...(frames.length > 1 ? [{ heading: `Animation as GIF${animations.length > 1 && animation?.name ? ` · ${animation.name}` : ""}` } as MenuEntry, ...EXPORT_SCALES.map(([scale, name]) => ({ label: <>{name}<span className="k-muted k-xs" style={{ marginLeft: "auto" }}>{frames.length} frames</span></>, indent: true, onSelect: () => void exportGif(scale) }))] : []),
+    { heading: "Image in the GB greens" },
+    ...EXPORT_SCALES.map(([scale, name]) => ({ label: <>{name}<span className="k-muted k-xs" style={{ marginLeft: "auto" }}>{doc.width * scale} × {doc.height * scale}</span></>, indent: true, onSelect: () => void exportImage(scale, false) })),
+  ] : [];
+  const slotTarget = slotMenu && doc ? docPalettes[slotMenu.palette - 1] : undefined;
+  const slotItems: MenuEntry[] = slotMenu && doc && slotTarget ? [
+    { heading: `Put ${slotTarget.name} in slot` },
+    ...slotPalettes.map((index, slot) => {
+      const holder = index >= 0 ? docPalettes[index] : null, here = index === slotMenu.palette - 1;
+      return { disabled: here || !slotTarget.id, onSelect: () => void putInSlot(slotMenu.palette, slot), label: <><span className="app-slot" style={{ width: 14, color: "var(--k-ink-3)" }}>{slot + 1}</span><span className="app-chips">{(holder?.colors ?? ["#222", "#222", "#222", "#222"]).map((color, at) => <i key={at} style={{ background: color }} />)}</span><span className="app-name">{holder?.name ?? "—"}{here ? " (here)" : ""}</span>{slot === UI_SLOT && doc.asset?.kind !== "sprites" && <Chip title="GB Studio draws dialogue boxes and menus with slot 8">UI</Chip>}</> };
+    }),
+    { separator: true },
+    { note: slotTarget.id ? `Writes ${slotWhere} in GB Studio right away. Tiles wearing the palette moved out show the new one there.` : "Add this palette to the project first (palette manager)." },
+  ] : [];
+  const selectionItems: MenuEntry[] = selectionMenu && doc?.sel ? [
+    { heading: `Selection · ${doc.sel.w} × ${doc.sel.h}` },
+    { label: "Use as stamp", icon: <PhSticker size={15} />, onSelect: () => setTool("stamp") },
+    { label: "Save as stamp…", icon: <Save />, disabled: !project, title: project ? `Saves a PNG in ${project.name}/Cartographer/stamps (tile palettes too, on whole tiles)` : "Open a GB Studio project to save stamps in it", onSelect: () => void saveAsStamp() },
+    { separator: true },
+    { label: "Copy", icon: <Copy />, keys: "Ctrl+C", onSelect: () => { if (copySelection()) say("Copied the selection"); } },
+    { label: "Deselect", icon: <X />, keys: "Esc", onSelect: () => { dropFloat(doc); doc.sel = null; bump(); } },
+  ] : [];
+  const assetFolder = (asset: Asset) => asset.kind === "stamps" ? "Cartographer/stamps" : `assets/${asset.kind}`;
+  const assetItems: MenuEntry[] = assetMenu ? [
+    ...(assetMenu.asset.kind === "stamps" ? [{ label: "Use as stamp", icon: <PhSticker size={15} />, onSelect: () => void useSavedStamp(assetMenu.asset) }] : []),
+    { label: assetMenu.asset.kind === "stamps" ? "Open to edit" : "Open", icon: <FolderOpen />, onSelect: () => void openAsset(assetMenu.asset) },
+    { label: FILE_MANAGER_LABEL, icon: <FolderSearch />, onSelect: () => void fetch(`./__cartographer/reveal?${assetQuery(assetMenu.asset)}`, { method: "POST" }) },
+    { label: "Copy file path", icon: <Copy />, onSelect: () => void navigator.clipboard?.writeText(`${project?.path ?? ""}/${assetFolder(assetMenu.asset)}/${assetMenu.asset.file}`).then(() => say("Copied the file path")) },
+    { label: "Earlier versions…", icon: <History />, onSelect: () => setBackups({ file: `${assetFolder(assetMenu.asset)}/${assetMenu.asset.file}` }) },
+    { separator: true },
+    { label: "Show project folder", icon: <FolderTree />, onSelect: () => void fetch("./__cartographer/reveal", { method: "POST" }) },
+  ] : [];
+  const lookName = look === "dmg" ? "Game Boy screen" : look === "pocket" ? "Pocket screen" : "GBC screen";
+
   return (
-    <div className="gbp-shell" onDragOver={(event) => event.preventDefault()} onDrop={(event) => void onDrop(event)}>
-      <header className="gbp-bar">
-        <button className="gbp-brand" aria-haspopup="menu" title={served ? "Projects: open, switch or close" : "GB Cartographer"} onClick={(event) => { if (!served) return; const r = event.currentTarget.getBoundingClientRect(); setProjectMenu({ x: r.left, y: r.bottom + 6 }); }}><LogoMark size={22} /><b>GB Cartographer</b><span className="gbp-alpha" title="Alpha release: expect bugs, and keep your GB Studio project backed up">Alpha</span>{served && <ChevronDown size={14} />}</button>
-        <span className="gbp-seg" role="group" aria-label="File">
-          <button className="quiet-button" title={project ? `A new blank picture: in ${project.name} (a new PNG in its assets) or just here` : "A new blank picture"} onClick={() => setShowNew(true)}><FilePlus size={14} />New</button>
-          <button className="quiet-button" title="Open PNG files · Ctrl+O (or drop them on the window)" onClick={() => void pickFiles()}><FolderOpen size={14} />Open</button>
-          <button className="quiet-button" disabled={!doc} title={`Save every changed picture · Ctrl+S${doc?.asset ? ` (this one over ${doc.asset.file} in the project; old files go to the backups folder)` : doc?.handle ? ` (this one over ${doc.name})` : " (this one asks where)"}`} onClick={() => void save(false)}><Save size={14} />Save</button>
-          <button className="quiet-button" disabled={!doc} aria-haspopup="menu" title="Export a copy in the GB greens (Ctrl+E), or an image to share: as shown, scaled up" onClick={(event) => { const r = event.currentTarget.getBoundingClientRect(); setExportMenu({ x: r.left, y: r.bottom + 6 }); }}><Rocket size={14} />Export</button>
+    <div className="app k" onDragOver={(event) => event.preventDefault()} onDrop={(event) => void onDrop(event)}>
+      <header className="app-bar">
+        {served
+          ? <Menu open={Boolean(projectMenu)} onOpenChange={(open) => setProjectMenu(open ? { x: 0, y: 0 } : null)} items={projectItems} trigger={<button className="app-brand" title="Projects: open, switch or close"><LogoMark size={22} />GB Cartographer<Chip tone="acc" title="Alpha release: expect bugs, and keep your GB Studio project backed up">ALPHA</Chip><ChevronDown size={14} /></button>} />
+          : <span className="app-brand"><LogoMark size={22} />GB Cartographer<Chip tone="acc">ALPHA</Chip></span>}
+        <span className="k-seg" role="group" aria-label="File">
+          <Button icon={<FilePlus />} title={project ? `A new blank picture: in ${project.name} or just here` : "A new blank picture"} onClick={() => setShowNew(true)}>New</Button>
+          <Button icon={<FolderOpen />} title="Open PNG files · Ctrl+O (or drop them on the window)" onClick={() => void pickFiles()}>Open</Button>
+          <Button icon={<Save />} disabled={!doc} title={`Save every changed picture · Ctrl+S${doc?.asset ? ` (this one over ${doc.asset.file} in the project; old files go to the backups folder)` : doc?.handle ? ` (this one over ${doc.name})` : " (this one asks where)"}`} onClick={() => void save(false)}>Save</Button>
+          <Menu open={Boolean(exportMenu) && Boolean(doc)} onOpenChange={(open) => setExportMenu(open ? { x: 0, y: 0 } : null)} items={exportItems} trigger={<Button icon={<Rocket />} disabled={!doc} title="Export a copy in the GB greens (Ctrl+E), or an image to share">Export</Button>} />
         </span>
-        <span className="gbp-seg" role="group" aria-label="Maps and palettes">
-          {served && !project && <button className="quiet-button" title="Open a GB Studio project folder: its backgrounds, sprites, tilesets and fonts open here and save back into it" onClick={() => void chooseProject()}><FolderTree size={14} />Open project…</button>}
-          {project && <button className="quiet-button" title="Map Room: grids of screens (Zelda-style), each a background; new screens take their neighbours' edges" onClick={() => setShowMapRoom(true)}><MapIcon size={14} />Maps</button>}
-          <button className="quiet-button" title="Palette manager: the project's palettes, a library, and your own" onClick={() => setShowPalettes(true)}><SwatchBook size={14} />Palettes</button>
+        <span className="k-seg" role="group" aria-label="Maps and palettes">
+          {served && !project && <Button icon={<FolderTree />} title="Open a GB Studio project folder" onClick={() => void chooseProject()}>Open project…</Button>}
+          {project && <Button icon={<MapIcon />} title="Map Room: grids of screens (Zelda-style), each a background" onClick={() => setShowMapRoom(true)}>Maps</Button>}
+          <Button icon={<SwatchBook />} title="Palette manager: the project's palettes, a library, and your own" onClick={() => setShowPalettes(true)}>Palettes</Button>
         </span>
-        <button className="icon-button" aria-label="Undo" title="Undo · Ctrl+Z" disabled={!doc?.undo.length} onClick={() => stepHistory("undo")}><Undo2 size={15} /></button>
-        <button className="icon-button" aria-label="Redo" title="Redo · Ctrl+Shift+Z" disabled={!doc?.redo.length} onClick={() => stepHistory("redo")}><Redo2 size={15} /></button>
-        <span className="gbp-spacer" />
-        <span className="gbp-seg gbp-zoom" role="group" aria-label="Zoom">
-          <button className="icon-button small" aria-label="Zoom out" disabled={!doc} onClick={() => zoomBy(-1)}><Minus size={12} /></button>
+        <IconButton label="Undo" keys="Ctrl+Z" disabled={!doc?.undo.length} onClick={() => stepHistory("undo")}><Undo2 /></IconButton>
+        <IconButton label="Redo" keys="Ctrl+Shift+Z" disabled={!doc?.redo.length} onClick={() => stepHistory("redo")}><Redo2 /></IconButton>
+        <span className="k-spacer" />
+        <span className="k-seg app-zoom" role="group" aria-label="Zoom">
+          <IconButton label="Zoom out" size="sm" variant="ghost" disabled={!doc} onClick={() => zoomBy(-1)}><Minus /></IconButton>
           <b>{doc ? `${doc.zoom * 100}%` : "–"}</b>
-          <button className="icon-button small" aria-label="Zoom in" disabled={!doc} onClick={() => zoomBy(1)}><Plus size={12} /></button>
+          <IconButton label="Zoom in" size="sm" variant="ghost" disabled={!doc} onClick={() => zoomBy(1)}><Plus /></IconButton>
         </span>
-        <button className={`icon-button ${grid ? "active-tool" : ""}`} aria-label="Tile grid" title={`Tile grid: ${grid ? `${grid} px` : "off"} (click for off / 8 px / 16 px)`} onClick={() => setGrid(grid === 0 ? 8 : grid === 8 ? 16 : 0)}><Grid3x3 size={15} />{grid > 0 && <small>{grid}</small>}</button>
-        <button className={`icon-button ${budgetView ? "active-tool" : ""}`} aria-label="Tile budget view" aria-pressed={budgetView} title="Tile budget view: red tiles are used only once; amber ones nearly match another tile (Picture tab can merge them)" onClick={() => setBudgetView(!budgetView)}><PhPiggyBank size={15} /></button>
-        <button className={`icon-button ${screens ? "active-tool" : ""}`} aria-label="Game Boy screens" aria-pressed={screens} title="Game Boy screens: outline every 160 × 144 area (one screen) on the picture" onClick={() => { setScreens(!screens); store(SCREENS_KEY, !screens); }}><PxGamepad size={15} /></button>
-        <button className={`icon-button ${snap ? "active-tool" : ""}`} aria-label="Snap selections to tiles" aria-pressed={snap} title="Snap selections and moves to 8 px tiles" onClick={() => setSnap(!snap)}><Magnet size={15} /></button>
-        <button className={`icon-button ${showHelp ? "active-tool" : ""}`} aria-label="Help" title="Tools, keys and what Save writes · ?" onClick={() => setShowHelp(!showHelp)}><PxLightbulb size={15} /></button>
+        <span className="k-seg" role="group" aria-label="View">
+          <IconButton label={`Tile grid: ${grid ? `${grid} px` : "off"} (click for off / 8 px / 16 px)`} pressed={grid > 0} onClick={() => setGrid(grid === 0 ? 8 : grid === 8 ? 16 : 0)} aria-label="Tile grid"><Grid3x3 />{grid > 0 && <span className="app-grid-size">{grid}</span>}</IconButton>
+          <IconButton label="Tile budget view: red tiles are used once, amber ones nearly match another" pressed={budgetView} onClick={() => setBudgetView(!budgetView)} aria-label="Tile budget view"><PhPiggyBank size={16} /></IconButton>
+          <IconButton label="Game Boy screens: outline each 160 × 144 screen" pressed={screens} onClick={() => { setScreens(!screens); store(SCREENS_KEY, !screens); }} aria-label="Game Boy screens"><PxGamepad size={16} /></IconButton>
+          <IconButton label="Snap selections and moves to 8 px tiles" pressed={snap} onClick={() => setSnap(!snap)} aria-label="Snap selections to tiles"><Magnet /></IconButton>
+        </span>
+        <IconButton label="Help: tools, keys and what Save writes" keys="?" pressed={showHelp} onClick={() => setShowHelp(!showHelp)} aria-label="Help"><PxLightbulb size={16} /></IconButton>
       </header>
-      <div className="map-tabs" role="tablist" aria-label="Open pictures">
+      <div className="app-tabs" role="tablist" aria-label="Open pictures">
         {docs.current.map((item) => (
-          <div key={item.id} role="tab" aria-selected={item.id === activeId} className={`map-tab ${item.id === activeId ? "active" : ""}`} title={`${item.name} · ${item.width} × ${item.height} px`} onClick={() => setActiveId(item.id)}>
-            <span className={item.dirty ? "gbp-unsaved" : ""}>{item.name}{item.dirty ? " *" : ""}</span>
-            <button aria-label={`Close ${item.name}`} onClick={(event) => { event.stopPropagation(); closeDoc(item); }}><X size={12} /></button>
+          <div key={item.id} role="tab" aria-selected={item.id === activeId} className={`app-tab ${item.id === activeId ? "active" : ""}`} title={`${item.name} · ${item.width} × ${item.height} px`} onClick={() => setActiveId(item.id)}>
+            <span>{item.name}{item.dirty && <span className="dirty"> *</span>}</span>
+            <button className="k-btn k-btn--ghost k-icon-btn" aria-label={`Close ${item.name}`} onClick={(event) => { event.stopPropagation(); closeDoc(item); }}><X /></button>
           </div>
         ))}
-        <button className="map-tab-add" aria-label="Open PNG files" title="Open PNG files" onClick={() => void pickFiles()}>+</button>
+        <IconButton label="Open PNG files" keys="Ctrl+O" size="sm" variant="ghost" onClick={() => void pickFiles()}><Plus /></IconButton>
       </div>
-      <div className="gbp-body">
+      <div className="app-body">
         {project && (
           <ProjectPanel
             project={project}
@@ -1553,26 +1620,25 @@ export default function PaintApp() {
           />
         )}
         <ToolColumn tool={tool} onTool={setTool} seamless={seamless} onSeamless={setSeamless} linked={linked} onLinked={setLinked} mirror={mirror} onMirror={setMirror} pattern={pattern} onPattern={cyclePattern} cellBrush={cellBrush} onCellBrush={setCellBrush} brush={brush} onBrush={setBrush} />
-        <div className="gbp-scroller" ref={scrollerRef}>
+        <div className="k-panel app-stage gbp-scroller" ref={scrollerRef}>
           {doc && tool === "stamp" && project && project.assets.some((asset) => asset.kind === "stamps") && <StampsStrip stamps={project.assets.filter((asset) => asset.kind === "stamps")} slotsVersion={slotsVersion} onUse={(asset) => void useSavedStamp(asset)} onOpen={(asset) => { setProjectKind("stamps"); void openAsset(asset); }} />}
           {doc && frames.length > 0 && <FramesStrip animations={animations} frame={frame} onFrame={setFrame} playing={playing} onPlaying={setPlaying} animSpeed={animSpeed} fps={fps} canvases={frameCanvases} onBackground={project?.assets.some((asset) => asset.kind === "backgrounds") ? () => setOnBackground(composeFrames()) : undefined} />}
           {doc?.changedOnDisk && !doc.changedOnDisk.kept && (
-            <div className="gbp-disk-bar" role="alert">
-              <span><b>{doc.name}</b> changed on disk (GB Studio or another app saved it) while you have unsaved changes here.</span>
-              <span className="gbp-spacer" />
-              <button className="quiet-button primary" onClick={() => { if (window.confirm(`Reload ${doc.name} from disk? Your unsaved changes here are lost.`)) { const target = doc; target.changedOnDisk = undefined; if (target.asset) void reloadAsset(target); else if (target.handle) void target.handle.getFile().then((file) => openFiles([{ file, handle: target.handle, replace: target.id }])); } }}>Reload from disk</button>
-              <button className="quiet-button" title="Keep painting; Save will ask before replacing the file on disk" onClick={() => { doc.changedOnDisk = { ...doc.changedOnDisk!, kept: true }; bump(); }}>Keep mine</button>
+            <div className="k-card app-strip app-strip--alert" role="alert">
+              <span className="app-strip-label"><b>{doc.name}</b> changed on disk (GB Studio or another app saved it) while you have unsaved changes here.</span>
+              <Button variant="primary" size="sm" onClick={() => { if (window.confirm(`Reload ${doc.name} from disk? Your unsaved changes here are lost.`)) { const target = doc; target.changedOnDisk = undefined; if (target.asset) void reloadAsset(target); else if (target.handle) void target.handle.getFile().then((file) => openFiles([{ file, handle: target.handle, replace: target.id }])); } }}>Reload from disk</Button>
+              <Button size="sm" title="Keep painting; Save will ask before replacing the file on disk" onClick={() => { doc.changedOnDisk = { ...doc.changedOnDisk!, kept: true }; bump(); }}>Keep mine</Button>
             </div>
           )}
           {doc && seamless && (
-            <div className="gbp-frames gbp-seamless" role="group" aria-label="Seamless view">
-              <span className="gbp-frames-label">{seamlessArea ? (doc.sel ? `selection ${seamlessArea.w} × ${seamlessArea.h}` : `tile ${hoverCell!.x}, ${hoverCell!.y}`) : "point at a tile"} · repeated 3 × 3</span>
+            <div className="k-card app-strip" role="group" aria-label="Seamless view">
+              <span className="app-strip-label">{seamlessArea ? (doc.sel ? `Selection ${seamlessArea.w} × ${seamlessArea.h}` : `Tile ${hoverCell!.x}, ${hoverCell!.y}`) : "Point at a tile"} · repeated 3 × 3</span>
               {seamlessArea && <canvas ref={seamlessCanvas} style={{ width: seamlessArea.w * 3 * Math.max(2, Math.min(8, Math.floor(96 / Math.max(seamlessArea.w, seamlessArea.h)))), height: seamlessArea.h * 3 * Math.max(2, Math.min(8, Math.floor(96 / Math.max(seamlessArea.w, seamlessArea.h)))) }} />}
             </div>
           )}
           {doc && isFont && (
-            <div className="gbp-frames gbp-sample" role="group" aria-label="Font sample">
-              <input type="text" aria-label="Sample text" value={sampleText} onChange={(event) => setSampleText(event.target.value)} spellCheck={false} />
+            <div className="k-card app-strip" role="group" aria-label="Font sample">
+              <input className="k-input" style={{ width: 320 }} aria-label="Sample text" value={sampleText} onChange={(event) => setSampleText(event.target.value)} spellCheck={false} />
               <canvas ref={sampleCanvas} className="gbp-sample-canvas" />
             </div>
           )}
@@ -1589,140 +1655,60 @@ export default function PaintApp() {
                 <div className="gbp-brush-outline" ref={brushRef} />
               </div>
             </div>
-          ) : project ? (
-            <div className="gbp-empty">
-              <span className="gbp-mascot" title="Nothing open yet"><PxSnake size={48} /></span>
-              <p>Pick a picture of {project.name} on the left.</p>
-            </div>
           ) : (
             <div className="gbp-empty">
               <span className="gbp-mascot" title="Nothing open yet"><PxSnake size={48} /></span>
-              <p>Drop PNG files here, or</p>
-              <button className="quiet-button" onClick={() => void pickFiles()}><FolderOpen size={14} />Open PNG files</button>
+              <p>{project ? `Pick a picture of ${project.name} on the left.` : "Drop PNG files here, or"}</p>
+              {!project && <Button icon={<FolderOpen />} onClick={() => void pickFiles()}>Open PNG files</Button>}
             </div>
           )}
         </div>
-        <aside className="gbp-side">
-          <div className="gbp-side-shades">
-            <div className="pixel-swatches">
-              {swatchColors.slice(0, 4).map((color, index) => (
-                <button key={index} className={shade === index ? "selected" : ""} style={{ background: color }} aria-label={`Shade ${index + 1}`} title={`Shade ${index + 1} · ${index + 1} · click again to change this color${picked ? ` of ${picked.name}` : " of the tint"}`} onClick={() => { if (shade === index) shadeInputs.current[index]?.click(); else { setShade(index); if (tool === "eyedropper") setToolState(paintTool.current); } }}>
-                  <kbd>{index + 1}</kbd>
-                  <input type="color" tabIndex={-1} aria-label={`Change color ${index + 1}`} ref={(element) => { shadeInputs.current[index] = element; }} value={normalizeHex(color)} onClick={(event) => event.stopPropagation()} onChange={(event) => changeShadeColor(index, event.target.value.toUpperCase())} />
-                </button>
-              ))}
-            </div>
-            {doc?.hasAlpha && <button className={`transparent-swatch ${shade === CLEAR ? "selected" : ""}`} title="See-through · 0" onClick={() => setShade(CLEAR)}><kbd>0</kbd>Transparent</button>}
+        <aside className="k-panel app-side">
+          <div className="app-swatches">
+            {swatchColors.slice(0, 4).map((color, index) => (
+              <button key={index} className="app-swatch" aria-pressed={shade === index} style={{ background: color }} aria-label={`Shade ${index + 1}`} title={`Shade ${index + 1} · ${index + 1} · click again to change this color${picked ? ` of ${picked.name}` : " of the tint"}`} onClick={() => { if (shade === index) shadeInputs.current[index]?.click(); else { setShade(index); if (tool === "eyedropper") setToolState(paintTool.current); } }}>
+                <Kbd>{index + 1}</Kbd>
+                <input type="color" tabIndex={-1} aria-label={`Change color ${index + 1}`} ref={(element) => { shadeInputs.current[index] = element; }} value={normalizeHex(color)} onClick={(event) => event.stopPropagation()} onChange={(event) => changeShadeColor(index, event.target.value.toUpperCase())} />
+              </button>
+            ))}
           </div>
-          <div className="gbp-side-tabs" role="tablist" aria-label="Inspector">
-            <button role="tab" aria-selected={sideTab === "palettes"} className={sideTab === "palettes" ? "selected" : ""} onClick={() => setSideTab("palettes")}>Palettes</button>
-            <button role="tab" aria-selected={sideTab === "picture"} className={sideTab === "picture" ? "selected" : ""} onClick={() => setSideTab("picture")}>Picture</button>
-          </div>
-          {sideTab === "palettes" ? (
-            <PalettesPane doc={doc} palettes={docPalettes} sceneSlots={sceneSlots} slotPalettes={slotPalettes} slotWhere={slotWhere} activePalette={activePalette} onPick={pickPalette}
-              namedSlots={namedSlots} onNamedSlots={(on) => { setNamedSlots(on); store(NAMED_SLOTS_KEY, on); }} filter={paletteFilter} onFilter={setPaletteFilter} onSlotMenu={(x, y, palette) => setSlotMenu({ x, y, palette })}
-              libraryColors={libraryColors} onSaveToProject={project && picked?.id ? () => void (async () => { if (await okToWriteProjectJson() && await writeProjectPalette({ id: picked.id!, name: picked.name, colors: [...picked.colors] })) say(`${picked.name} written to the project`); })() : undefined}
-              onRecolor={recolorPalette} say={say} copiedColors={copiedColors} onCopy={(colors) => { setCopiedColors(colors); say(`Copied the colors of ${picked?.name}`); }} />
-          ) : (
-            <PicturePane doc={doc} tileCount={tileCount} budget={budget} onBudget={setBudgetId} look={look} onLook={(next) => { setLook(next); store(LOOK_KEY, next); }}
-              tint={tint} onTint={setTint} paletteNames={palettes.map(({ name }) => name)} customTint={customTint} onCustomTint={setCustomTint} font={font} onFont={(next) => { setFont(next); applyFont(next); }}
-              onResize={() => setShowResize(true)} onFit={() => { if (!doc) return; const flat = doc.pixels.slice(); if (doc.float) drop(flat, doc.width, doc.height, doc.float); setFitting(toRgba(flat, doc.cells, doc.width, doc.palettes)); }}
-              usage={shownUsage ? { usedOnce, nearCount } : null} budgetView={budgetView} onBudgetView={setBudgetView} onMerge={mergeNear} />
-          )}
+          {doc?.hasAlpha && <Button size="sm" className="app-clear" pressed={shade === CLEAR} title="See-through · 0" onClick={() => setShade(CLEAR)}><Kbd>0</Kbd>Transparent</Button>}
+          <Tabs.Root value={sideTab} onValueChange={(value) => setSideTab(value as "palettes" | "picture")} style={{ display: "flex", flexDirection: "column", gap: 12, minHeight: 0, flex: 1 }}>
+            <TabList label="Inspector" tabs={[{ value: "palettes", label: "Palettes" }, { value: "picture", label: "Picture" }]} />
+            <Tabs.Content value="palettes" className="app-side-body">
+              <PalettesPane doc={doc} palettes={docPalettes} sceneSlots={sceneSlots} slotPalettes={slotPalettes} slotWhere={slotWhere} activePalette={activePalette} onPick={pickPalette}
+                namedSlots={namedSlots} onNamedSlots={(on) => { setNamedSlots(on); store(NAMED_SLOTS_KEY, on); }} filter={paletteFilter} onFilter={setPaletteFilter} onSlotMenu={(x, y, palette) => setSlotMenu({ x, y, palette })}
+                libraryColors={libraryColors} onSaveToProject={project && picked?.id ? () => void (async () => { if (await okToWriteProjectJson() && await writeProjectPalette({ id: picked.id!, name: picked.name, colors: [...picked.colors] })) say(`${picked.name} written to the project`); })() : undefined}
+                onRecolor={recolorPalette} say={say} copiedColors={copiedColors} onCopy={(colors) => { setCopiedColors(colors); say(`Copied the colors of ${picked?.name}`); }} />
+            </Tabs.Content>
+            <Tabs.Content value="picture" className="app-side-body">
+              <PicturePane doc={doc} tileCount={tileCount} budget={budget} onBudget={setBudgetId} look={look} onLook={(next) => { setLook(next); store(LOOK_KEY, next); }}
+                tint={tint} onTint={setTint} paletteNames={palettes.map(({ name }) => name)} customTint={customTint} onCustomTint={setCustomTint} font={font} onFont={(next) => { setFont(next); applyFont(next); }}
+                onResize={() => setShowResize(true)} onFit={() => { if (!doc) return; const flat = doc.pixels.slice(); if (doc.float) drop(flat, doc.width, doc.height, doc.float); setFitting(toRgba(flat, doc.cells, doc.width, doc.palettes)); }}
+                usage={shownUsage ? { usedOnce, nearCount } : null} budgetView={budgetView} onBudgetView={setBudgetView} onMerge={mergeNear} />
+            </Tabs.Content>
+          </Tabs.Root>
         </aside>
       </div>
-      <footer className="gbp-status">
-        <span className="gbp-status-hint"><b>{hint[1]}</b> · {hint[4]}</span>
+      <footer className="app-status">
+        <span className="app-status-hint"><b>{hint[1]}</b> · {hint[4]}</span>
         <span ref={readoutRef} className="gbp-readout" />
-        <span className="gbp-spacer" />
-        {look !== "plain" && <button className="gbp-look-tag" title="The picture shows like a real screen (Picture tab → Screen); the file is unchanged. Click for plain." onClick={() => { setLook("plain"); store(LOOK_KEY, "plain"); }}>{look === "dmg" ? "Game Boy screen" : look === "pocket" ? "Pocket screen" : "GBC screen"} ×</button>}
-        {doc?.sel && <span>sel {doc.sel.w} × {doc.sel.h} at {doc.sel.x}, {doc.sel.y}</span>}
-        {doc && <span title={doc.asset ? `assets/${doc.asset.kind}/${doc.asset.file}` : doc.name}>{doc.width} × {doc.height} · {doc.width / CELL} × {doc.height / CELL} tiles</span>}
+        <span className="k-spacer" />
+        {look !== "plain" && <Button size="sm" title="The picture shows like a real screen (Picture tab → Screen); the file is unchanged. Click for plain." onClick={() => { setLook("plain"); store(LOOK_KEY, "plain"); }}>{lookName}<X /></Button>}
+        {doc?.sel && <span>Selection {doc.sel.w} × {doc.sel.h} at {doc.sel.x}, {doc.sel.y}</span>}
+        {doc && <span title={doc.asset ? `${doc.asset.kind === "stamps" ? "Cartographer/stamps" : `assets/${doc.asset.kind}`}/${doc.asset.file}` : doc.name}>{doc.width} × {doc.height} · {Math.ceil(doc.width / CELL)} × {Math.ceil(doc.height / CELL)} tiles</span>}
         {doc && (
-          <button className={`gbp-tiles ${tileCount > budget.limit ? "over" : ""}`} title={`Unique 8 × 8 tiles in this picture, as GB Studio counts them (${budget.flips ? "identical and flipped tiles merge" : "identical tiles merge"}). The budget follows the scene's color mode. Click for ${project ? "the project's health report" : "the Picture tab"}.`} onClick={() => { if (project) setShowHealth(true); else setSideTab("picture"); }}>
-            <span>TILES</span>
-            <span className="gbp-tiles-track" aria-hidden="true"><b style={{ width: `${Math.min(1, tileCount / budget.limit) * 100}%` }} /></span>
-            <span className="gbp-tiles-count">{tileCount}/{budget.limit}</span>
-          </button>
+          <Tooltip content={`Unique 8 × 8 tiles, as GB Studio counts them (${budget.flips ? "identical and flipped tiles merge" : "identical tiles merge"}). Click for ${project ? "the project's health report" : "the Picture tab"}.`}>
+            <button className={`app-tiles ${tileCount > budget.limit ? "over" : ""}`} onClick={() => { if (project) setShowHealth(true); else setSideTab("picture"); }}>
+              TILES<span className="k-meter-track"><span className="k-meter-fill" style={{ display: "block", width: `${Math.min(1, tileCount / budget.limit) * 100}%` }} /></span><span>{tileCount} / {budget.limit}</span>
+            </button>
+          </Tooltip>
         )}
       </footer>
-      {toast && <div className="gbp-toast" role="status">{toast}</div>}
-      {projectMenu && (
-        <Menu x={projectMenu.x} y={projectMenu.y} width={270} height={420} className="gbp-icon-menu" onClose={() => setProjectMenu(null)}>
-            <button role="menuitem" onClick={() => { setProjectMenu(null); void chooseProject(); }}><FolderOpen size={14} />Open another project…</button>
-            <button role="menuitem" onClick={() => { setProjectMenu(null); void chooseProject(true); }}><Gamepad2 size={14} />Open the demo project</button>
-            {project && /[\\/]demo-project$/.test(project.path) && <button role="menuitem" title="Your painted copy goes to the backups folder; a fresh copy of the demo opens" onClick={() => { setProjectMenu(null); void chooseProject(true, true); }}><RotateCcw size={14} />Reset the demo project…</button>}
-            {recent.filter((item) => item.path !== project?.path).length > 0 && <><hr /><span className="gbp-menu-label"><Clock size={12} />Recent</span></>}
-            {recent.filter((item) => item.path !== project?.path).slice(0, 5).map((item) => <button key={item.path} role="menuitem" className="gbp-menu-indent" title={item.path} onClick={() => { setProjectMenu(null); void openProjectPath(item.path); }}>{item.name}</button>)}
-            {project && <>
-              <hr />
-              <button role="menuitem" onClick={() => { setProjectMenu(null); setShowMapRoom(true); }}><MapIcon size={14} />Map Room…</button>
-              <button role="menuitem" onClick={() => { setProjectMenu(null); setShowHealth(true); }}><PxHeart size={14} />Project health…</button>
-              <button role="menuitem" onClick={() => { setProjectMenu(null); setShowDialogue(true); }}><MessageSquare size={14} />Dialogue box…</button>
-              <button role="menuitem" onClick={() => { setProjectMenu(null); setBackups({}); }}><History size={14} />Backups…</button>
-              <hr />
-              <button role="menuitem" onClick={() => { setProjectMenu(null); void fetch("./__cartographer/reveal", { method: "POST" }); }}><FolderSearch size={14} />{FILE_MANAGER_LABEL}</button>
-              <button role="menuitem" onClick={() => { setProjectMenu(null); void fetch("./__cartographer/reveal?backups=1", { method: "POST" }); }}><FolderArchive size={14} />Show backups folder</button>
-              <hr />
-              <button role="menuitem" onClick={() => { setProjectMenu(null); void closeProject(); }}><FolderX size={14} />Close project</button>
-            </>}
-            <hr />
-            <button role="menuitem" onClick={() => { setProjectMenu(null); setShowAbout(true); }}><Info size={14} />About GB Cartographer</button>
-        </Menu>
-      )}
-      {exportMenu && doc && (
-        <Menu x={exportMenu.x} y={exportMenu.y} width={300} height={320} className="gbp-export-menu" onClose={() => setExportMenu(null)}>
-          <button role="menuitem" onClick={() => { setExportMenu(null); void save(true); }}>Copy of the file, in the GB greens <kbd>Ctrl+E</kbd></button>
-          <hr />
-          <span className="gbp-menu-label">Image as shown, in its palettes</span>
-          <div className="gbp-menu-row">{[1, 2, 3, 4, 6, 8].map((scale) => <button key={scale} role="menuitem" title={`${doc.width * scale} × ${doc.height * scale} px`} onClick={() => { setExportMenu(null); void exportImage(scale, true); }}>{scale}×</button>)}</div>
-          {frames.length > 1 && <>
-            <span className="gbp-menu-label">Animation as GIF{animations.length > 1 && animation?.name ? ` · ${animation.name}` : ""}</span>
-            <div className="gbp-menu-row">{[1, 2, 4, 6, 8].map((scale) => <button key={scale} role="menuitem" title={`${frames.length} frames at GB Studio's speed`} onClick={() => { setExportMenu(null); void exportGif(scale); }}>{scale}×</button>)}</div>
-          </>}
-          <span className="gbp-menu-label">Image in the GB greens</span>
-          <div className="gbp-menu-row">{[1, 2, 3, 4, 6, 8].map((scale) => <button key={scale} role="menuitem" title={`${doc.width * scale} × ${doc.height * scale} px`} onClick={() => { setExportMenu(null); void exportImage(scale, false); }}>{scale}×</button>)}</div>
-        </Menu>
-      )}
-      {slotMenu && doc && docPalettes[slotMenu.palette - 1] && (
-        <Menu x={slotMenu.x} y={slotMenu.y} width={300} height={450} className="gbp-slot-menu" onClose={() => setSlotMenu(null)}>
-            <span className="gbp-menu-label">Put {docPalettes[slotMenu.palette - 1].name} in slot</span>
-            {slotPalettes.map((index, slot) => {
-              const holder = index >= 0 ? docPalettes[index] : null;
-              const here = index === slotMenu.palette - 1;
-              return (
-                <button key={slot} role="menuitem" disabled={here || !docPalettes[slotMenu.palette - 1].id} onClick={() => { const palette = slotMenu.palette; setSlotMenu(null); void putInSlot(palette, slot); }}>
-                  <b>{slot + 1}</b>
-                  <span className="gbp-chips">{(holder?.colors ?? ["#222", "#222", "#222", "#222"]).map((color, at) => <i key={at} style={{ background: color }} />)}</span>
-                  <span>{holder?.name ?? "—"}{here ? " (here)" : ""}{slot === UI_SLOT && doc.asset?.kind !== "sprites" ? <small className="gbp-menu-tag" title="GB Studio draws dialogue boxes and menus with slot 8">UI</small> : null}</span>
-                </button>
-              );
-            })}
-            <hr />
-            <p className="gbp-menu-note">{docPalettes[slotMenu.palette - 1].id ? `Writes ${slotWhere} in GB Studio right away. Tiles wearing the palette moved out show the new one there.` : "Add this palette to the project first (palette manager)."}</p>
-        </Menu>
-      )}
-      {selectionMenu && doc?.sel && (
-        <Menu x={selectionMenu.x} y={selectionMenu.y} width={240} height={200} className="gbp-icon-menu" onClose={() => setSelectionMenu(null)}>
-          <span className="gbp-menu-label">Selection · {doc.sel.w} × {doc.sel.h}</span>
-          <button role="menuitem" onClick={() => { setSelectionMenu(null); setTool("stamp"); }}><PhSticker size={14} />Use as stamp</button>
-          <button role="menuitem" disabled={!project} title={project ? `Saves a PNG in ${project.name}/Cartographer/stamps (tile palettes too, on whole tiles)` : "Open a GB Studio project to save stamps in it"} onClick={() => { setSelectionMenu(null); void saveAsStamp(); }}><Save size={14} />Save as stamp…</button>
-          <hr />
-          <button role="menuitem" onClick={() => { setSelectionMenu(null); if (copySelection()) say("Copied the selection"); }}><Copy size={14} />Copy</button>
-          <button role="menuitem" onClick={() => { setSelectionMenu(null); dropFloat(doc); doc.sel = null; bump(); }}><X size={14} />Deselect</button>
-        </Menu>
-      )}
-      {assetMenu && (
-        <Menu x={assetMenu.x} y={assetMenu.y} width={220} height={220} onClose={() => setAssetMenu(null)}>
-            {assetMenu.asset.kind === "stamps" && <button role="menuitem" onClick={() => { void useSavedStamp(assetMenu.asset); setAssetMenu(null); }}>Use as stamp</button>}
-            <button role="menuitem" onClick={() => { void openAsset(assetMenu.asset); setAssetMenu(null); }}>{assetMenu.asset.kind === "stamps" ? "Open to edit" : "Open"}</button>
-            <button role="menuitem" onClick={() => { void fetch(`./__cartographer/reveal?${assetQuery(assetMenu.asset)}`, { method: "POST" }); setAssetMenu(null); }}>{FILE_MANAGER_LABEL}</button>
-            <button role="menuitem" onClick={() => { void navigator.clipboard?.writeText(`${project?.path ?? ""}/assets/${assetMenu.asset.kind}/${assetMenu.asset.file}`).then(() => say("Copied the file path")); setAssetMenu(null); }}>Copy file path</button>
-            <button role="menuitem" onClick={() => { setBackups({ file: `assets/${assetMenu.asset.kind}/${assetMenu.asset.file}` }); setAssetMenu(null); }}>Earlier versions…</button>
-            <hr />
-            <button role="menuitem" onClick={() => { void fetch("./__cartographer/reveal", { method: "POST" }); setAssetMenu(null); }}>Show project folder</button>
-        </Menu>
-      )}
+      {toast && <div className="app-toast" role="status">{toast}</div>}
+      {slotMenu && slotItems.length > 0 && <MenuAt x={slotMenu.x} y={slotMenu.y} items={slotItems} label="Put in slot" onClose={() => setSlotMenu(null)} />}
+      {selectionMenu && selectionItems.length > 0 && <MenuAt x={selectionMenu.x} y={selectionMenu.y} items={selectionItems} label="Selection" onClose={() => setSelectionMenu(null)} />}
+      {assetMenu && <MenuAt x={assetMenu.x} y={assetMenu.y} items={assetItems} label={assetMenu.asset.name} onClose={() => setAssetMenu(null)} />}
       {showHelp && <HelpWindow onClose={() => setShowHelp(false)} onAbout={() => { setShowHelp(false); setShowAbout(true); }} />}
       {showAbout && <AboutWindow onClose={() => setShowAbout(false)} />}
       {onBackground && project && <SpriteOnBackground backgrounds={project.assets.filter((asset) => asset.kind === "backgrounds")} frames={onBackground} fps={fps} onClose={() => setOnBackground(null)} />}

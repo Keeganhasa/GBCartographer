@@ -14,11 +14,11 @@ interface Props {
 
 export function StampsStrip({ stamps, slotsVersion, onUse, onOpen }: Props) {
   return (
-    <div className="gbp-frames gbp-stamps" role="group" aria-label="Saved stamps">
-      <span className="gbp-frames-label">Saved stamps</span>
-      <div className="gbp-frames-list">
+    <div className="k-card app-strip" role="group" aria-label="Saved stamps">
+      <span className="app-strip-label">Saved stamps</span>
+      <div className="app-frames">
         {stamps.map((stamp) => (
-          <button key={stamp.file} className="gbp-frame" title={`${stamp.name} · ${stamp.width} × ${stamp.height} · click to use, double-click to edit`} onClick={() => onUse(stamp)} onDoubleClick={() => onOpen(stamp)}>
+          <button key={stamp.file} className="app-frame named" title={`${stamp.name} · ${stamp.width} × ${stamp.height} · click to use, double-click to edit`} onClick={() => onUse(stamp)} onDoubleClick={() => onOpen(stamp)}>
             <img alt="" src={`${ASSET_URL}-preview?${new URLSearchParams({ kind: stamp.kind, file: stamp.file })}&v=${Math.round(stamp.mtime)}&pv=${PREVIEW_VERSION}&s=${slotsVersion}`} />
             <small>{stamp.name}</small>
           </button>

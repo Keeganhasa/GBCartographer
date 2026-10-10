@@ -113,20 +113,31 @@ export function Tooltip({ content, keys, children, open }: { content: ReactNode;
   );
 }
 
-export type MenuEntry = { label: ReactNode; icon?: ReactNode; keys?: string; disabled?: boolean; indent?: boolean; onSelect?: () => void } | { separator: true } | { heading: ReactNode };
+export type MenuEntry = { label: ReactNode; icon?: ReactNode; keys?: string; disabled?: boolean; indent?: boolean; title?: string; onSelect?: () => void } | { separator: true } | { heading: ReactNode } | { note: ReactNode };
 
 function entries(Parts: typeof RMenu | typeof RContextMenu, items: MenuEntry[]) {
   return items.map((item, index) => "separator" in item ? <Parts.Separator key={index} className="k-menu-sep" />
     : "heading" in item ? <Parts.Label key={index} className="k-menu-label">{item.heading}</Parts.Label>
-    : <Parts.Item key={index} className={cx("k-menu-item", item.indent && "k-menu-item--indent")} disabled={item.disabled} onSelect={item.onSelect}>{item.icon}{item.label}{item.keys && <Kbd>{item.keys}</Kbd>}</Parts.Item>);
+    : "note" in item ? <p key={index} className="k-menu-note">{item.note}</p>
+    : <Parts.Item key={index} className={cx("k-menu-item", item.indent && "k-menu-item--indent")} title={item.title} disabled={item.disabled} onSelect={item.onSelect}>{item.icon}{item.label}{item.keys && <Kbd>{item.keys}</Kbd>}</Parts.Item>);
 }
 
 /** A menu under a button (Radix dropdown menu). */
-export function Menu({ trigger, items, open, align = "start" }: { trigger: ReactNode; items: MenuEntry[]; open?: boolean; align?: "start" | "end" }) {
+export function Menu({ trigger, items, open, onOpenChange, align = "start" }: { trigger: ReactNode; items: MenuEntry[]; open?: boolean; onOpenChange?: (open: boolean) => void; align?: "start" | "end" }) {
   return (
-    <RMenu.Root open={open} modal={false}>
+    <RMenu.Root open={open} onOpenChange={onOpenChange} modal={false}>
       <RMenu.Trigger asChild>{trigger}</RMenu.Trigger>
       <RMenu.Portal><RMenu.Content className="k-menu" sideOffset={6} align={align}>{entries(RMenu, items)}</RMenu.Content></RMenu.Portal>
+    </RMenu.Root>
+  );
+}
+
+/** A menu opened at a point (a right-click on a palette, a card or a selection); closing it calls onClose. */
+export function MenuAt({ x, y, items, onClose, label }: { x: number; y: number; items: MenuEntry[]; onClose: () => void; label?: string }) {
+  return (
+    <RMenu.Root open onOpenChange={(open) => { if (!open) onClose(); }} modal={false}>
+      <RMenu.Trigger asChild><span aria-hidden="true" style={{ position: "fixed", left: x, top: y, width: 1, height: 1, pointerEvents: "none" }} /></RMenu.Trigger>
+      <RMenu.Portal><RMenu.Content className="k-menu k" align="start" sideOffset={2} collisionPadding={8} aria-label={label}>{entries(RMenu, items)}</RMenu.Content></RMenu.Portal>
     </RMenu.Root>
   );
 }

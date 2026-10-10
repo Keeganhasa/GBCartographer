@@ -5,6 +5,7 @@
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { GB_SHADES, closeShades, namedSlot, type Palette } from "../paint";
 import { HelpTip } from "./HelpTip";
+import { Button, Chip, Switch } from "../ui/kit";
 import type { Doc } from "./model";
 
 interface Props {
@@ -64,57 +65,56 @@ export function PalettesPane({ doc, palettes, sceneSlots, slotPalettes, slotWher
     if (fresh.length) say(`Colors ${fresh[0].a + 1} and ${fresh[0].b + 1} of ${picked?.name ?? "this palette"} are hard to tell apart now (difference ${fresh[0].delta}; aim for 12 or more).`);
   };
 
+  const Chips = ({ colors }: { colors: readonly string[] }) => <span className="app-chips">{colors.map((color, at) => <i key={at} style={{ background: color }} />)}</span>;
   return (
-    <div className="gbp-side-pane">
+    <>
       {sceneSlots.length > 0 && (
-        <div className="gbp-slots" role="group" aria-label={doc?.asset?.kind === "sprites" ? "Sprite palette slots" : "The scene's palette slots"}>
-          {slotPalettes.map((paletteIndex, slot) => {
-            const palette = paletteIndex >= 0 ? palettes[paletteIndex] : null;
-            return (
-              <button key={slot} className={`gbp-slot-button ${palette && activePalette === paletteIndex + 1 ? "selected" : ""}`} disabled={!palette} title={palette ? `Slot ${slot + 1} · ${palette.name}` : `Slot ${slot + 1}: no palette`} onClick={() => palette && onPick(paletteIndex + 1)} onContextMenu={(event) => openSlotMenu(event, paletteIndex + 1)}>
-                <b>{slot + 1}</b>
-                <span className="gbp-chips">{(palette?.colors ?? ["#222", "#222", "#222", "#222"]).map((color, at) => <i key={at} style={{ background: color }} />)}</span>
-                <span className="gbp-slot-name">{palette?.name ?? "—"}</span>
-              </button>
-            );
-          })}
+        <section className="app-section" aria-label={doc?.asset?.kind === "sprites" ? "Sprite palette slots" : "The scene's palette slots"}>
+          <div className="app-section-head"><span className="k-eyebrow">{doc?.asset?.kind === "sprites" ? "Sprite slots" : "Scene slots"}</span><Chip title={`Slots come from ${slotWhere}`}>{doc?.asset?.slotScene ?? "defaults"}</Chip></div>
+          <div className="app-list gbp-slots">
+            {slotPalettes.map((paletteIndex, slot) => {
+              const palette = paletteIndex >= 0 ? palettes[paletteIndex] : null;
+              return (
+                <button key={slot} className="app-row gbp-slot-button" aria-pressed={Boolean(palette) && activePalette === paletteIndex + 1} disabled={!palette} title={palette ? `Slot ${slot + 1} · ${palette.name} · right-click: put another palette here` : `Slot ${slot + 1}: no palette`} onClick={() => palette && onPick(paletteIndex + 1)} onContextMenu={(event) => openSlotMenu(event, paletteIndex + 1)}>
+                  <span className="app-slot">{slot + 1}</span><Chips colors={palette?.colors ?? ["#222", "#222", "#222", "#222"]} /><span className="app-name">{palette?.name ?? "—"}</span>
+                </button>
+              );
+            })}
+          </div>
+          <span title="Palettes named like DWC-2-Computer D (a D / N / S variant) save as their base palette's slot, or the number in the name (WIN-1-Snow saves as slot 1)">
+            <Switch checked={namedSlots} onChange={onNamedSlots}>Named slots: variants save as their base's</Switch>
+          </span>
+        </section>
+      )}
+      <section className="app-section">
+        <div className="app-section-head"><span className="k-eyebrow">All palettes</span><span className="k-row"><span className="k-muted k-xs">{palettes.length}</span><HelpTip label="About the palette brush">{helpFor(doc, sceneSlots.length > 0)}</HelpTip></span></div>
+        <input type="search" className="k-input" placeholder="Filter palettes" aria-label="Filter palettes by name" value={filter} onChange={(event) => onFilter(event.target.value)} />
+        <div className="app-list gbp-palettes" role="listbox" aria-label="Palettes">
+          {shown.map(({ palette, index, slot, named }) => (
+            <button key={`${index}-${palette.name}`} role="option" aria-selected={activePalette === index} className="app-row" title={index && sceneSlots.length ? "Right-click: put in a slot" : undefined} onClick={() => onPick(index)} onContextMenu={(event) => openSlotMenu(event, index)}>
+              <Chips colors={palette.colors} /><span className="app-name">{palette.name}</span>
+              {slot >= 0 && <Chip title={doc?.asset?.kind === "sprites" ? `Sprite palette slot ${slot + 1}` : `Palette slot ${slot + 1} of this background's scene`}>{slot + 1}</Chip>}
+              {named >= 0 && <Chip title={`Saves as slot ${named + 1} (named slots)`}>→ {named + 1}</Chip>}
+            </button>
+          ))}
         </div>
-      )}
-      {sceneSlots.length > 0 && (
-        <label className="gbp-check" title="Palettes named like DWC-2-Computer D (a D / N / S variant) save as their base palette's slot, or the number in the name (WIN-1-Snow saves as slot 1)">
-          <input type="checkbox" checked={namedSlots} onChange={(event) => onNamedSlots(event.target.checked)} />
-          Named slots: variants save as their base's
-        </label>
-      )}
-      <div className="gbp-side-row">
-        <input type="search" className="gbp-filter" placeholder="Filter palettes" aria-label="Filter palettes by name" value={filter} onChange={(event) => onFilter(event.target.value)} />
-        <HelpTip label="About the palette brush">{helpFor(doc, sceneSlots.length > 0)}</HelpTip>
-      </div>
-      <div className="gbp-palettes" role="listbox" aria-label="Palettes">
-        {shown.map(({ palette, index, slot, named }) => (
-          <button key={`${index}-${palette.name}`} role="option" aria-selected={activePalette === index} className={activePalette === index ? "selected" : ""} title={index && sceneSlots.length ? "Right-click: put in a slot" : undefined} onClick={() => onPick(index)} onContextMenu={(event) => openSlotMenu(event, index)}>
-            <span className="gbp-chips">{palette.colors.map((color, at) => <i key={at} style={{ background: color }} />)}</span>
-            <span>{palette.name}</span>
-            {slot >= 0 && <small className="gbp-slot" title={doc?.asset?.kind === "sprites" ? `Sprite palette slot ${slot + 1}` : `Palette slot ${slot + 1} of this background's scene`}>{slot + 1}</small>}
-            {named >= 0 && <small className="gbp-slot named" title={`Saves as slot ${named + 1} (named slots)`}>{named + 1}</small>}
-          </button>
-        ))}
-      </div>
+      </section>
       {doc && picked && (
-        <div className="gbp-palette-edit">
-          <h2>{picked.name} in this picture{close.length > 0 && <span className="gbp-low-contrast" title={close.map(({ a, b, delta }) => `Colors ${a + 1} and ${b + 1} are hard to tell apart (difference ${delta}; aim for 12 or more)`).join("\n")}>low contrast</span>}</h2>
-          <div className="gbp-palette-colors">
+        <section className="app-section gbp-palette-edit">
+          <hr className="k-divider" />
+          <div className="app-section-head"><span className="k-eyebrow">{picked.name} here</span>{close.length > 0 && <Chip tone="warn" title={close.map(({ a, b, delta }) => `Colors ${a + 1} and ${b + 1} are hard to tell apart (difference ${delta}; aim for 12 or more)`).join("\n")}>low contrast</Chip>}</div>
+          <div className="app-colors">
             {picked.colors.map((color, index) => <input key={index} type="color" aria-label={`${picked.name} color ${index + 1}`} title={`Color ${index + 1}: ${color}`} value={color} onChange={(event) => recolor(picked.colors.map((old, at) => at === index ? event.target.value : old))} />)}
           </div>
-          <div className="gbp-palette-actions">
-            {picked.id && onSaveToProject && <button className="quiet-button primary" disabled={unchanged} title={`Rewrite ${picked.name} in the GB Studio project with these colors (Save does this too)`} onClick={onSaveToProject}>Save to project</button>}
-            {sceneSlots.length > 0 && <button className="quiet-button" title={`Put ${picked.name} in one of ${slotWhere}`} onClick={(event) => { const r = event.currentTarget.getBoundingClientRect(); onSlotMenu(r.left, r.bottom + 4, activePalette); }}>Slot…</button>}
-            <button className="quiet-button" disabled={unchanged} title="Back to the colors the project has" onClick={() => libraryColors && recolor(libraryColors)}>Revert</button>
-            <button className="quiet-button" title="Copy these four colors, to paste onto a palette here or in another tab" onClick={() => onCopy([...picked.colors])}>Copy values</button>
-            <button className="quiet-button" disabled={!copiedColors} title="Replace these four colors with the copied ones" onClick={() => copiedColors && recolor(copiedColors)}>Paste values</button>
+          <div className="app-actions">
+            {picked.id && onSaveToProject && <Button size="sm" variant="primary" disabled={unchanged} title={`Rewrite ${picked.name} in the GB Studio project with these colors (Save does this too)`} onClick={onSaveToProject}>Save to project</Button>}
+            {sceneSlots.length > 0 && <Button size="sm" title={`Put ${picked.name} in one of ${slotWhere}`} onClick={(event) => { const r = event.currentTarget.getBoundingClientRect(); onSlotMenu(r.left, r.bottom + 4, activePalette); }}>Slot…</Button>}
+            <Button size="sm" disabled={unchanged} title="Back to the colors the project has" onClick={() => libraryColors && recolor(libraryColors)}>Revert</Button>
+            <Button size="sm" title="Copy these four colors, to paste onto a palette here or in another tab" onClick={() => onCopy([...picked.colors])}>Copy colors</Button>
+            <Button size="sm" disabled={!copiedColors} title="Replace these four colors with the copied ones" onClick={() => copiedColors && recolor(copiedColors)}>Paste colors</Button>
           </div>
-        </div>
+        </section>
       )}
-    </div>
+    </>
   );
 }
