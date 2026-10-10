@@ -13,7 +13,7 @@ const cx = (...names: (string | false | null | undefined)[]) => names.filter(Boo
 
 // ---- buttons ---------------------------------------------------------------------------------------------------
 
-type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "ghost" | "danger"; size?: "sm"; block?: boolean; icon?: ReactNode; pressed?: boolean };
+type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "ghost" | "danger" | "brand"; size?: "sm"; block?: boolean; icon?: ReactNode; pressed?: boolean };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button({ variant, size, block, icon, pressed, className, children, ...rest }, ref) {
   return (

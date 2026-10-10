@@ -26,3 +26,6 @@
 .st-art-box { display: grid; place-items: center; min-height: 72px; padding: 8px; border-radius: 8px;
   background: repeating-conic-gradient(#d9ddd2 0 25%, #eef1ea 0 50%) 0 0 / 12px 12px; } /* light, so the art's dark outlines show */
 .st-art { display: block; max-width: 100%; height: auto; image-rendering: pixelated; }
+/* Links to more art elsewhere, at the foot of the shelves. */
+.st-elsewhere { margin-top: auto; padding-top: var(--k-4); }
+.st-elsewhere .k-btn { justify-content: flex-start; }

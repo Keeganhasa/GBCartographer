@@ -36,6 +36,27 @@ interface Props {
 const SHELVES = storeShelves();
 const WIRE_CREDIT = { author: "Keegan (GB Cartographer)", license: "CC0", source: "https://github.com/Keeganhasa/GBCartographer/tree/main/src/wireframes" };
 const KIND_NAMES: Record<string, string> = { sprites: "Sprite", emotes: "Emote", avatars: "Avatar", ui: "UI", tilesets: "Tileset", backgrounds: "Background" };
+/** Sites the store links to, in their own colors (a Source button wears its site's). */
+const SITES: { host: RegExp; name: string; color: string }[] = [
+  { host: /(^|\.)itch\.io$/, name: "itch.io", color: "#FA5C5C" },
+  { host: /(^|\.)opengameart\.org$/, name: "OpenGameArt", color: "#4A6898" },
+];
+const siteOf = (url: string) => { try { const host = new URL(url).hostname; return SITES.find((site) => site.host.test(host)) ?? null; } catch { return null; } };
+/** More art and palettes elsewhere: Game Boy assets on itch.io and OpenGameArt. */
+const ELSEWHERE = [
+  { url: "https://itch.io/game-assets/tag-gameboy", title: "Game Boy assets on itch.io" },
+  { url: "https://opengameart.org/art-search?keys=gameboy", title: "Game Boy art on OpenGameArt.org" },
+];
+const visit = (url: string) => window.open(url, "_blank", "noreferrer");
+
+/** A button to another site: in its colors when it's one we know, else a plain one. */
+function SiteButton({ url, label, title }: { url: string; label?: string; title?: string }) {
+  const site = siteOf(url);
+  return site
+    ? <Button size="sm" variant="brand" icon={<ExternalLink />} title={title ?? url} style={{ ["--k-brand" as string]: site.color }} onClick={() => visit(url)}>{label ?? site.name}</Button>
+    : <Button size="sm" variant="ghost" icon={<ExternalLink />} title={title ?? url} onClick={() => visit(url)}>{label ?? "Source"}</Button>;
+}
+
 const Strip = ({ colors }: { colors: readonly string[] }) => <span className="app-chips">{colors.map((color, at) => <i key={at} style={{ background: color }} />)}</span>;
 
 /** Who made a shelf, its license (explained on click) and a button to its source. */
@@ -47,10 +68,10 @@ function Credit({ author, license, source }: { author?: string; license?: string
       {license && (terms
         ? <Popover trigger={<Button size="sm" variant="ghost" icon={<Scale />} title="What this license lets you do">{license}</Button>}>
             <div className="st-license k-stack k-stack--tight"><b>{license}</b><span className="k-small">{terms.text}</span>
-              {terms.link && <Button size="sm" icon={<ExternalLink />} onClick={() => window.open(terms.link, "_blank", "noreferrer")}>Read the license</Button>}</div>
+              {terms.link && <Button size="sm" icon={<ExternalLink />} onClick={() => visit(terms.link!)}>Read the license</Button>}</div>
           </Popover>
         : <Chip tone="acc">{license}</Chip>)}
-      {source && <Button size="sm" variant="ghost" icon={<ExternalLink />} title={source} onClick={() => window.open(source, "_blank", "noreferrer")}>Source</Button>}
+      {source && <SiteButton url={source} />}
     </>
   );
 }
@@ -116,6 +137,10 @@ export function StoreWindow({ projectName, projectPalettes, onClose, onAddToProj
               <span className="app-name">{item.label}</span><span className="k-muted k-xs">{item.count}</span>
             </button>
           ))}
+          <div className="st-elsewhere k-stack k-stack--tight">
+            <span className="k-label">Find more</span>
+            {ELSEWHERE.map((site) => <SiteButton key={site.url} url={site.url} title={site.title} />)}
+          </div>
         </nav>
         <div className="st-body">
           {aisle === "palettes" && <>
