@@ -130,6 +130,8 @@ export default function PaintApp() {
   /** The palettes of the picture a clip was copied from, so its tile palettes land on the same palettes when pasted. */
   const clipPalettes = useRef<Palette[]>([]);
   const lastRecolor = useRef(0);
+  /** The stamp tool's block: pixels, tile palettes when whole tiles, and the palettes they refer to. */
+  const stamp = useRef<(Floating & { palettes: Palette[] }) | null>(null);
   /** Counts edits, so work that follows the pixels (the tile budget view) knows when to look again. */
   const editCount = useRef(0);
   const spaceDown = useRef(false);
@@ -155,6 +157,8 @@ export default function PaintApp() {
   }
 
   function setTool(next: ToolId) {
+    // Picking the stamp with a selection makes the selection the stamp.
+    if (next === "stamp" && doc?.sel) takeStamp(doc, doc.sel);
     if (doc && next !== "select" && next !== "move" && next !== "hand") dropFloat(doc);
     if (next !== "eyedropper" && next !== "hand") paintTool.current = next;
     setToolState(next);
@@ -1064,6 +1068,35 @@ export default function PaintApp() {
     }
   }
 
+  /** Picks up a block of the picture (and, on tile edges, its tile palettes) as the stamp. */
+  function takeStamp(target: Doc, rect: { x: number; y: number; w: number; h: number }) {
+    const area = clipRect(rect, target.width, target.height);
+    if (!area) return;
+    const flat = target.float ? target.pixels.slice() : target.pixels;
+    if (target.float) drop(flat, target.width, target.height, target.float);
+    stamp.current = { ...lift(flat, target.width, area), ...(onTiles(area) ? { cells: liftCells(target.cells, target.width, area) } : {}), palettes: clonePalettes(target.palettes) };
+    say(`Stamp: ${area.w} × ${area.h}${onTiles(area) ? " (with its tile palettes)" : ""}. Click or drag to stamp it on the grid.`);
+  }
+
+  /** Stamps a copy with its top-left on the 8 px grid under `point` (see-through pixels leave the picture alone). */
+  function putStamp(target: Doc, point: Point) {
+    const source = stamp.current;
+    if (!source) return;
+    const x = point.x & ~7, y = point.y & ~7;
+    drop(target.pixels, target.width, target.height, { ...source, x, y });
+    if (source.cells) {
+      // Tile palettes land on the same palettes in this picture (matched by id, else name and colors; added if missing).
+      const cells = source.cells.map((wear) => {
+        const palette = wear ? source.palettes[wear - 1] : undefined;
+        if (!palette) return 0;
+        let index = target.palettes.findIndex((own) => (palette.id && own.id === palette.id) || (!palette.id && own.name === palette.name && own.colors.join() === palette.colors.join()));
+        if (index < 0) index = target.palettes.push({ ...palette, colors: [...palette.colors] }) - 1;
+        return index + 1;
+      });
+      dropCells(target.cells, target.width, target.height, { ...source, x, y, cells });
+    }
+  }
+
   /** Marks (or clears) the priority flag of the tiles under the palette brush's size. */
   function setPriority(target: Doc, point: Point, on: boolean) {
     if (!target.priority || !inside(target, point)) return;
@@ -1098,6 +1131,10 @@ export default function PaintApp() {
       return;
     }
     const point = pointAt(event);
+    if (event.button === 2 && tool === "stamp") {
+      if (inside(doc, point)) takeStamp(doc, { x: point.x & ~7, y: point.y & ~7, w: CELL, h: CELL });
+      return;
+    }
     if (event.button === 2 && tool === "priority" && doc.priority) {
       pushUndo(doc);
       setPriority(doc, point, false);
@@ -1126,6 +1163,13 @@ export default function PaintApp() {
         doc.sel = null;
         drag.current = { kind: "marquee", start: point };
       }
+    } else if (tool === "stamp") {
+      if (!stamp.current) { say("Right-click a tile to pick it up as the stamp, or select a block and pick the stamp tool again."); return; }
+      dropFloat(doc);
+      pushUndo(doc);
+      putStamp(doc, point);
+      const origin = { x: point.x & ~7, y: point.y & ~7 };
+      drag.current = { kind: "stamp", origin, last: origin };
     } else if (tool === "priority") {
       if (!doc.priority) { say("The priority brush is for project backgrounds and tilesets (GB Studio's draw-over-sprites flag)."); return; }
       pushUndo(doc);
@@ -1174,12 +1218,18 @@ export default function PaintApp() {
     if (readoutRef.current) readoutRef.current.textContent = inside(doc, point) ? `${point.x}, ${point.y} · tile ${point.x >> 3}, ${point.y >> 3}` : "";
     const outline = brushRef.current;
     if (outline) {
-      const cells = tool === "palette" || tool === "priority", tall = tool === "palette" && doc.keyGreen;
-      const cellH = tall ? 2 * CELL : CELL, cellOffset = Math.floor((cellBrush - 1) / 2);
-      const size = cells ? CELL * cellBrush : brush, offset = cells ? 0 : Math.floor((brush - 1) / 2);
-      const [x, y] = cells ? [(point.x & ~7) - cellOffset * CELL, (tall ? point.y & ~15 : point.y & ~7) - cellOffset * cellH] : [point.x - offset, point.y - offset];
-      const visible = inside(doc, point) && tool !== "hand" && tool !== "select" && tool !== "move";
-      Object.assign(outline.style, { display: visible ? "block" : "none", left: `${x * doc.zoom}px`, top: `${y * doc.zoom}px`, width: `${size * doc.zoom}px`, height: `${(cells ? cellH * cellBrush : size) * doc.zoom}px` });
+      if (tool === "stamp") {
+        // The stamp's footprint where it would land.
+        const visible = inside(doc, point) && Boolean(stamp.current);
+        Object.assign(outline.style, { display: visible ? "block" : "none", left: `${(point.x & ~7) * doc.zoom}px`, top: `${(point.y & ~7) * doc.zoom}px`, width: `${(stamp.current?.w ?? CELL) * doc.zoom}px`, height: `${(stamp.current?.h ?? CELL) * doc.zoom}px` });
+      } else {
+        const cells = tool === "palette" || tool === "priority", tall = tool === "palette" && doc.keyGreen;
+        const cellH = tall ? 2 * CELL : CELL, cellOffset = Math.floor((cellBrush - 1) / 2);
+        const size = cells ? CELL * cellBrush : brush, offset = cells ? 0 : Math.floor((brush - 1) / 2);
+        const [x, y] = cells ? [(point.x & ~7) - cellOffset * CELL, (tall ? point.y & ~15 : point.y & ~7) - cellOffset * cellH] : [point.x - offset, point.y - offset];
+        const visible = inside(doc, point) && tool !== "hand" && tool !== "select" && tool !== "move";
+        Object.assign(outline.style, { display: visible ? "block" : "none", left: `${x * doc.zoom}px`, top: `${y * doc.zoom}px`, width: `${size * doc.zoom}px`, height: `${(cells ? cellH * cellBrush : size) * doc.zoom}px` });
+      }
     }
     if (seamless && inside(doc, point) && (hoverCell?.x !== point.x >> 3 || hoverCell?.y !== point.y >> 3)) setHoverCell({ x: point.x >> 3, y: point.y >> 3 });
     const state = drag.current;
@@ -1199,6 +1249,17 @@ export default function PaintApp() {
     } else if (state.kind === "cells") {
       for (const [x, y] of linePoints(state.last.x, state.last.y, point.x, point.y)) setCell(doc, { x, y });
       state.last = lastPoint.current = point;
+    } else if (state.kind === "stamp") {
+      // Copies tile outward from the first one, a stamp's size apart, so a block repeats seamlessly.
+      const source = stamp.current;
+      if (source) {
+        const at = { x: state.origin.x + Math.floor((point.x - state.origin.x) / source.w) * source.w, y: state.origin.y + Math.floor((point.y - state.origin.y) / source.h) * source.h };
+        if (at.x !== state.last.x || at.y !== state.last.y) {
+          drop(doc.pixels, doc.width, doc.height, { ...source, ...at });
+          if (source.cells && at.x % CELL === 0 && at.y % CELL === 0) putStamp(doc, at);
+          state.last = at;
+        }
+      }
     } else if (state.kind === "priority") {
       for (const [x, y] of linePoints(state.last.x, state.last.y, point.x, point.y)) setPriority(doc, { x, y }, state.on);
       state.last = point;
@@ -1212,7 +1273,7 @@ export default function PaintApp() {
       const step = (distance: number) => snap ? Math.round(distance / CELL) * CELL : distance;
       moveFloat(doc, state.ox + step(point.x - state.start.x), state.oy + step(point.y - state.start.y));
     }
-    if (state.kind === "stroke" || state.kind === "spray" || state.kind === "shape") followLinks(doc);
+    if (state.kind === "stroke" || state.kind === "spray" || state.kind === "shape" || state.kind === "stamp") followLinks(doc);
     bump();
   }
 

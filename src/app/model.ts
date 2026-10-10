@@ -4,7 +4,7 @@
  */
 import { GB_SHADES, type Floating, type Mirror, type Palette, type Rect } from "../paint";
 
-export type ToolId = "pencil" | "eraser" | "spray" | "line" | "rect" | "rectFill" | "ellipse" | "fill" | "fillErase" | "eyedropper" | "palette" | "select" | "move" | "hand" | "priority";
+export type ToolId = "pencil" | "eraser" | "spray" | "line" | "rect" | "rectFill" | "ellipse" | "fill" | "fillErase" | "eyedropper" | "palette" | "select" | "move" | "hand" | "priority" | "stamp";
 
 export const MIRRORS: Mirror[] = ["off", "x", "y", "xy"];
 export const MIRROR_LABEL = { off: "Mirror off", x: "Mirror ↔", y: "Mirror ↕", xy: "Mirror ↔↕" } as const;
@@ -105,6 +105,7 @@ export type Point = { x: number; y: number };
 export type Drag =
   | { kind: "stroke" | "spray" | "cells"; last: Point }
   | { kind: "priority"; last: Point; on: boolean }
+  | { kind: "stamp"; origin: Point; last: Point }
   | { kind: "shape"; start: Point; base: Uint8Array }
   | { kind: "marquee"; start: Point }
   | { kind: "move"; start: Point; ox: number; oy: number }
