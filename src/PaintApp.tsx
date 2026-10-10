@@ -4,7 +4,7 @@
  * A tint only changes how the plain tiles look while painting. Saving writes one flat PNG, and for a project
  * picture also its tile palettes (see server/endpoints.ts).
  */
-import { ChevronDown, CircleHelp, Clock, FolderArchive, FolderSearch, FolderX, Gamepad2, HeartPulse, History, Info, MessageSquare, RotateCcw, Download, FilePlus, FolderOpen, FolderTree, Grid3x3, Magnet, Map as MapIcon, Minus, SwatchBook, Plus, Redo2, Save, Gauge, Undo2, X } from "lucide-react";
+import { ChevronDown, CircleHelp, Clock, Copy, FolderArchive, FolderSearch, FolderX, Gamepad2, HeartPulse, History, Info, MessageSquare, RotateCcw, Download, FilePlus, FolderOpen, FolderTree, Grid3x3, Magnet, Map as MapIcon, Minus, SwatchBook, Plus, Redo2, Save, Stamp, Gauge, Undo2, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { LogoMark } from "./ui/LogoMark";
@@ -35,6 +35,7 @@ import { usePainting } from "./app/usePainting";
 import { PxGamepad } from "./ui/setIcons";
 import { PalettesPane } from "./app/PalettesPane";
 import { FramesStrip } from "./app/FramesStrip";
+import { StampsStrip } from "./app/StampsStrip";
 
 /** A new picture's id: one above every open one (a counter would restart when the module reloads in development). */
 const newDocId = (docs: readonly { id: number }[]) => docs.reduce((top, item) => Math.max(top, item.id), 0) + 1;
@@ -110,6 +111,8 @@ export default function PaintApp() {
   /** The Export menu: a copy of the file, or an image to share (as shown or in greens, scaled). */
   const [exportMenu, setExportMenu] = useState<{ x: number; y: number } | null>(null);
   const [slotMenu, setSlotMenu] = useState<{ x: number; y: number; palette: number } | null>(null);
+  /** The selection's right-click menu: use or save it as a stamp, copy. */
+  const [selectionMenu, setSelectionMenu] = useState<{ x: number; y: number } | null>(null);
   /** Palettes named like DWC-2-Computer D save as their base palette's slot (or the number in the name). */
   const [namedSlots, setNamedSlots] = useState<boolean>(() => readStored(NAMED_SLOTS_KEY, false));
   const namedSlotsRef = useRef(namedSlots);
@@ -157,10 +160,11 @@ export default function PaintApp() {
   const swatchColors = picked ? shown(picked.colors) : tintColors;
   const clonePalettes = (list: readonly Palette[]): Palette[] => list.map(({ name, colors, id }) => ({ name, colors: [...colors], ...(id ? { id } : {}) }));
   const blank = (target: Doc) => target.hasAlpha ? CLEAR : 0;
-  const { takeStamp, pointerDown, pointerMove, pointerUp } = usePainting({
+  const { takeStamp, setStamp, pointerDown, pointerMove, pointerUp } = usePainting({
     doc, tool, shade, brush, cellBrush, mirror, pattern, linked, snap, seamless, activePalette, hoverCell,
     wrapRef, scrollerRef, readoutRef, brushRef, spaceDown, paintTool,
     setShade, setActivePalette, setHoverCell, setToolState, say, pushUndo, touch, bump, floatSelection, dropFloat, moveFloat, clonePalettes, blank,
+    onSelectionMenu: (x, y) => setSelectionMenu({ x, y }),
   });
 
   function say(message: string) {
@@ -686,10 +690,99 @@ export default function PaintApp() {
     target.resized = false;
     // The thumbnail in the project panel shows the new file.
     setProject((current) => current && { ...current, assets: current.assets.map((item) => item.kind === asset.kind && item.file === asset.file ? { ...item, mtime: asset.mtime } : item) });
-    const notes = [`Saved ${asset.name} into the GB Studio project`];
+    const notes = [asset.kind === "stamps" ? `Saved the stamp ${asset.name} (Cartographer/stamps)` : `Saved ${asset.name} into the GB Studio project`];
     if (hasSlots(asset.kind) && asset.slots?.length) notes.push(...await saveTileColors(target));
+    if (asset.kind === "stamps") notes.push(...await saveStampMeta(target));
     say(notes.join(". "));
     return true;
+  }
+
+  // ---- stamps (saved in the project's Cartographer/stamps/) --------------------------------------------------------
+
+  /** A stamp's tile palettes as its sidecar keeps them: up to eight palette ids, and each tile's slot (-1: none). */
+  function stampMeta(cells: ArrayLike<number>, palettes: readonly Palette[]): { slots: string[]; tileColors: number[] } {
+    const slots: string[] = [];
+    const tileColors = Array.from(cells, (wear) => {
+      const id = wear ? palettes[wear - 1]?.id : undefined;
+      if (!id) return -1;
+      let slot = slots.indexOf(id);
+      if (slot < 0 && slots.length < 8) slot = slots.push(id) - 1;
+      return slot;
+    });
+    return { slots, tileColors };
+  }
+
+  async function postStampMeta(file: string, meta: { slots: string[]; tileColors: number[] }, metaMtime: number | null | undefined, force = false) {
+    return fetch(`./__cartographer/stamp-meta?${new URLSearchParams({ file })}${metaMtime != null ? `&metaMtime=${metaMtime}` : ""}${force ? "&force=1" : ""}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(meta) });
+  }
+
+  /** An edited stamp's tile palettes, after its PNG. */
+  async function saveStampMeta(target: Doc): Promise<string[]> {
+    const asset = target.asset!;
+    const meta = stampMeta(target.cells, target.palettes);
+    let response = await postStampMeta(asset.file, meta, asset.metaMtime);
+    if (response.status === 409) {
+      if (!window.confirm(`The palettes of the stamp ${asset.name} changed on disk since you opened it. Replace them?`)) return ["Stamp palettes not written"];
+      response = await postStampMeta(asset.file, meta, asset.metaMtime, true);
+    }
+    const result = await response.json().catch(() => ({})) as { ok?: boolean; error?: string; mtime?: number };
+    if (!response.ok || !result.ok) return [`Stamp palettes not written: ${result.error ?? response.statusText}`];
+    asset.metaMtime = result.mtime ?? asset.metaMtime;
+    return [];
+  }
+
+  /**
+   * Saves the selection (with its tile palettes when it sits on whole tiles) as a stamp: a PNG in the project's
+   * Cartographer/stamps/ and its palettes beside it. It also becomes the stamp in hand.
+   */
+  async function saveAsStamp() {
+    const target = doc;
+    if (!target?.sel || !project) return;
+    const area = clipRect(target.sel, target.width, target.height);
+    if (!area) return;
+    const name = window.prompt("Save the selection as a stamp, in this project's Cartographer/stamps folder. Name:", "")?.trim();
+    if (!name) return;
+    const flat = target.pixels.slice(), flatCells = target.cells.slice();
+    if (target.float) { drop(flat, target.width, target.height, target.float); dropCells(flatCells, target.width, target.height, target.float); }
+    const piece = lift(flat, target.width, area);
+    const cells = onTiles(area) ? liftCells(flatCells, target.width, area) : null;
+    // See-through stays see-through in the PNG (no key color): a stamp opens like any picture.
+    const canvas = document.createElement("canvas");
+    Object.assign(canvas, { width: area.w, height: area.h });
+    canvas.getContext("2d")!.putImageData(new ImageData(toRgba(piece.pixels, new Uint8Array(cellsWide(area.w) * Math.ceil(area.h / CELL)), area.w, []), area.w, area.h), 0, 0);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+    if (!blob) return say("The stamp could not be made.");
+    const made = await fetch(`./__cartographer/gbstudio-new-asset?${new URLSearchParams({ kind: "stamps", name })}`, { method: "POST", body: blob }).catch(() => null);
+    const result = made ? await made.json().catch(() => null) as { ok?: boolean; file?: string; error?: string } | null : null;
+    if (!made?.ok || !result?.ok || !result.file) return say(`The stamp was not saved: ${result?.error ?? "no answer"}`);
+    if (cells && cells.some(Boolean)) await postStampMeta(result.file, stampMeta(cells, target.palettes), null);
+    takeStamp(target, area);
+    await loadProject();
+    say(`Saved the stamp ${name} in ${project.name}/Cartographer/stamps${cells ? " with its tile palettes" : ""}. It's in hand: pick the Stamp tool (C) to use it.`);
+  }
+
+  /** Picks up a saved stamp as the stamp in hand, with its tile palettes, and switches to the Stamp tool. */
+  async function useSavedStamp(asset: Asset) {
+    await palettesReady.current;
+    try {
+      const [blob, info] = await Promise.all([
+        fetch(`${ASSET_URL}?${assetQuery(asset)}`, { cache: "no-cache" }).then((response) => response.blob()),
+        fetch(`${ASSET_URL}-info?${assetQuery(asset)}`, { cache: "no-cache" }).then((response) => response.json() as Promise<AssetInfo>),
+      ]);
+      const bitmap = await createImageBitmap(blob, { colorSpaceConversion: "none", premultiplyAlpha: "none" });
+      const canvas = document.createElement("canvas");
+      Object.assign(canvas, { width: bitmap.width, height: bitmap.height });
+      const context = canvas.getContext("2d", { willReadFrequently: true })!;
+      context.drawImage(bitmap, 0, 0);
+      const picture = quantize(context.getImageData(0, 0, bitmap.width, bitmap.height).data, bitmap.width, bitmap.height, palettesRef.current, false, false);
+      const tinted = info.tileColors.length ? assignSlots(picture.cells, info.tileColors, info.slots, picture.palettes) : 0;
+      const whole = bitmap.width % CELL === 0 && bitmap.height % CELL === 0;
+      setStamp({ pixels: picture.pixels, w: bitmap.width, h: bitmap.height, x: 0, y: 0, ...(whole && tinted ? { cells: picture.cells } : {}), palettes: clonePalettes(picture.palettes) });
+      if (tool !== "stamp") setTool("stamp");
+      say(`Stamp: ${asset.name} (${bitmap.width} × ${bitmap.height}). Click or drag to stamp it on the grid.`);
+    } catch {
+      say(`The stamp ${asset.name} could not be read.`);
+    }
   }
 
   /**
@@ -1457,6 +1550,7 @@ export default function PaintApp() {
         )}
         <ToolColumn tool={tool} onTool={setTool} seamless={seamless} onSeamless={setSeamless} linked={linked} onLinked={setLinked} mirror={mirror} onMirror={setMirror} pattern={pattern} onPattern={cyclePattern} cellBrush={cellBrush} onCellBrush={setCellBrush} brush={brush} onBrush={setBrush} />
         <div className="gbp-scroller" ref={scrollerRef}>
+          {doc && tool === "stamp" && project && project.assets.some((asset) => asset.kind === "stamps") && <StampsStrip stamps={project.assets.filter((asset) => asset.kind === "stamps")} slotsVersion={slotsVersion} onUse={(asset) => void useSavedStamp(asset)} onOpen={(asset) => { setProjectKind("stamps"); void openAsset(asset); }} />}
           {doc && frames.length > 0 && <FramesStrip animations={animations} frame={frame} onFrame={setFrame} playing={playing} onPlaying={setPlaying} animSpeed={animSpeed} fps={fps} canvases={frameCanvases} onBackground={project?.assets.some((asset) => asset.kind === "backgrounds") ? () => setOnBackground(composeFrames()) : undefined} />}
           {doc?.changedOnDisk && !doc.changedOnDisk.kept && (
             <div className="gbp-disk-bar" role="alert">
@@ -1604,9 +1698,20 @@ export default function PaintApp() {
             <p className="gbp-menu-note">{docPalettes[slotMenu.palette - 1].id ? `Writes ${slotWhere} in GB Studio right away. Tiles wearing the palette moved out show the new one there.` : "Add this palette to the project first (palette manager)."}</p>
         </Menu>
       )}
+      {selectionMenu && doc?.sel && (
+        <Menu x={selectionMenu.x} y={selectionMenu.y} width={240} height={200} className="gbp-icon-menu" onClose={() => setSelectionMenu(null)}>
+          <span className="gbp-menu-label">Selection · {doc.sel.w} × {doc.sel.h}</span>
+          <button role="menuitem" onClick={() => { setSelectionMenu(null); setTool("stamp"); }}><Stamp size={14} />Use as stamp</button>
+          <button role="menuitem" disabled={!project} title={project ? `Saves a PNG in ${project.name}/Cartographer/stamps (tile palettes too, on whole tiles)` : "Open a GB Studio project to save stamps in it"} onClick={() => { setSelectionMenu(null); void saveAsStamp(); }}><Save size={14} />Save as stamp…</button>
+          <hr />
+          <button role="menuitem" onClick={() => { setSelectionMenu(null); if (copySelection()) say("Copied the selection"); }}><Copy size={14} />Copy</button>
+          <button role="menuitem" onClick={() => { setSelectionMenu(null); dropFloat(doc); doc.sel = null; bump(); }}><X size={14} />Deselect</button>
+        </Menu>
+      )}
       {assetMenu && (
-        <Menu x={assetMenu.x} y={assetMenu.y} width={220} height={200} onClose={() => setAssetMenu(null)}>
-            <button role="menuitem" onClick={() => { void openAsset(assetMenu.asset); setAssetMenu(null); }}>Open</button>
+        <Menu x={assetMenu.x} y={assetMenu.y} width={220} height={220} onClose={() => setAssetMenu(null)}>
+            {assetMenu.asset.kind === "stamps" && <button role="menuitem" onClick={() => { void useSavedStamp(assetMenu.asset); setAssetMenu(null); }}>Use as stamp</button>}
+            <button role="menuitem" onClick={() => { void openAsset(assetMenu.asset); setAssetMenu(null); }}>{assetMenu.asset.kind === "stamps" ? "Open to edit" : "Open"}</button>
             <button role="menuitem" onClick={() => { void fetch(`./__cartographer/reveal?${assetQuery(assetMenu.asset)}`, { method: "POST" }); setAssetMenu(null); }}>{FILE_MANAGER_LABEL}</button>
             <button role="menuitem" onClick={() => { void navigator.clipboard?.writeText(`${project?.path ?? ""}/assets/${assetMenu.asset.kind}/${assetMenu.asset.file}`).then(() => say("Copied the file path")); setAssetMenu(null); }}>Copy file path</button>
             <button role="menuitem" onClick={() => { setBackups({ file: `assets/${assetMenu.asset.kind}/${assetMenu.asset.file}` }); setAssetMenu(null); }}>Earlier versions…</button>

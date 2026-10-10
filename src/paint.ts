@@ -197,6 +197,15 @@ export function toRgba(pixels: Uint8Array, cells: Uint8Array, width: number, pal
  * "<Set>-<n>-<Name>", with or without a D / N / S variant letter, takes the slot of its base palette when that is
  * in the slots, else slot n. Returns -1 for any other name. `slotNames` are the eight slot palettes' names.
  */
+/**
+ * A time-of-day version of a palette (the DWC convention: the base name, a space, then D for day, N for night or S
+ * for sunset), or null. Events switch these in, so they may be unused, and night or sunset ones are meant to be dim.
+ */
+export function timeVariant(name: string): { base: string; variant: "D" | "N" | "S" } | null {
+  const match = /^(.+) ([DNS])$/.exec(name.trim());
+  return match ? { base: match[1], variant: match[2] as "D" | "N" | "S" } : null;
+}
+
 export function namedSlot(name: string, slotNames: readonly (string | undefined)[]): number {
   const match = /^(.+?-([1-8])-.+?)(?: [DNS])?$/.exec(name.trim());
   if (!match) return -1;

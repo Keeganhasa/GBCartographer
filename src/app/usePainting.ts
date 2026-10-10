@@ -41,6 +41,8 @@ interface Painting {
   moveFloat: (target: Doc, x: number, y: number) => void;
   clonePalettes: (list: readonly Palette[]) => Palette[];
   blank: (target: Doc) => number;
+  /** A right-click inside the selection: its menu (use or save as a stamp, copy). */
+  onSelectionMenu: (x: number, y: number) => void;
 }
 
 export function usePainting(app: Painting) {
@@ -176,6 +178,11 @@ export function usePainting(app: Painting) {
       return;
     }
     const point = pointAt(event);
+    const sel = doc.sel;
+    if (event.button === 2 && sel && point.x >= sel.x && point.y >= sel.y && point.x < sel.x + sel.w && point.y < sel.y + sel.h) {
+      app.onSelectionMenu(event.clientX, event.clientY);
+      return;
+    }
     if (event.button === 2 && tool === "stamp") {
       if (inside(doc, point)) takeStamp(doc, { x: point.x & ~7, y: point.y & ~7, w: CELL, h: CELL });
       return;
@@ -311,5 +318,10 @@ export function usePainting(app: Painting) {
     else app.bump();
   }
 
-  return { takeStamp, pointerDown, pointerMove, pointerUp };
+  /** Picks up a saved stamp (pixels, tile palettes when whole tiles, and the palettes they refer to). */
+  function setStamp(value: Floating & { palettes: Palette[] }) {
+    stamp.current = value;
+  }
+
+  return { takeStamp, setStamp, pointerDown, pointerMove, pointerUp };
 }

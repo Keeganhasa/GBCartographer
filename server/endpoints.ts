@@ -12,6 +12,8 @@
  *                                             &resize=1 allows a new size in whole tiles)
  *   POST /__cartographer/gbstudio-new-asset   ?kind=&name= a new PNG in assets/<kind>/ (never replaces a file; no sidecar)
  *   POST /__cartographer/gbstudio-tile-colors { slots } per-cell palette slots into the sidecar (?kind=&file=&metaMtime=&force=1)
+ *   POST /__cartographer/stamp-meta           { slots, tileColors } a saved stamp's tile palettes (?file=&metaMtime=&force=1),
+ *                                             in Cartographer/stamps/<file>.json (stamps: kind=stamps on the asset routes)
  *   POST /__cartographer/gbstudio-palette     { name, colors } adds a palette file to the project; { id, name, colors } rewrites one
  *   POST /__cartographer/gbstudio-palette-slot { slot, paletteId } puts a palette in an asset's slot (?kind=&file=): the
  *                                             scene's palette list, or the project's default palettes
@@ -31,13 +33,14 @@
  *   GET  /__cartographer/backup               one version's bytes (?file=&version=; version=current: the file now)
  *   POST /__cartographer/backup-restore       { file, version } puts that version back (the current file is backed up first)
  * GB Cartographer writes asset PNGs, a background's or tileset's tileColors, a sprite's paletteIndex, palette files,
- * a scene's palette lists and the project's default palettes; nothing else.
+ * a scene's palette lists and the project's default palettes, and in its own Cartographer/ folder saved stamps;
+ * nothing else.
  */
 import { execFileSync, spawn } from "node:child_process";
 import { dirname, resolve, sep } from "node:path";
 import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { AssetWriteError, ASSET_KINDS, createAsset, dialogueSettings, paletteUsage, previewSheet, projectHealth, removePalette, assetInfo, assetPath, listAssets, listPalettes, projectName, renderPreview, writeAsset, writePalette, writePaletteSlot, writeSpritePalettes, writeTileColors, type AssetKind } from "./assets";
+import { AssetWriteError, ASSET_KINDS, createAsset, dialogueSettings, paletteUsage, previewSheet, projectHealth, removePalette, assetInfo, assetPath, listAssets, listPalettes, projectName, renderPreview, writeAsset, writePalette, writePaletteSlot, writeSpritePalettes, writeStampMeta, writeTileColors, type AssetKind } from "./assets";
 import { backupPath, listBackups, projectBackupDir, restoreBackup } from "./backups";
 import { readMaps, writeMaps } from "./maps";
 import { demoProjectCopy, projectFolder, projectFolderFor, projectProblem, projectVersion, recentProjects, saveProjectFolder, setProjectFolder, versionNote } from "./project";
@@ -343,6 +346,27 @@ export async function handleCartographerRequest(req: IncomingMessage, res: Serve
         const slots = body.slots as (number | null)[], expectedMtime = expected === null ? null : Number(expected), force = url.searchParams.get("force") === "1";
         const written = kind === "sprites" ? writeSpritePalettes(path, slots, backup, expectedMtime, force) : writeTileColors(path, slots, backup, expectedMtime, force, kind as "backgrounds" | "tilesets", (body.priority as (boolean | null)[] | undefined) ?? []);
         reply(res, 200, { ok: true, ...written });
+      } catch (error) {
+        if (error instanceof AssetWriteError) reply(res, error.status, { error: error.message, mtime: error.mtime });
+        else throw error;
+      }
+      return true;
+    }
+    if (url.pathname === "/__cartographer/stamp-meta" && req.method === "POST") {
+      // A saved stamp's tile palettes, in GB Cartographer's own folder (Cartographer/stamps/<file>.json).
+      const path = assetPath(project, "stamps", url.searchParams.get("file") ?? "");
+      if (!path) {
+        reply(res, 404, { error: "No such stamp" });
+        return true;
+      }
+      const body = JSON.parse((await readBody(req)).toString("utf8")) as { slots?: unknown; tileColors?: unknown };
+      if (!Array.isArray(body.slots) || body.slots.length > 8 || !body.slots.every((id) => typeof id === "string") || !Array.isArray(body.tileColors) || !body.tileColors.every((value) => Number.isInteger(value) && value >= -1 && value <= 7)) {
+        reply(res, 400, { error: "slots must be up to 8 palette ids, tileColors slots 0–7 or -1" });
+        return true;
+      }
+      const expected = url.searchParams.get("metaMtime");
+      try {
+        reply(res, 200, { ok: true, ...writeStampMeta(path, body.slots as string[], body.tileColors as number[], backup, expected === null ? null : Number(expected), url.searchParams.get("force") === "1") });
       } catch (error) {
         if (error instanceof AssetWriteError) reply(res, error.status, { error: error.message, mtime: error.mtime });
         else throw error;

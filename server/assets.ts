@@ -7,19 +7,33 @@
  */
 import { closeSync, copyFileSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { createHash, randomUUID } from "node:crypto";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { deflateSync, inflateSync } from "node:zlib";
 import { backupFile } from "./backups";
 import { decodeTileColors, encodeTileColors, resolveScenePaletteIds } from "../src/gb/gbstudio";
 import { decodePng, encodePng } from "../src/gb/png";
-import { KEY_GREEN, assignSlots, closeShades, countUniqueTiles, quantize, spriteShades, toRgba } from "../src/paint";
+import { KEY_GREEN, assignSlots, closeShades, countUniqueTiles, quantize, spriteShades, timeVariant, toRgba } from "../src/paint";
 
 /** The picture folders under assets/. Emotes are read like sprites (key green see-through); avatars and the UI
  * frame and cursor (assets/ui, no sidecars) like background tiles. Only backgrounds, sprites and tilesets carry palettes. */
-export const ASSET_KINDS = ["backgrounds", "sprites", "tilesets", "fonts", "emotes", "avatars", "ui"] as const;
+export const ASSET_KINDS = ["backgrounds", "sprites", "tilesets", "fonts", "emotes", "avatars", "ui", "stamps"] as const;
+/**
+ * GB Cartographer's own folder inside a project, for what it needs and GB Studio doesn't (approved by the author
+ * 2026-10-10): stamps (Cartographer/stamps/<name>.png, tile palettes in <name>.png.json). GB Studio reads only
+ * its own folders (assets/, project/, plugins/), so it leaves this one alone.
+ */
+export const OWN_FOLDER = "Cartographer";
 /** Kinds GB Studio draws as sprites: their key green is see-through. */
 export const KEYED_KINDS: readonly AssetKind[] = ["sprites", "emotes"];
 export type AssetKind = typeof ASSET_KINDS[number];
+
+/** Where a kind's PNGs live: assets/<kind>/, or for stamps GB Cartographer's own Cartographer/stamps/. */
+export function kindFolder(project: string, kind: AssetKind): string {
+  return kind === "stamps" ? join(project, OWN_FOLDER, "stamps") : join(project, "assets", kind);
+}
+
+/** A picture's sidecar: GB Studio's .gbsres, or a stamp's own .json. */
+const sidecarOf = (path: string, kind: AssetKind) => kind === "stamps" ? `${path}.json` : `${path}.gbsres`;
 
 /** Where backups go: the backups folder and the project the written file belongs to (see backups.ts). */
 export interface Backup { dir: string; project: string }
@@ -146,7 +160,7 @@ export function projectName(project: string): string {
 export function assetPath(project: string, kind: string, file: string): string | null {
   if (!(ASSET_KINDS as readonly string[]).includes(kind)) return null;
   if (!/^[^/\\]+\.png$/i.test(file) || file === "." || file === "..") return null;
-  const folder = resolve(project, "assets", kind);
+  const folder = resolve(kindFolder(project, kind as AssetKind));
   const path = resolve(folder, file);
   if (basename(path) !== file || resolve(path, "..") !== folder || !existsSync(path)) return null;
   return path;
@@ -156,7 +170,7 @@ export function assetPath(project: string, kind: string, file: string): string |
 export function listAssets(project: string): AssetEntry[] {
   const entries: AssetEntry[] = [];
   for (const kind of ASSET_KINDS) {
-    const folder = join(project, "assets", kind);
+    const folder = kindFolder(project, kind);
     if (!existsSync(folder)) continue;
     for (const file of readdirSync(folder).filter((name) => /\.png$/i.test(name)).sort((a, b) => a.localeCompare(b))) {
       const path = join(folder, file);
@@ -272,6 +286,13 @@ export function assetInfo(project: string, kind: AssetKind, path: string): Asset
   const id = typeof sidecar?.id === "string" ? sidecar.id : undefined;
   let tileColors: number[] = [];
   let source: SlotSource | null = null;
+  if (kind === "stamps") {
+    // A stamp's own sidecar: the palette ids its tiles wear (slots) and each tile's slot (-1: none).
+    const meta = readJson(`${path}.json`);
+    const slots = Array.isArray(meta?.slots) ? meta.slots.map((id) => typeof id === "string" ? id : "") : [];
+    const cells = Array.isArray(meta?.tileColors) ? meta.tileColors.map((value) => Number.isInteger(value) ? value as number : -1) : [];
+    return { mtime: statSync(path).mtimeMs, width: size.width, height: size.height, tileColors: cells, slots, parallax: [], animSpeed: null, slotScene: null, autoColor: false, metaMtime: meta ? statSync(`${path}.json`).mtimeMs : null, animations: [] };
+  }
   if (kind === "backgrounds" || kind === "tilesets") {
     // GB Studio 4 tilesets carry tileColors like backgrounds; they belong to no scene, so the slots are the project's defaults.
     if (typeof sidecar?.tileColors === "string" && sidecar.tileColors) {
@@ -501,7 +522,7 @@ export function previewSheet(project: string, kind: AssetKind): { stamp: string;
   const assets = listAssets(project).filter((asset) => asset.kind === kind);
   const projectTimes = projectStamp(project);
   // The layout is part of the stamp: a sheet cached by the browser under an old layout is never reused.
-  const stamp = createHash("sha1").update(`sheet-v1-${CELL}-${COLUMNS}|${projectTimes}|${assets.map((asset) => `${asset.file}:${asset.mtime}:${existsSync(`${join(project, "assets", kind, asset.file)}.gbsres`) ? statSync(`${join(project, "assets", kind, asset.file)}.gbsres`).mtimeMs : 0}`).join("|")}`).digest("hex").slice(0, 16);
+  const stamp = createHash("sha1").update(`sheet-v1-${CELL}-${COLUMNS}|${projectTimes}|${assets.map((asset) => { const meta = sidecarOf(join(kindFolder(project, kind), asset.file), kind); return `${asset.file}:${asset.mtime}:${existsSync(meta) ? statSync(meta).mtimeMs : 0}`; }).join("|")}`).digest("hex").slice(0, 16);
   const cached = sheetCache.get(`${project}|${kind}`);
   if (cached?.stamp === stamp) return cached;
   const columns = Math.max(1, Math.min(COLUMNS, assets.length)), rows = Math.max(1, Math.ceil(assets.length / COLUMNS));
@@ -509,7 +530,7 @@ export function previewSheet(project: string, kind: AssetKind): { stamp: string;
   const out = new Uint8ClampedArray(width * height * 4);
   const cells: SheetCell[] = [];
   assets.forEach((asset, index) => {
-    const path = join(project, "assets", kind, asset.file);
+    const path = join(kindFolder(project, kind), asset.file);
     let preview: { rgba: Uint8ClampedArray; width: number; height: number };
     try { preview = previewPixels(project, kind, path, projectTimes); } catch { return; }
     const scale = Math.min(1, CELL / preview.width, CELL / preview.height);
@@ -607,19 +628,41 @@ export function writeTileColors(path: string, slots: readonly (number | null)[],
 export function createAsset(project: string, kind: AssetKind, name: string, bytes: Buffer): { file: string } {
   const size = pngSize(bytes);
   if (!size) throw new AssetWriteError("Not a PNG", 400);
-  if (size.width % 8 || size.height % 8 || !size.width || !size.height) throw new AssetWriteError("A new picture must be whole 8 × 8 tiles.", 400);
+  // A stamp may be any size (a block of a picture); everything else is whole tiles.
+  if (!size.width || !size.height || (kind !== "stamps" && (size.width % 8 || size.height % 8))) throw new AssetWriteError("A new picture must be whole 8 × 8 tiles.", 400);
   const base = name.trim().replace(/\.png$/i, "");
   if (!base || !/^[\w ()\-.]+$/.test(base) || base.startsWith(".")) throw new AssetWriteError("Use a plain name: letters, digits, spaces, - _ ( ) and dots.", 400);
-  const folder = join(project, "assets", kind);
+  const folder = kindFolder(project, kind);
   const file = `${base}.png`;
   mkdirSync(folder, { recursive: true });
+  if (kind === "stamps") ownFolderReadme(project);
   try {
     writeFileSync(join(folder, file), bytes, { flag: "wx" });
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "EEXIST") throw new AssetWriteError(`assets/${kind}/${file} already exists.`, 409);
+    if ((error as NodeJS.ErrnoException).code === "EEXIST") throw new AssetWriteError(`${relative(project, join(folder, file)).split(sep).join("/")} already exists.`, 409);
     throw error;
   }
   return { file };
+}
+
+/** Says what the Cartographer folder is, the first time GB Cartographer makes it. */
+function ownFolderReadme(project: string) {
+  const readme = join(project, OWN_FOLDER, "README.txt");
+  if (existsSync(readme)) return;
+  writeFileSync(readme, "This folder belongs to GB Cartographer (https://github.com/Keeganhasa/GBCartographer), not to GB Studio.\nIt keeps what GB Cartographer needs and GB Studio doesn't: stamps/ holds saved stamps (a PNG each, and its\ntile palettes in a .json beside it). GB Studio ignores this folder; deleting it loses only these files.\n");
+}
+
+/**
+ * A stamp's tile palettes: `slots` (palette ids, up to 8) and each 8 × 8 tile's slot (-1: no palette), written to
+ * Cartographer/stamps/<file>.json (the old one backed up first; unchanged on disk since `expectedMtime` unless forced).
+ */
+export function writeStampMeta(path: string, slots: readonly string[], tileColors: readonly number[], backup: Backup, expectedMtime: number | null, force: boolean): { mtime: number } {
+  const meta = `${path}.json`;
+  if (existsSync(meta) && !force && expectedMtime !== null && Math.abs(statSync(meta).mtimeMs - expectedMtime) > 1) throw new AssetWriteError("The stamp's palettes changed on disk since it was opened.", 409, statSync(meta).mtimeMs);
+  const clean = { _resourceType: "cartographerStamp", slots: slots.slice(0, 8).map((id) => typeof id === "string" ? id : ""), tileColors: tileColors.map((value) => Number.isInteger(value) && value >= 0 && value < 8 ? value : -1) };
+  if (existsSync(meta)) return { mtime: writeSidecar(meta, clean, backup) };
+  writeFileSync(meta, `${JSON.stringify(clean, null, 2)}\n`);
+  return { mtime: statSync(meta).mtimeMs };
 }
 
 /**
@@ -669,6 +712,7 @@ export function projectHealth(project: string): { colorMode: string; issues: Hea
   if (colorMode === "mono" && palettes.length) issues.push({ level: "warning", kind: "project", title: "Color mode is off", detail: `The project is monochrome${typeof settings.colorMode === "string" ? "" : " (settings.gbsres has no colorMode, so GB Studio uses mono)"}: GB Studio shows the greens and none of the ${palettes.length} palettes. Turn on color in GB Studio's settings (Color only or GB + Color).` });
   const assets = listAssets(project);
   for (const asset of assets) {
+    if (asset.kind === "stamps") continue;
     const path = join(project, "assets", asset.kind, asset.file);
     const where = { kind: asset.kind, file: asset.file };
     if (asset.kind !== "ui" && !existsSync(`${path}.gbsres`)) issues.push({ level: "note", ...where, title: "Not read by GB Studio yet", detail: "There is no .gbsres beside it: GB Studio adds one when it next opens the project." });
@@ -703,9 +747,20 @@ export function projectHealth(project: string): { colorMode: string; issues: Hea
   }
   const usage = paletteUsage(project);
   const byId = new Map(palettes.map((palette) => [palette.id, palette]));
+  const names = new Set(palettes.map((palette) => palette.name));
+  // Time-of-day versions (DWC-2-Computer N) of a palette the project has: unused is expected (events switch them
+  // in) and night or sunset ones are meant to be dim, so they skip those two checks; one note counts them.
+  let variants = 0;
   for (const entry of usage) {
     const palette = byId.get(entry.id);
     if (!palette) continue;
+    const variant = timeVariant(palette.name);
+    if (variant && names.has(variant.base)) {
+      variants += 1;
+      const twin = entry.sameColors.map((id) => byId.get(id)?.name).filter(Boolean);
+      if (twin.length && palette.name.localeCompare(String(twin[0])) < 0) issues.push({ level: "note", kind: "palettes", file: palette.name, title: "Same colors as another", detail: `The same four colors as ${twin.join(", ")}.` });
+      continue;
+    }
     if (!entry.uses.length) issues.push({ level: "note", kind: "palettes", file: palette.name, title: "Unused palette", detail: "No scene or default uses it (an event may still switch to it)." });
     const twin = entry.sameColors.map((id) => byId.get(id)?.name).filter(Boolean);
     if (twin.length && palette.name.localeCompare(String(twin[0])) < 0) issues.push({ level: "note", kind: "palettes", file: palette.name, title: "Same colors as another", detail: `The same four colors as ${twin.join(", ")}.` });
@@ -714,6 +769,7 @@ export function projectHealth(project: string): { colorMode: string; issues: Hea
     const close = closeShades(palette.colors, spriteOnly);
     if (close.length) issues.push({ level: "warning", kind: "palettes", file: palette.name, title: "Low contrast", detail: close.map(({ a, b, delta }) => delta === 0 ? `colors ${a + 1} and ${b + 1} are the same color` : `colors ${a + 1} and ${b + 1} differ by ${delta}`).join("; ") + " (aim for a difference of 12 or more)." });
   }
+  if (variants) issues.push({ level: "note", kind: "palettes", title: `${variants} time-of-day palette${variants === 1 ? "" : "s"} not checked`, detail: "Day, night and sunset versions (names ending in D, N or S) of the project's palettes: events switch them in, so being unused or dim is expected." });
   const order = { problem: 0, warning: 1, note: 2 };
   issues.sort((a, b) => order[a.level] - order[b.level]);
   return { colorMode, issues };

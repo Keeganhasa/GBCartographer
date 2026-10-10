@@ -22,4 +22,4 @@ export const TOOLS = [
   ["stamp", "Stamp", Stamp, "C", "right-click picks a tile · drag stamps it on the grid", "Right-click a tile to pick it up as the stamp (or select a block first, then pick the stamp tool), then click or drag to stamp copies on the 8 px grid. Tile palettes come along when the stamp is whole tiles."],
   ["priority", "Priority brush", Layers2, "U", "drag over tiles to draw them over sprites · Alt or right-drag clears", "On a background or tileset, drag over tiles to mark them as drawn over sprites (GB Studio's priority flag; marked tiles show hatched). Alt-drag or right-drag clears the mark. Save writes the flag into the tile colors."],
 ] as const;
-export const KIND_ICONS = { backgrounds: PxImage, sprites: Ghost, tilesets: PxGrid, fonts: Type, emotes: PxSmile, avatars: PxAvatar, ui: PxMessage } as const;
+export const KIND_ICONS = { backgrounds: PxImage, sprites: Ghost, tilesets: PxGrid, fonts: Type, emotes: PxSmile, avatars: PxAvatar, ui: PxMessage, stamps: Stamp } as const;

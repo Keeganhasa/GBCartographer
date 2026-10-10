@@ -11,6 +11,7 @@ const PRESETS: Record<AssetKind | "file", [number, number, string][]> = {
   tilesets: [[128, 64, "16 × 8 tiles"], [64, 64, "8 × 8 tiles"], [16, 16, "2 × 2 tiles"]],
   fonts: [[128, 112, "ASCII 32–255 (16 per row)"], [128, 48, "ASCII 32–127"]],
   emotes: [[16, 16, "an emote"]],
+  stamps: [[16, 16, "2 × 2 tiles"], [32, 32, "4 × 4 tiles"], [8, 8, "one tile"]],
   avatars: [[16, 16, "an avatar"]],
   ui: [[24, 24, "the dialogue frame"], [8, 8, "the cursor"]],
   file: [[160, 144, "one screen"], [256, 256, "256 × 256"], [16, 16, "16 × 16"]],

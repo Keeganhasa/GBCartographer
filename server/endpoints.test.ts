@@ -312,6 +312,29 @@ describe("new pictures and resizing", () => {
   });
 });
 
+describe("stamps", () => {
+  it("saves a stamp in GB Cartographer's own folder with its tile palettes, and leaves assets/ alone", async () => {
+    const blank = (w: number, h: number) => encodePng(new Uint8ClampedArray(w * h * 4).fill(255), w, h, deflateSync);
+    const made = await fetch(`${base}/gbstudio-new-asset?kind=stamps&name=${encodeURIComponent("Door")}`, { method: "POST", body: blank(16, 8) });
+    expect(await json(made)).toMatchObject({ ok: true, file: "Door.png" });
+    expect(existsSync(join(project, "Cartographer/stamps/Door.png"))).toBe(true);
+    expect(readFileSync(join(project, "Cartographer/README.txt"), "utf8")).toContain("GB Studio ignores this folder");
+    expect(existsSync(join(project, "assets/stamps"))).toBe(false);
+    // Any size is fine for a stamp (a block of a picture), unlike pictures in assets/.
+    expect((await fetch(`${base}/gbstudio-new-asset?kind=stamps&name=dot`, { method: "POST", body: blank(3, 5) })).status).toBe(200);
+    const meta = (body: unknown) => fetch(`${base}/stamp-meta?file=Door.png`, { method: "POST", body: JSON.stringify(body) });
+    expect((await meta({ slots: ["pal-a"], tileColors: [0, 9] })).status).toBe(400);
+    expect((await meta({ slots: ["pal-a", "pal-b"], tileColors: [1, -1] })).status).toBe(200);
+    const info = await json<{ slots: string[]; tileColors: number[]; metaMtime: number }>(await fetch(`${base}/gbstudio-asset-info?kind=stamps&file=Door.png`));
+    expect(info).toMatchObject({ slots: ["pal-a", "pal-b"], tileColors: [1, -1] });
+    expect(info.metaMtime).toBeGreaterThan(0);
+    const listed = await json<{ assets: { kind: string; file: string }[] }>(await fetch(`${base}/gbstudio-assets`));
+    expect(listed.assets.filter((asset) => asset.kind === "stamps").map((asset) => asset.file)).toEqual(["Door.png", "dot.png"]);
+    const health = await json<{ issues: { kind: string }[] }>(await fetch(`${base}/project-health`));
+    expect(health.issues.some((issue) => issue.kind === "stamps")).toBe(false);
+  });
+});
+
 describe("palette usage", () => {
   it("lists each palette's uses by scene and default, inherited blanks, and palettes with the same colors", async () => {
     const result = await json<{ palettes: { id: string; uses: { kind: string; slot: number; scene: string | null; inherited?: boolean }[]; sameColors: string[] }[] }>(await fetch(`${base}/palette-usage`));

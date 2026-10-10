@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, clipRect, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, hexRgb, closeShades, colorDistance, fitPalettes, paletteVariant, inPattern, linkGroups, syncLinked, mergeNearTiles, tileUsage, gbStudioShade, gbcCorrect, dropCells, flipFloat, lift, liftCells, linePoints, onTiles, replaceShade, rotateFloat, mirrorPoints, namedSlot, quantize, snapRect, toRgba } from "./paint";
+import { CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, clipRect, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, hexRgb, closeShades, colorDistance, fitPalettes, paletteVariant, inPattern, linkGroups, syncLinked, mergeNearTiles, tileUsage, gbStudioShade, gbcCorrect, dropCells, flipFloat, lift, liftCells, linePoints, onTiles, replaceShade, rotateFloat, mirrorPoints, namedSlot, quantize, snapRect, toRgba , timeVariant } from "./paint";
 
 describe("GB Cartographer pixels", () => {
   it("fits colored art to four colors a tile and at most eight palettes, reporting what changed", () => {
@@ -288,5 +288,14 @@ describe("GB Cartographer pixels", () => {
     expect(countUniqueTiles(pixels, 24, 8, false)).toBe(3);
     expect(countUniqueTiles(pixels, 24, 8, true)).toBe(2);
     expect(countUniqueTiles(pixels, 20, 8, false)).toBe(3);
+  });
+});
+
+describe("timeVariant", () => {
+  it("reads the DWC day / night / sunset naming", () => {
+    expect(timeVariant("DWC-2-Computer N")).toEqual({ base: "DWC-2-Computer", variant: "N" });
+    expect(timeVariant("WIN-1-Snow D")).toEqual({ base: "WIN-1-Snow", variant: "D" });
+    expect(timeVariant("DWC-SP6-Fire")).toBeNull();
+    expect(timeVariant("Sunset")).toBeNull();
   });
 });
