@@ -4,7 +4,7 @@
  * A tint only changes how the plain tiles look while painting. Saving writes one flat PNG, and for a project
  * picture also its tile palettes (see server/endpoints.ts).
  */
-import { ChevronDown, CircleHelp, Download, FilePlus, FlipHorizontal2, FolderOpen, FolderTree, Grid3x3, Link2, Magnet, Minus, Palette as PaletteIcon, Pause, Play, Plus, Redo2, Save, ScanSearch, Tv, Undo2, X } from "lucide-react";
+import { ChevronDown, CircleHelp, Download, FilePlus, FlipHorizontal2, FolderOpen, FolderTree, Grid2x2, Grid3x3, Link2, Magnet, Minus, Palette as PaletteIcon, Pause, Play, Plus, Redo2, Save, ScanSearch, Tv, Undo2, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useReducer, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { flushSync } from "react-dom";
 import { LogoMark } from "./ui/LogoMark";
@@ -51,6 +51,10 @@ export default function PaintApp() {
   const [budgetView, setBudgetView] = useState(false);
   /** Linked tiles: painting one tile paints every identical copy (one-color tiles are not linked). */
   const [linked, setLinked] = useState(false);
+  /** Seamless view: the tile under the pointer (or the selection) repeated 3 × 3 above the picture. */
+  const [seamless, setSeamless] = useState(false);
+  const [hoverCell, setHoverCell] = useState<{ x: number; y: number } | null>(null);
+  const seamlessCanvas = useRef<HTMLCanvasElement>(null);
   /** The fill pattern for Flood fill and Filled rectangle (D cycles it). */
   const [pattern, setPattern] = useState<Pattern>(() => readStored(PATTERN_KEY, "solid"));
   const cyclePattern = () => { const next = PATTERNS[(PATTERNS.findIndex((item) => item.id === pattern) + 1) % PATTERNS.length]; setPattern(next.id); store(PATTERN_KEY, next.id); say(`Fill pattern: ${next.label}`); };
@@ -1129,6 +1133,7 @@ export default function PaintApp() {
       const visible = inside(doc, point) && tool !== "hand" && tool !== "select" && tool !== "move";
       Object.assign(outline.style, { display: visible ? "block" : "none", left: `${x * doc.zoom}px`, top: `${y * doc.zoom}px`, width: `${size * doc.zoom}px`, height: `${(cells ? cellH * cellBrush : size) * doc.zoom}px` });
     }
+    if (seamless && inside(doc, point) && (hoverCell?.x !== point.x >> 3 || hoverCell?.y !== point.y >> 3)) setHoverCell({ x: point.x >> 3, y: point.y >> 3 });
     const state = drag.current;
     if (!state) return;
     const value = tool === "eraser" || (shade === CLEAR && !doc.hasAlpha) ? blank(doc) : shade;
@@ -1336,6 +1341,9 @@ export default function PaintApp() {
     });
   });
 
+  // Seamless view: what repeats, drawn from the canvas as shown (palettes and screen look included).
+  const seamlessArea = doc && seamless ? (doc.sel && doc.sel.w > 0 && doc.sel.h > 0 ? doc.sel : hoverCell ? { x: hoverCell.x * CELL, y: hoverCell.y * CELL, w: Math.min(CELL, doc.width - hoverCell.x * CELL), h: Math.min(CELL, doc.height - hoverCell.y * CELL) } : null) : null;
+
   function mergeNear() {
     if (!doc || !shownUsage || !nearCount) return;
     if (!window.confirm(`Make ${nearCount} tile${nearCount === 1 ? "" : "s"} that differ from another tile in at most 3 pixels into copies of it? This saves ${nearCount} tile${nearCount === 1 ? "" : "s"} of the budget; undo brings them back.`)) return;
@@ -1431,6 +1439,17 @@ export default function PaintApp() {
     if (look === "gbc") gbcCorrect(image.data);
     canvas.getContext("2d")!.putImageData(image, 0, 0);
   });
+  // The seamless view copies the picture as just drawn, so it runs after the drawing above.
+  useLayoutEffect(() => {
+    const target = seamlessCanvas.current, sheet = canvasRef.current;
+    if (!target || !sheet || !seamlessArea) return;
+    const { x, y, w, h } = seamlessArea;
+    Object.assign(target, { width: w * 3, height: h * 3 });
+    const context = target.getContext("2d")!;
+    context.imageSmoothingEnabled = false;
+    context.clearRect(0, 0, w * 3, h * 3);
+    for (let row = 0; row < 3; row += 1) for (let column = 0; column < 3; column += 1) context.drawImage(sheet, x, y, w, h, column * w, row * h, w, h);
+  });
 
   async function onDrop(event: React.DragEvent) {
     event.preventDefault();
@@ -1523,6 +1542,7 @@ export default function PaintApp() {
         )}
         <aside className="gbp-tools pixel-toolbar vertical" role="toolbar" aria-label="Paint tools">
           {TOOLS.map(([id, label, Icon, keys]) => <button key={id} className={`tool-button ${tool === id ? "active" : ""}`} aria-label={label} aria-pressed={tool === id} title={`${label} · ${keys}`} onClick={() => setTool(id)}><Icon size={17} /></button>)}
+          <button className={`tool-button ${seamless ? "active" : ""}`} aria-label="Seamless view" aria-pressed={seamless} title="Seamless view: the tile under the pointer (or the selection) repeated 3 × 3 above the picture, to check it tiles cleanly" onClick={() => setSeamless(!seamless)}><Grid2x2 size={17} /></button>
           <button className={`tool-button ${linked ? "active" : ""}`} aria-label="Linked tiles" aria-pressed={linked} title="Linked tiles: painting a tile paints every identical copy of it too (one-color tiles are not linked) · K" onClick={() => setLinked(!linked)}><Link2 size={17} /></button>
           <button className={`tool-button ${mirror !== "off" ? "active" : ""}`} aria-label={MIRROR_LABEL[mirror]} title={`${MIRROR_LABEL[mirror]}: paint both halves at once · Shift+M`} onClick={() => setMirror(MIRRORS[(MIRRORS.indexOf(mirror) + 1) % MIRRORS.length])}><FlipHorizontal2 size={17} /></button>
           {(tool === "fill" || tool === "rectFill") && (
@@ -1570,6 +1590,12 @@ export default function PaintApp() {
               <span className="gbp-spacer" />
               <button className="quiet-button primary" onClick={() => { if (window.confirm(`Reload ${doc.name} from disk? Your unsaved changes here are lost.`)) { const target = doc; target.changedOnDisk = undefined; void reloadAsset(target); } }}>Reload from disk</button>
               <button className="quiet-button" title="Keep painting; Save will ask before replacing the file on disk" onClick={() => { doc.changedOnDisk = { ...doc.changedOnDisk!, kept: true }; bump(); }}>Keep mine</button>
+            </div>
+          )}
+          {doc && seamless && (
+            <div className="gbp-frames gbp-seamless" role="group" aria-label="Seamless view">
+              <span className="gbp-frames-label">{seamlessArea ? (doc.sel ? `selection ${seamlessArea.w} × ${seamlessArea.h}` : `tile ${hoverCell!.x}, ${hoverCell!.y}`) : "point at a tile"} · repeated 3 × 3</span>
+              {seamlessArea && <canvas ref={seamlessCanvas} style={{ width: seamlessArea.w * 3 * Math.max(2, Math.min(8, Math.floor(96 / Math.max(seamlessArea.w, seamlessArea.h)))), height: seamlessArea.h * 3 * Math.max(2, Math.min(8, Math.floor(96 / Math.max(seamlessArea.w, seamlessArea.h)))) }} />}
             </div>
           )}
           {doc && isFont && (
