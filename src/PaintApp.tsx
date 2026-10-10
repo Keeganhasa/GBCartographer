@@ -13,8 +13,8 @@ import PaletteManager from "./PaletteManager";
 import BackupsWindow from "./BackupsWindow";
 import { attachMiddlePan, attachWheelZoom, nextStep } from "./ui/wheelZoom";
 import { CELL, CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, cellsWide, clipRect, colorize, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, dropCells, flipFloat, lift, liftCells, linePoints, mirrorPoints, onTiles, replaceShade, rotateFloat, namedSlot, quantize, rectFrom, shadeLut, snapRect, spray, toRgba, type Floating, type Mirror, type Palette } from "./paint";
-import { ASSET_KINDS, ASSET_URL, BUDGETS, BUDGET_KEY, BUILT_IN_TINTS, CUSTOM_TINT_KEY, FILE_MANAGER_LABEL, GRID_KEY, MIRRORS, MIRROR_LABEL, NAMED_SLOTS_KEY, SCREENS_KEY, PNG_TYPES, PREVIEW_VERSION, PROJECT_KIND_KEY, PROJECT_PANEL_KEY, PROJECT_URL, TINT_KEY, UI_SLOT, UNDO_BYTES, UNDO_LIMIT, ZOOMS, hasSlots, isKeyed, versionTime, type Asset, type AssetInfo, type AssetKind, type Doc, type Drag, type FileHandle, type Opening, type PickerWindow, type Point, type Project, type ToolId } from "./app/model";
-import { KIND_ICONS, TOOLS } from "./app/tools";
+import { ASSET_URL, BUDGETS, BUDGET_KEY, BUILT_IN_TINTS, CUSTOM_TINT_KEY, FILE_MANAGER_LABEL, GRID_KEY, MIRRORS, MIRROR_LABEL, NAMED_SLOTS_KEY, SCREENS_KEY, PNG_TYPES, PROJECT_KIND_KEY, PROJECT_PANEL_KEY, PROJECT_URL, TINT_KEY, UI_SLOT, UNDO_BYTES, UNDO_LIMIT, ZOOMS, hasSlots, isKeyed, versionTime, type Asset, type AssetInfo, type AssetKind, type Doc, type Drag, type FileHandle, type Opening, type PickerWindow, type Point, type Project, type ToolId } from "./app/model";
+import { TOOLS } from "./app/tools";
 import { readStored, sessionStore, store } from "./app/storage";
 import { HelpTip } from "./app/HelpTip";
 import { HelpWindow } from "./app/HelpWindow";
@@ -22,7 +22,7 @@ import { AboutWindow } from "./app/AboutWindow";
 import { NewPictureWindow, ResizeWindow, type NewPicture } from "./app/NewPictureWindow";
 import { Menu } from "./app/Menu";
 import { StartScreen } from "./app/StartScreen";
-import { SheetThumb, type SheetCell } from "./app/SheetThumb";
+import { ProjectPanel } from "./app/ProjectPanel";
 
 /** A new picture's id: one above every open one (a counter would restart when the module reloads in development). */
 const newDocId = (docs: readonly { id: number }[]) => docs.reduce((top, item) => Math.max(top, item.id), 0) + 1;
@@ -81,10 +81,6 @@ export default function PaintApp() {
   namedSlotsRef.current = namedSlots;
   /** Bumped when palette slots change, so thumbnails are drawn again. */
   const [slotsVersion, setSlotsVersion] = useState(0);
-  /** The open folder's thumbnails on one sheet: the image, and where each picture sits on it. */
-  const [sheet, setSheet] = useState<{ kind: AssetKind; image: HTMLImageElement; cells: Map<string, SheetCell> } | null>(null);
-  /** The sheet could not be made: the cards fetch their thumbnails one by one instead. */
-  const [sheetFailed, setSheetFailed] = useState(false);
   const projectRef = useRef<Project | null>(null);
   /** The frames strip: which animation and frame of the open sprite sheet is current, and whether it plays. */
   const [frame, setFrame] = useState({ animation: 0, index: 0 });
@@ -97,7 +93,6 @@ export default function PaintApp() {
   const [font, setFont] = useState<FontChoice>(() => loadFont());
   const [showProject, setShowProject] = useState<boolean>(() => readStored(PROJECT_PANEL_KEY, true));
   const [projectKind, setProjectKind] = useState<AssetKind>(() => readStored(PROJECT_KIND_KEY, "backgrounds"));
-  const [projectFilter, setProjectFilter] = useState("");
   const [toast, setToast] = useState("");
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1243,24 +1238,6 @@ export default function PaintApp() {
   const current = frames[Math.min(frame.index, Math.max(0, frames.length - 1))];
   useEffect(() => { setFrame({ animation: 0, index: 0 }); setPlaying(false); }, [activeId]);
   useEffect(() => { void rereadSlots(); }, [project]);
-  // The thumbnail sheet of the folder on show: fetched again when its pictures, palettes or slots change.
-  const sheetKey = project ? `${project.path}|${projectKind}|${project.assets.filter((asset) => asset.kind === projectKind).map((asset) => `${asset.file}:${Math.round(asset.mtime)}`).join(",")}|${slotsVersion}` : "";
-  useEffect(() => {
-    if (!project) return setSheet(null);
-    let live = true;
-    const kind = projectKind;
-    setSheetFailed(false);
-    const failed = () => { if (live) setSheetFailed(true); };
-    void fetch(`./__cartographer/gbstudio-preview-sheet?kind=${kind}`, { cache: "no-cache" }).then((response) => response.ok ? response.json() as Promise<{ stamp: string; cells: SheetCell[] }> : null).then((result) => {
-      if (!live) return;
-      if (!result) return failed();
-      const image = new Image();
-      image.onerror = failed;
-      image.onload = () => { if (live) setSheet({ kind, image, cells: new Map(result.cells.map((cell) => [cell.file, cell])) }); };
-      image.src = `./__cartographer/gbstudio-preview-sheet.png?kind=${kind}&stamp=${result.stamp}`;
-    }).catch(failed);
-    return () => { live = false; };
-  }, [sheetKey]);
   // Watch the open pictures' files: every 4 seconds while the window is visible, and when it comes back to front.
   useEffect(() => {
     if (!project) return;
@@ -1350,8 +1327,6 @@ export default function PaintApp() {
   const hint = TOOLS.find(([id]) => id === tool)!;
   const gridLines = doc && grid && grid * doc.zoom >= 3 ? `${grid * doc.zoom}px` : null;
   const matches = (name: string, filter: string) => !filter.trim() || name.toLowerCase().includes(filter.trim().toLowerCase());
-  const shownAssets = project ? project.assets.filter((asset) => asset.kind === projectKind && matches(asset.name, projectFilter)) : [];
-  const kindLabel = ASSET_KINDS.find(([kind]) => kind === projectKind)?.[1] ?? "";
   // A project background or sprite sheet carries its eight palette slots: shown as a strip, and first in the list.
   const sceneSlots = doc?.asset?.slots ?? [];
   const slotOf = (palette: Palette) => palette.id ? sceneSlots.indexOf(palette.id) : -1;
@@ -1415,30 +1390,15 @@ export default function PaintApp() {
       </div>
       <div className="gbp-body">
         {project && showProject && (
-          <>
-            <nav className="gbp-rail" aria-label="Asset folders">
-              {ASSET_KINDS.map(([kind, label]) => { const Icon = KIND_ICONS[kind]; const count = project.assets.filter((asset) => asset.kind === kind).length; return <button key={kind} className={`icon-button ${projectKind === kind ? "active-tool" : ""}`} aria-pressed={projectKind === kind} aria-label={`${label} (${count})`} title={`${label} · ${count}`} onClick={() => setProjectKind(kind)}><Icon size={16} /><b>{count}</b></button>; })}
-            </nav>
-            <aside className="gbp-project" aria-label="GB Studio project">
-              <h2 title={project.path}><span className="gbp-project-name">{project.name}</span></h2>
-              <input type="search" className="gbp-filter" placeholder={`Filter ${kindLabel.toLowerCase()}`} aria-label={`Filter ${kindLabel.toLowerCase()} by name`} value={projectFilter} onChange={(event) => setProjectFilter(event.target.value)} />
-              <div className="gbp-assets" role="list">
-                {shownAssets.map((asset) => {
-                  const openDoc = docs.current.find((item) => item.asset?.kind === asset.kind && item.asset.file === asset.file);
-                  return (
-                    <button key={asset.file} role="listitem" onContextMenu={(event) => { event.preventDefault(); setAssetMenu({ x: event.clientX, y: event.clientY, asset }); }} className={`gbp-asset ${openDoc && openDoc.id === activeId ? "selected" : openDoc ? "open" : ""}`} title={`${asset.file} · ${asset.width} × ${asset.height} px${openDoc ? " · open" : ""}`} onClick={() => void openAsset(asset)}>
-                      {sheet?.kind === asset.kind && sheet.cells.has(asset.file)
-                        ? <SheetThumb sheet={sheet.image} cell={sheet.cells.get(asset.file)!} />
-                        : !sheetFailed && sheet?.kind !== asset.kind ? <span className="gbp-asset-thumb" aria-hidden="true" />
-                        : <img className="gbp-asset-thumb" loading="lazy" decoding="async" alt="" src={`${ASSET_URL}-preview?${assetQuery(asset)}&v=${Math.round(asset.mtime)}&pv=${PREVIEW_VERSION}&s=${slotsVersion}`} />}
-                      <span className="gbp-asset-meta"><span className={`gbp-asset-name ${openDoc?.dirty ? "gbp-unsaved" : ""}`}>{asset.name}{openDoc?.dirty ? " *" : ""}</span><span className="gbp-asset-size">{asset.width}×{asset.height}</span></span>
-                    </button>
-                  );
-                })}
-                {shownAssets.length === 0 && <p className="gbp-note">No {projectKind} match.</p>}
-              </div>
-            </aside>
-          </>
+          <ProjectPanel
+            project={project}
+            kind={projectKind}
+            onKind={setProjectKind}
+            slotsVersion={slotsVersion}
+            stateOf={(asset) => { const open = docs.current.find((item) => item.asset?.kind === asset.kind && item.asset.file === asset.file); return { open: Boolean(open), active: Boolean(open && open.id === activeId), dirty: Boolean(open?.dirty) }; }}
+            onOpen={(asset) => void openAsset(asset)}
+            onMenu={(asset, x, y) => setAssetMenu({ x, y, asset })}
+          />
         )}
         <aside className="gbp-tools pixel-toolbar vertical" role="toolbar" aria-label="Paint tools">
           {TOOLS.map(([id, label, Icon, keys]) => <button key={id} className={`tool-button ${tool === id ? "active" : ""}`} aria-label={label} aria-pressed={tool === id} title={`${label} · ${keys}`} onClick={() => setTool(id)}><Icon size={17} /></button>)}
