@@ -12,8 +12,9 @@ backups/
 Thumbs.db
 *.log
 
-# Never commit a GB Studio project
+# Never commit a GB Studio project (except the app's own demo)
 *.gbsproj
+!demo/demo.gbsproj
 
 # The dev server's painted copy of the demo project (the shipped one is demo/)
 demo-project/

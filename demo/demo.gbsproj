@@ -1,0 +1,8 @@
+{
+  "_resourceType": "project",
+  "name": "Demo Project",
+  "author": "",
+  "notes": "A sample GB Studio 4 project for trying GB Cartographer. Credits in CREDITS.md.",
+  "_version": "4.2.0",
+  "_release": "10"
+}
