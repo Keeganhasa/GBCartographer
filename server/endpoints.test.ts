@@ -400,10 +400,15 @@ describe("GB Studio versions", () => {
     expect(versionNote(project)).toBeNull();
     const newer = join(root, "newer");
     mkdirSync(newer);
-    writeFileSync(join(newer, "n.gbsproj"), JSON.stringify({ _version: "4.3.1" }));
-    expect(versionNote(newer)).toContain("GB Studio 4.3.1");
-    writeFileSync(join(newer, "n.gbsproj"), JSON.stringify({ _version: "4.2.7" }));
+    // GB Studio 4.2.0 – 4.3.2 write format 4.2.0 r10; a newer or older format gets a note.
+    writeFileSync(join(newer, "n.gbsproj"), JSON.stringify({ _version: "4.2.0", _release: "10" }));
     expect(versionNote(newer)).toBeNull();
+    writeFileSync(join(newer, "n.gbsproj"), JSON.stringify({ _version: "4.2.0", _release: "11" }));
+    expect(versionNote(newer)).toContain("newer GB Studio");
+    writeFileSync(join(newer, "n.gbsproj"), JSON.stringify({ _version: "4.4.0", _release: "1" }));
+    expect(versionNote(newer)).toContain("4.4.0 r1");
+    writeFileSync(join(newer, "n.gbsproj"), JSON.stringify({ _version: "4.2.0", _release: "7" }));
+    expect(versionNote(newer)).toContain("older GB Studio file format");
     // A sidecar that says it is something else is not rewritten.
     const sidecar = join(project, "assets/tilesets/props.png.gbsres");
     const before = readFileSync(sidecar, "utf8");

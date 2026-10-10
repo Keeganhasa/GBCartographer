@@ -68,6 +68,19 @@ parallax background painted with its scene's palettes.
 
 ![A 640 × 144 background from GB Studio's sample project, painted in color](docs/screenshot-sample-background.png)
 
+## GB Studio versions
+
+GB Cartographer follows GB Studio: each release supports the newest GB Studio. When GB Studio changes its project
+files, GB Cartographer follows in its next release, and this table says which version reads what.
+
+| GB Cartographer | GB Studio | Project file format |
+| --- | --- | --- |
+| 0.1.0 (alpha) | 4.2.0 – 4.3.2 (newest checked: 4.3.2) | 4.2.0, release 10 |
+
+A project from an older GB Studio (including GB Studio 3): open it in the newest GB Studio and save once (it
+converts the project; keep a copy first), then open it here. A project saved by a newer GB Studio than the table
+lists opens with a note: keep a backup and look for a GB Cartographer update.
+
 ## Try it with the demo project
 
 The app ships with a small GB Studio 4 project in `demo/`: a winter scene, a cabin interior and a forest, a furniture

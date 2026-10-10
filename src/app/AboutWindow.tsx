@@ -1,4 +1,5 @@
 import { X } from "lucide-react";
+import { GB_STUDIO } from "../gb/compat";
 import { useState } from "react";
 import { LogoMark } from "../ui/LogoMark";
 
@@ -43,6 +44,7 @@ export function AboutWindow({ onClose }: { onClose: () => void }) {
             <div>
               <h1>GB Cartographer <span className="gbp-alpha">Alpha</span></h1>
               <p className="gbp-note">Version {__APP_VERSION__} · a pixel painting and color palette companion app for GB Studio projects</p>
+              <p className="gbp-note">Follows GB Studio {GB_STUDIO.latest}: reads projects from GB Studio {GB_STUDIO.oldest} – {GB_STUDIO.latest} (file format {GB_STUDIO.format.version}, release {GB_STUDIO.format.release}).</p>
             </div>
           </div>
           <p><a href={REPO} target="_blank" rel="noreferrer">Source code on GitHub</a> · <a href={`${REPO}/issues`} target="_blank" rel="noreferrer">Report a bug or ask for a feature</a></p>

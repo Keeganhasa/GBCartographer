@@ -5,9 +5,9 @@
  */
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { formatNote } from "../src/gb/compat";
 
 /** The GB Studio versions GB Cartographer was tested with (major.minor). */
-export const TESTED_GB_STUDIO = ["4.2"];
 
 let current: string | null = null;
 
@@ -15,15 +15,21 @@ export function projectFolder(): string | null {
   return current;
 }
 
-/** The `_version` in the folder's .gbsproj (e.g. "4.2.0"), or null. */
-export function projectVersion(path: string): string | null {
+/** The `_version` and `_release` in the folder's .gbsproj (e.g. "4.2.0", 10), or nulls. */
+function projectFormat(path: string): { version: string | null; release: number | null } {
   try {
     const file = readdirSync(path).find((name) => name.toLowerCase().endsWith(".gbsproj"));
-    const version = file ? (JSON.parse(readFileSync(resolve(path, file), "utf8")) as { _version?: unknown })._version : null;
-    return typeof version === "string" ? version : null;
+    const data = file ? JSON.parse(readFileSync(resolve(path, file), "utf8")) as { _version?: unknown; _release?: unknown } : {};
+    const release = Number(data._release);
+    return { version: typeof data._version === "string" ? data._version : null, release: data._release != null && Number.isFinite(release) ? release : null };
   } catch {
-    return null;
+    return { version: null, release: null };
   }
+}
+
+/** The `_version` in the folder's .gbsproj (e.g. "4.2.0"), or null. */
+export function projectVersion(path: string): string | null {
+  return projectFormat(path).version;
 }
 
 /**
@@ -40,16 +46,10 @@ export function projectProblem(path: string): string | null {
   return "That folder is not a GB Studio project (it needs assets/ and project/ folders).";
 }
 
-/**
- * A note when the project was made with a GB Studio version GB Cartographer wasn't tested with, or null.
- */
+/** A note when the project's GB Studio file format isn't the one GB Cartographer follows (see src/gb/compat.ts). */
 export function versionNote(path: string): string | null {
-  const version = projectVersion(path);
-  if (!version) return null;
-  const [major, minor] = version.split(".");
-  if (TESTED_GB_STUDIO.includes(`${major}.${minor}`)) return null;
-  if (major !== "4") return `This project was made with GB Studio ${version}; GB Cartographer was tested with GB Studio ${TESTED_GB_STUDIO.join(", ")}. Keep a backup and check pictures in GB Studio after saving.`;
-  return `Made with GB Studio ${version} (tested with ${TESTED_GB_STUDIO.join(", ")}). Files should read the same; check the first save in GB Studio.`;
+  const { version, release } = projectFormat(path);
+  return version && version.startsWith("4.") ? formatNote(version, release) : null;
 }
 
 /** True when the folder looks like a GB Studio project GB Cartographer can read. */
