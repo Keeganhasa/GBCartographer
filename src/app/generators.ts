@@ -5,7 +5,7 @@
  * (0 lightest … 3 darkest): placeholder art to paint over. Few distinct cells, so the tile count stays low.
  */
 
-import { Pen } from "../wireframes/pen";
+import { Pen } from "../graphics/pen";
 import { CAVE_THEMES, WORLD_THEMES, themeOf } from "./mapThemes";
 
 export { OVERWORLD_PALETTES } from "./mapThemes";

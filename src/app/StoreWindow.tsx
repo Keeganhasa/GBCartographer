@@ -1,7 +1,7 @@
 /**
  * The store (2026-10-10): what GB Cartographer ships, credited, for taking into a project piecemeal. Two aisles:
  * palette sets (shelves of sets: add a whole set or one palette at a time, to the project or to Mine; a palette the
- * project already has shows as added) and the wireframe library (placeholder art by kind: add it to the project as a
+ * project already has shows as added) and the graphics library (placeholder art by kind: add it to the project as a
  * new PNG, or open it as a new picture). Each shelf says who made it, its license (the License button explains it)
  * and where it comes from (Source).
  */
@@ -9,13 +9,13 @@ import { Check, ExternalLink, FilePlus2, Plus, Scale, Search, Store } from "luci
 import { useEffect, useMemo, useState } from "react";
 import { toRgba } from "../paint";
 import { Button, Chip, Dialog, IconButton, Popover, Segmented } from "../ui/kit";
-import type { Canvas } from "../wireframes/pen";
-import type { WireAsset } from "../wireframes/types";
+import type { Canvas } from "../graphics/pen";
+import type { WireAsset } from "../graphics/types";
 
-// The wireframe library is local-only until its art is approved: the aisle shows when its catalog is there.
-const WIRE_LIBRARY = Object.values(import.meta.glob<{ WIREFRAMES: WireAsset[]; WIREFRAME_GROUPS: string[] }>("../wireframes/library.ts", { eager: true }))[0];
-const WIREFRAMES = WIRE_LIBRARY?.WIREFRAMES ?? [];
-const WIREFRAME_GROUPS = WIRE_LIBRARY?.WIREFRAME_GROUPS ?? [];
+// The graphics library is local-only until its art is approved: the aisle shows when its catalog is there.
+const GRAPHICS_LIBRARY = Object.values(import.meta.glob<{ GRAPHICS: WireAsset[]; GRAPHIC_GROUPS: string[] }>("../graphics/library.ts", { eager: true }))[0];
+const GRAPHICS = GRAPHICS_LIBRARY?.GRAPHICS ?? [];
+const GRAPHIC_GROUPS = GRAPHICS_LIBRARY?.GRAPHIC_GROUPS ?? [];
 import { LICENSES, hasPalette, storeShelves, type StorePalette, type StoreSet } from "./store";
 import "./StoreWindow.css";
 
@@ -27,14 +27,14 @@ interface Props {
   /** Adds palettes to the project; resolves to how many were written. */
   onAddToProject: (palettes: StorePalette[]) => Promise<number>;
   onAddToMine: (palettes: StorePalette[]) => void;
-  /** Puts a wireframe in the project as a new PNG (and opens it). */
+  /** Puts a graphic in the project as a new PNG (and opens it). */
   onAddArt: (asset: WireAsset, art: Canvas) => Promise<boolean>;
-  /** Opens a wireframe as a new, unsaved picture. */
+  /** Opens a graphic as a new, unsaved picture. */
   onOpenArt: (asset: WireAsset, art: Canvas) => void;
 }
 
 const SHELVES = storeShelves();
-const WIRE_CREDIT = { author: "Keegan (GB Cartographer)", license: "CC0", source: "https://github.com/Keeganhasa/GBCartographer/tree/main/src/wireframes" };
+const GRAPHICS_CREDIT = { author: "Keegan (GB Cartographer)", license: "CC0", source: "https://github.com/Keeganhasa/GBCartographer/tree/main/src/graphics" };
 const KIND_NAMES: Record<string, string> = { sprites: "Sprite", emotes: "Emote", avatars: "Avatar", ui: "UI", tilesets: "Tileset", backgrounds: "Background" };
 /** Sites the store links to, in their own colors (a Source button wears its site's). */
 const SITES: { host: RegExp; name: string; color: string }[] = [
@@ -76,7 +76,7 @@ function Credit({ author, license, source }: { author?: string; license?: string
   );
 }
 
-/** A wireframe drawn small: pixels scaled up, see-through shown as see-through. */
+/** A graphic drawn small: pixels scaled up, see-through shown as see-through. */
 function Preview({ art }: { art: Canvas }) {
   const [target, setTarget] = useState<HTMLCanvasElement | null>(null);
   useEffect(() => {
@@ -90,9 +90,9 @@ function Preview({ art }: { art: Canvas }) {
 }
 
 export function StoreWindow({ projectName, projectPalettes, onClose, onAddToProject, onAddToMine, onAddArt, onOpenArt }: Props) {
-  const [aisle, setAisle] = useState<"palettes" | "wireframes">("palettes");
+  const [aisle, setAisle] = useState<"palettes" | "graphics">("palettes");
   const [shelfName, setShelfName] = useState(SHELVES.find((shelf) => shelf.name === "Overworld")?.name ?? SHELVES[0]?.name ?? "");
-  const [group, setGroup] = useState(WIREFRAME_GROUPS[0] ?? "");
+  const [group, setGroup] = useState(GRAPHIC_GROUPS[0] ?? "");
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -103,7 +103,7 @@ export function StoreWindow({ projectName, projectPalettes, onClose, onAddToProj
   // A search looks through every shelf: sets whose name, or any palette's name, matches.
   const found = useMemo(() => !needle ? null : SHELVES.map((shelf) => ({ ...shelf, sets: shelf.sets.map((set) => set.name.toLowerCase().includes(needle) ? set : { ...set, palettes: set.palettes.filter((palette) => palette.name.toLowerCase().includes(needle)) }).filter((set) => set.palettes.length) })).filter((shelf) => shelf.sets.length), [needle]);
   const shelves = found ?? SHELVES.filter((shelf) => shelf.name === shelfName);
-  const arts = useMemo(() => (needle ? WIREFRAMES.filter((asset) => `${asset.name} ${asset.group}`.toLowerCase().includes(needle)) : WIREFRAMES.filter((asset) => asset.group === group)).map((asset) => ({ asset, art: asset.make() })), [needle, group]);
+  const arts = useMemo(() => (needle ? GRAPHICS.filter((asset) => `${asset.name} ${asset.group}`.toLowerCase().includes(needle)) : GRAPHICS.filter((asset) => asset.group === group)).map((asset) => ({ asset, art: asset.make() })), [needle, group]);
 
   const has = (palette: StorePalette) => hasPalette(projectPalettes, palette);
   async function add(palettes: StorePalette[]) {
@@ -123,15 +123,15 @@ export function StoreWindow({ projectName, projectPalettes, onClose, onAddToProj
 
   const nav = aisle === "palettes"
     ? SHELVES.map((shelf) => ({ key: shelf.name, label: shelf.name, count: shelf.sets.reduce((sum, set) => sum + set.palettes.length, 0), on: !found && shelf.name === shelfName, pick: () => setShelfName(shelf.name) }))
-    : WIREFRAME_GROUPS.map((name) => ({ key: name, label: name, count: WIREFRAMES.filter((asset) => asset.group === name).length, on: !needle && name === group, pick: () => setGroup(name) }));
+    : GRAPHIC_GROUPS.map((name) => ({ key: name, label: name, count: GRAPHICS.filter((asset) => asset.group === name).length, on: !needle && name === group, pick: () => setGroup(name) }));
 
   return (
     <Dialog open onOpenChange={(next) => { if (!next && !busy) onClose(); }} wide tall title="Store" icon={<Store size={18} />}
-      sub={projectName ? `Credited ${WIREFRAMES.length ? "palettes and placeholder art" : "palettes"} to take into ${projectName}, piece by piece` : `Credited ${WIREFRAMES.length ? "palettes and placeholder art" : "palettes"}: open a project to add them to it`}
-      headExtra={WIREFRAMES.length > 0 && <Segmented size="sm" label="Aisle" value={aisle} onChange={(next) => { setAisle(next); setQuery(""); setOpen(null); }} options={[{ value: "palettes", label: "Palettes" }, { value: "wireframes", label: "Wireframes" }]} />}>
+      sub={projectName ? `Credited ${GRAPHICS.length ? "palettes and graphics" : "palettes"} to take into ${projectName}, piece by piece` : `Credited ${GRAPHICS.length ? "palettes and graphics" : "palettes"}: open a project to add them to it`}
+      headExtra={GRAPHICS.length > 0 && <Segmented size="sm" label="Aisle" value={aisle} onChange={(next) => { setAisle(next); setQuery(""); setOpen(null); }} options={[{ value: "palettes", label: "Palettes" }, { value: "graphics", label: "Graphics" }]} />}>
       <div className="st">
         <nav className="st-shelves k-stack k-stack--tight" aria-label="Shelves">
-          <label className="st-search"><Search size={14} /><input className="k-input" placeholder={aisle === "palettes" ? "Find a palette" : "Find art"} aria-label="Find" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
+          <label className="st-search"><Search size={14} /><input className="k-input" placeholder={aisle === "palettes" ? "Find a palette" : "Find graphics"} aria-label="Find" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
           {nav.map((item) => (
             <button key={item.key} type="button" className="app-row st-shelf" aria-pressed={item.on} onClick={() => { item.pick(); setQuery(""); setOpen(null); }}>
               <span className="app-name">{item.label}</span><span className="k-muted k-xs">{item.count}</span>
@@ -184,9 +184,9 @@ export function StoreWindow({ projectName, projectPalettes, onClose, onAddToProj
               </section>
             ))}
           </>}
-          {aisle === "wireframes" && (
+          {aisle === "graphics" && (
             <section className="k-stack">
-              <header className="st-head"><span className="st-title">{needle ? `Wireframes matching “${query}”` : group}</span><Credit {...WIRE_CREDIT} /></header>
+              <header className="st-head"><span className="st-title">{needle ? `Graphics matching “${query}”` : group}</span><Credit {...GRAPHICS_CREDIT} /></header>
               <p className="k-muted k-small st-about">Placeholder art drawn in plain shapes, ready to paint over your own way. Sprites come in GB Studio's classic strip, so it sets up their animations by itself.</p>
               {arts.length === 0 && <p className="k-muted k-small">Nothing matches “{query}”.</p>}
               <div className="st-sets st-sets--art">

@@ -1,7 +1,7 @@
 /**
- * The shape of a wireframe library asset. The library itself (tiles, sprites, scenes, the catalog) stays on the
+ * The shape of a graphics library asset. The library itself (tiles, sprites, scenes, the catalog) stays on the
  * author's machines until its art is approved (2026-10-10: only palettes ship to GitHub); the Store shows its
- * Wireframes aisle only when src/wireframes/library.ts is there.
+ * Graphics aisle only when src/graphics/library.ts is there.
  */
 import type { AssetKind } from "../app/model";
 import type { Canvas } from "./pen";

@@ -34,13 +34,13 @@ docs/demo-tile-palettes.json
 
 # Only palettes ship to GitHub (the author, 2026-10-10): no art of any kind until its authors have given their
 # blessing, not even CC0 or our own generated art. These stay on the author's machines:
-# the demo's art, the README's screenshots and GIFs, and the wireframe library's art.
+# the demo's art, the README's screenshots and GIFs, and the graphics library's art.
 demo/assets/**/*.png
 docs/*.png
 docs/*.gif
-src/wireframes/tiles.ts
-src/wireframes/sprites.ts
-src/wireframes/scenes.ts
-src/wireframes/library.ts
-src/wireframes/library.test.ts
+src/graphics/tiles.ts
+src/graphics/sprites.ts
+src/graphics/scenes.ts
+src/graphics/library.ts
+src/graphics/library.test.ts
 demo/Cartographer/

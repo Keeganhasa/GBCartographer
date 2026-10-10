@@ -1,5 +1,5 @@
 /**
- * Drawing for the wireframe art (the map generators and the wireframe library): simple primitives in the four GB
+ * Drawing for the wireframe art (the map generators and the graphics library): simple primitives in the four GB
  * shades (0 lightest … 3 darkest) and CLEAR, into one box of a picture. Everything outside the box is left alone.
  */
 import { CLEAR } from "../paint";

@@ -3,7 +3,7 @@
  * pen and worn in library palettes (SpicyGame's, Chorbi's, the Overworld set), so each shows what its wizard does.
  */
 import library from "../palettes/library.json";
-import { Pen, canvas } from "../wireframes/pen";
+import { Pen, canvas } from "../graphics/pen";
 import { drawCave, drawWorld, type Generated } from "./generators";
 
 export type WizardThumb = "picture" | "dns" | "paletteSet" | "newBackground" | "budget" | "cave" | "world" | "map" | "checkup";
