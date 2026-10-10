@@ -21,6 +21,8 @@
  *   GET  /__cartographer/gbstudio-preview-sheet ?kind= every thumbnail of a kind on one sheet: { stamp, cells } here,
  *                                             the image at gbstudio-preview-sheet.png?kind=&stamp= (cached by stamp)
  *   POST /__cartographer/gbstudio-palette-remove { id } takes an unused palette out (to the backups folder; 409 when used)
+ *   GET  /__cartographer/maps                 the project's Map Room layouts; POST { maps } saves them (kept in the app's
+ *                                             data folder, never in the project)
  *   GET  /__cartographer/dialogue-settings    { colorMode, uiPalette, defaultFont, fonts } for the dialogue preview (read only)
  *   GET  /__cartographer/project-health       { colorMode, issues: [{ level, kind, file?, title, detail }] } (read only)
  *   GET  /__cartographer/palette-usage        which scenes (and defaults) use each palette, and same-colored palettes
@@ -37,6 +39,7 @@ import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { AssetWriteError, ASSET_KINDS, createAsset, dialogueSettings, paletteUsage, previewSheet, projectHealth, removePalette, assetInfo, assetPath, listAssets, listPalettes, projectName, renderPreview, writeAsset, writePalette, writePaletteSlot, writeSpritePalettes, writeTileColors, type AssetKind } from "./assets";
 import { backupPath, listBackups, projectBackupDir, restoreBackup } from "./backups";
+import { readMaps, writeMaps } from "./maps";
 import { demoProjectCopy, projectFolder, projectFolderFor, projectProblem, projectVersion, recentProjects, saveProjectFolder, setProjectFolder, versionNote } from "./project";
 
 export interface ServerOptions {
@@ -225,6 +228,19 @@ export async function handleCartographerRequest(req: IncomingMessage, res: Serve
         if (error instanceof AssetWriteError) reply(res, error.status, { error: error.message });
         else throw error;
       }
+      return true;
+    }
+    if (url.pathname === "/__cartographer/maps") {
+      // Map Room layouts, kept in GB Cartographer's data folder (beside its settings), not in the project.
+      const dataDir = dirname(options.settingsFile);
+      if (req.method === "POST") {
+        const body = JSON.parse((await readBody(req)).toString("utf8")) as { maps?: unknown };
+        try {
+          reply(res, 200, { ok: true, maps: writeMaps(dataDir, project, body.maps) });
+        } catch (error) {
+          reply(res, 400, { error: (error as Error).message });
+        }
+      } else reply(res, 200, { ok: true, maps: readMaps(dataDir, project) });
       return true;
     }
     if (url.pathname === "/__cartographer/dialogue-settings") {

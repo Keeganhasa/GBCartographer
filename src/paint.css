@@ -585,3 +585,26 @@
 .gbp-backup-slider input { flex: 1; accent-color: var(--acc); }
 .gbp-backup-detail { display: flex; flex-direction: column; }
 .gbp-backup-detail .gbp-backup-compare { flex: 1; }
+
+/* Map Room. */
+.gbp-maproom { width: min(1400px, calc(100vw - 64px)); height: min(900px, calc(100vh - 64px)); }
+.gbp-maproom .gbp-modal-head { flex-wrap: wrap; }
+.gbp-maproom-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 200px minmax(0, 1fr) 320px; }
+.gbp-maproom-grid { min-width: 0; overflow: auto; padding: 16px; background: #0a0b0d; }
+.gbp-maproom-cells { display: grid; gap: 2px; width: max-content; }
+.gbp-maproom-cell, .gbp-maproom-add { position: relative; padding: 0; overflow: hidden; color: var(--ink); background: #15171b; border: 2px solid transparent; border-radius: 4px; cursor: pointer; }
+.gbp-maproom-cell img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: left top; image-rendering: pixelated; }
+.gbp-maproom-cell.selected { border-color: var(--acc); }
+.gbp-maproom-label { position: absolute; left: 4px; bottom: 4px; padding: 1px 6px; color: #fff; background: rgba(0, 0, 0, .65); border-radius: 4px; font-size: var(--fs-xs); }
+.gbp-maproom-add { display: grid; place-items: center; color: var(--muted); background: transparent; border: 2px dashed var(--b-edge, var(--line)); }
+.gbp-maproom-add:hover, .gbp-maproom-add.selected { color: var(--acc); border-color: var(--acc); }
+.gbp-maproom-edge { position: absolute; }
+.gbp-maproom-edge.north { left: 0; right: 0; top: 0; height: 5px; } .gbp-maproom-edge.south { left: 0; right: 0; bottom: 0; height: 5px; }
+.gbp-maproom-edge.east { top: 0; bottom: 0; right: 0; width: 5px; } .gbp-maproom-edge.west { top: 0; bottom: 0; left: 0; width: 5px; }
+.gbp-maproom-edge.match, .gbp-maproom-legend .match { background: #6ccf6c; } .gbp-maproom-edge.differ, .gbp-maproom-legend .differ { background: #f0b040; }
+.gbp-maproom-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; }
+.gbp-maproom-side { min-width: 0; overflow-y: auto; padding: 12px 14px; border-left: 1px solid var(--b-edge, var(--line)); }
+.gbp-maproom-thumb { width: 100%; image-rendering: pixelated; border-radius: 6px; box-shadow: 0 0 0 1px var(--b-edge, var(--line)); }
+.gbp-maproom-facts { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 0; font-size: var(--fs-sm); } .gbp-maproom-facts dt { color: var(--muted); } .gbp-maproom-facts dd { margin: 0; overflow-wrap: anywhere; }
+.gbp-maproom-edge-row { display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-sm); }
+.gbp-inline { flex-direction: row !important; align-items: center; gap: 6px; font-size: var(--fs-xs); }

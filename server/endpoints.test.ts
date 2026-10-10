@@ -332,6 +332,18 @@ describe("palette usage", () => {
   });
 });
 
+describe("map room layouts", () => {
+  it("keeps a project's maps in the app's data folder, never in the project", async () => {
+    expect((await json<{ maps: unknown[] }>(await fetch(`${base}/maps`))).maps).toEqual([]);
+    const maps = [{ id: "m1", name: "Overworld", screen: { width: 160, height: 144 }, overlap: 1, cells: [{ x: 0, y: 0, file: "town.png" }, { x: 1, y: 0, file: "Cave Entrance.png" }] }];
+    expect((await json<{ maps: unknown[] }>(await fetch(`${base}/maps`, { method: "POST", body: JSON.stringify({ maps }) }))).maps).toEqual(maps);
+    expect((await json<{ maps: unknown[] }>(await fetch(`${base}/maps`))).maps).toEqual(maps);
+    expect(readdirSync(join(root, "maps"))).toHaveLength(1);
+    expect(readdirSync(project)).not.toContain("maps");
+    expect((await fetch(`${base}/maps`, { method: "POST", body: JSON.stringify({ maps: [{ id: "x", name: "bad", cells: [{ x: 0, y: 0, file: "../escape.png" }] }] }) })).status).toBe(400);
+  });
+});
+
 describe("project health", () => {
   it("reports color mode, sizes, tile budgets, missing sidecars and palette trouble", async () => {
     writeFileSync(join(project, "assets/sprites/odd.png"), encodePng(new Uint8ClampedArray(12 * 16 * 4).fill(255), 12, 16, deflateSync));

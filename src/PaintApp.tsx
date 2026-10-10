@@ -4,7 +4,7 @@
  * A tint only changes how the plain tiles look while painting. Saving writes one flat PNG, and for a project
  * picture also its tile palettes (see server/endpoints.ts).
  */
-import { ChevronDown, CircleHelp, Download, FilePlus, FlipHorizontal2, FolderOpen, FolderTree, Grid2x2, Grid3x3, Link2, Magnet, Minus, Palette as PaletteIcon, Pause, Play, Plus, Redo2, Save, ScanSearch, Tv, Undo2, Video, X } from "lucide-react";
+import { ChevronDown, CircleHelp, Download, FilePlus, FlipHorizontal2, FolderOpen, FolderTree, Grid2x2, Grid3x3, Link2, Magnet, Map as MapIcon, Minus, Palette as PaletteIcon, Pause, Play, Plus, Redo2, Save, ScanSearch, Tv, Undo2, Video, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useReducer, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { flushSync } from "react-dom";
 import { LogoMark } from "./ui/LogoMark";
@@ -22,6 +22,7 @@ import { AboutWindow } from "./app/AboutWindow";
 import { HealthWindow } from "./app/HealthWindow";
 import { SpriteOnBackground } from "./app/SpriteOnBackground";
 import { DialoguePreview } from "./app/DialoguePreview";
+import { MapRoom } from "./app/MapRoom";
 import { NewPictureWindow, ResizeWindow, type NewPicture } from "./app/NewPictureWindow";
 import { Menu } from "./app/Menu";
 import { StartScreen } from "./app/StartScreen";
@@ -83,6 +84,7 @@ export default function PaintApp() {
   const [showAbout, setShowAbout] = useState(false);
   const [showHealth, setShowHealth] = useState(false);
   const [showDialogue, setShowDialogue] = useState(false);
+  const [showMapRoom, setShowMapRoom] = useState(false);
   /** Try the sprite sheet's animation on one of the project's backgrounds: its frames, drawn when opened. */
   const [onBackground, setOnBackground] = useState<HTMLCanvasElement[] | null>(null);
   const [showNew, setShowNew] = useState(false);
@@ -1650,6 +1652,7 @@ export default function PaintApp() {
           {project && <button className={`quiet-button ${showProject ? "active-tool" : ""}`} aria-pressed={showProject} title={`Show or hide the project's pictures (${project.path})`} onClick={() => setShowProject(!showProject)}><FolderTree size={14} />Project</button>}
           {served && !project && <button className="quiet-button" title="Open a GB Studio project folder: its backgrounds, sprites, tilesets and fonts open here and save back into it" onClick={() => void chooseProject()}><FolderTree size={14} />Open project…</button>}
           <button className="quiet-button" title="Palette manager: the project's palettes, a library, and your own" onClick={() => setShowPalettes(true)}><PaletteIcon size={14} />Palettes</button>
+          {project && <button className="quiet-button" title="Map Room: grids of screens (Zelda-style), each a background; new screens take their neighbours' edges" onClick={() => setShowMapRoom(true)}><MapIcon size={14} />Maps</button>}
         </span>
         <button className="icon-button" aria-label="Undo" title="Undo · Ctrl+Z" disabled={!doc?.undo.length} onClick={() => stepHistory("undo")}><Undo2 size={15} /></button>
         <button className="icon-button" aria-label="Redo" title="Redo · Ctrl+Shift+Z" disabled={!doc?.redo.length} onClick={() => stepHistory("redo")}><Redo2 size={15} /></button>
@@ -1942,6 +1945,7 @@ export default function PaintApp() {
             {project && <>
               <hr />
               <button role="menuitem" onClick={() => { setProjectMenu(null); void fetch("./__cartographer/reveal", { method: "POST" }); }}>{FILE_MANAGER_LABEL}</button>
+              <button role="menuitem" onClick={() => { setProjectMenu(null); setShowMapRoom(true); }}>Map Room…</button>
               <button role="menuitem" onClick={() => { setProjectMenu(null); setShowHealth(true); }}>Project health…</button>
               <button role="menuitem" onClick={() => { setProjectMenu(null); setShowDialogue(true); }}>Dialogue box…</button>
               <button role="menuitem" onClick={() => { setProjectMenu(null); setBackups({}); }}>Backups…</button>
@@ -1998,6 +2002,7 @@ export default function PaintApp() {
       {showHelp && <HelpWindow onClose={() => setShowHelp(false)} onAbout={() => { setShowHelp(false); setShowAbout(true); }} />}
       {showAbout && <AboutWindow onClose={() => setShowAbout(false)} />}
       {onBackground && project && <SpriteOnBackground backgrounds={project.assets.filter((asset) => asset.kind === "backgrounds")} frames={onBackground} fps={fps} onClose={() => setOnBackground(null)} />}
+      {showMapRoom && project && <MapRoom project={project} onClose={() => setShowMapRoom(false)} onOpen={(asset) => { setProjectKind("backgrounds"); void openAsset(asset); }} onProjectChanged={async () => { await loadProject(); setSlotsVersion((value) => value + 1); }} onExport={(blob, name) => saveBlob(blob, name, PNG_TYPES)} say={say} />}
       {showDialogue && project && <DialoguePreview backgrounds={project.assets.filter((asset) => asset.kind === "backgrounds")} hasFrame={project.assets.some((asset) => asset.kind === "ui" && asset.file === "frame.png")} onClose={() => setShowDialogue(false)} />}
       {showHealth && project && <HealthWindow projectName={project.name} onClose={() => setShowHealth(false)} onOpen={(kind, file) => { const asset = project.assets.find((item) => item.kind === kind && item.file === file); if (asset) { setProjectKind(kind); void openAsset(asset); } }} />}
       {showNew && <NewPictureWindow projectName={project?.name ?? null} initialKind={projectKind} onClose={() => setShowNew(false)} onCreate={createPicture} />}
