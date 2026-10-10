@@ -137,19 +137,37 @@ function store(key: string, value: unknown) {
 }
 
 /** The open pictures are kept in IndexedDB between launches (typed arrays and file handles store as they are). */
+/**
+ * The open pictures are kept in IndexedDB between launches. The database has its own name: the archived editor used
+ * "gb-cartographer" (with an "autosave" store) on the same desktop address, and opening that one failed silently, so
+ * the desktop app never kept its session (2026-10-09). Any failure is reported once in the console and resolves null.
+ */
+const SESSION_DB = "gb-cartographer-session";
+let sessionWarned = false;
 function sessionStore<T>(mode: IDBTransactionMode, run: (objects: IDBObjectStore) => IDBRequest<T>): Promise<T | null> {
+  const fail = (resolve: (value: null) => void, error: unknown) => {
+    if (!sessionWarned) { sessionWarned = true; console.error("GB Cartographer could not keep its session:", error); }
+    resolve(null);
+  };
   return new Promise((resolve) => {
     try {
-      const open = indexedDB.open("gb-cartographer", 1);
-      open.onupgradeneeded = () => open.result.createObjectStore("session");
-      open.onerror = () => resolve(null);
+      const open = indexedDB.open(SESSION_DB, 1);
+      open.onupgradeneeded = () => { if (!open.result.objectStoreNames.contains("session")) open.result.createObjectStore("session"); };
+      open.onerror = () => fail(resolve, open.error);
       open.onsuccess = () => {
-        const request = run(open.result.transaction("session", mode).objectStore("session"));
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => resolve(null);
+        try {
+          const db = open.result;
+          const transaction = db.transaction("session", mode);
+          const request = run(transaction.objectStore("session"));
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => fail(resolve, request.error);
+          transaction.oncomplete = () => db.close();
+        } catch (error) {
+          fail(resolve, error);
+        }
       };
-    } catch {
-      resolve(null);
+    } catch (error) {
+      fail(resolve, error);
     }
   });
 }

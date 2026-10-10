@@ -106,6 +106,13 @@ server layer (`server/`) and the Electron shell (`electron/`). Nothing from any 
 - The demo's credited files are named `<Name> (<Author>).png` (ASCII in file names, the sidecar `name` keeps "krümel").
   The demo generator lives outside the repo; the demo is edited by hand from here on.
 
+- Fixed (2026-10-09): the desktop app never kept its session. The archived editor's IndexedDB database
+  "gb-cartographer" (store "autosave") lives on the same desktop address (127.0.0.1:62932), and the painter opened a
+  database of the same name and version expecting a "session" store, which threw inside the success handler and
+  was swallowed. Open tabs and unsaved work (including the author's tileset coloring) existed only in memory and
+  were lost on quit. The session now uses its own database, `gb-cartographer-session`, and failures are logged.
+  Lesson: a test browser that has had its databases cleared hides this kind of clash; reproduce with the old data.
+
 ### Known issues
 - Inter and JetBrains Mono load from Google Fonts: offline, the app falls back to the system font.
 - GB Studio's animation speed is not read yet: the frames strip plays at a fixed 8 fps.
