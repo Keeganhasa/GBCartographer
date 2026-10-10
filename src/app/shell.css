@@ -33,7 +33,9 @@
 .app-project-head .k-eyebrow { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .app-cards { display: grid; grid-template-columns: 1fr 1fr; gap: var(--k-2); overflow-y: auto; align-content: start; min-height: 0; margin: 0 -4px; padding: 0 4px 4px; }
 .app-card { display: flex; flex-direction: column; gap: 6px; padding: 6px; min-width: 0; }
-.app-card .gbp-asset-thumb, .app-card-thumb { display: block; width: 100%; aspect-ratio: 1 / 1; object-fit: contain; image-rendering: pixelated; background: repeating-conic-gradient(#20232a 0 25%, #17191e 0 50%) 0 0 / 12px 12px; border-radius: 8px; padding: 4px; }
+.app-card .gbp-asset-thumb, .app-card-thumb { display: block; width: 100%; aspect-ratio: 1 / 1; object-fit: contain; image-rendering: pixelated; background: repeating-conic-gradient(#20232a 0 25%, #17191e 0 50%) 0 0 / 12px 12px; border-radius: 6px; }
+/* Names sit at the foot of the card, so a row's names line up whatever its thumbnails' shapes. */
+.app-card b { margin-top: auto; }
 .app-card b { font-size: var(--k-text-sm); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .app-card b.dirty::after { content: " *"; color: var(--k-acc-text); }
 .app-card small { color: var(--k-ink-3); font-size: 10px; font-variant-numeric: tabular-nums; }

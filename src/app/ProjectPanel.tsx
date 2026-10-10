@@ -64,12 +64,14 @@ export function ProjectPanel({ project, kind, open, onKind, slotsVersion, stateO
         <div className="app-cards gbp-assets" role="list">
           {shown.map((asset) => {
             const state = stateOf(asset);
+            // The thumbnail box takes the picture's own shape (kept between 4:5 and 2:1), so the picture fills it.
+            const fit = { aspectRatio: String(Math.min(2, Math.max(0.8, asset.width / Math.max(1, asset.height)))) };
             return (
               <button key={asset.file} role="listitem" aria-pressed={state.active} onContextMenu={(event) => { event.preventDefault(); onMenu(asset, event.clientX, event.clientY); }} className={`k-card k-card--button app-card ${state.open && !state.active ? "open" : ""}`} title={`${asset.file} · ${asset.width} × ${asset.height} px${state.open ? " · open" : ""}`} onClick={() => onOpen(asset)}>
                 {sheet?.kind === asset.kind && sheet.cells.has(asset.file)
-                  ? <SheetThumb sheet={sheet.image} cell={sheet.cells.get(asset.file)!} />
-                  : !sheetFailed && sheet?.kind !== asset.kind ? <span className="gbp-asset-thumb" aria-hidden="true" />
-                  : <img className="gbp-asset-thumb" loading="lazy" decoding="async" alt="" src={`${ASSET_URL}-preview?${assetQuery(asset)}&v=${Math.round(asset.mtime)}&pv=${PREVIEW_VERSION}&s=${slotsVersion}`} />}
+                  ? <SheetThumb sheet={sheet.image} cell={sheet.cells.get(asset.file)!} style={fit} />
+                  : !sheetFailed && sheet?.kind !== asset.kind ? <span className="gbp-asset-thumb" aria-hidden="true" style={fit} />
+                  : <img className="gbp-asset-thumb" style={fit} loading="lazy" decoding="async" alt="" src={`${ASSET_URL}-preview?${assetQuery(asset)}&v=${Math.round(asset.mtime)}&pv=${PREVIEW_VERSION}&s=${slotsVersion}`} />}
                 <b className={state.dirty ? "dirty" : ""}>{asset.name}</b>
                 <small>{asset.width} × {asset.height}</small>
               </button>
