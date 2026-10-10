@@ -4,7 +4,7 @@
  * right with a live preview of the open picture; a palette can be added to the project (a new
  * project/palettes/<name>.gbsres) or, for a project palette, saved back into its file.
  */
-import { FolderTree, Gamepad2, Layers, Plus, Star, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Download, FolderTree, Gamepad2, Layers, Plus, Star, Trash2, Upload, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import library from "./palettes/library.json";
 import { colorize, shadeLut, spriteShades, type Palette } from "./paint";
@@ -56,9 +56,39 @@ export interface PaletteManagerProps {
   onPick: (paletteId: string) => void;
   /** Right-click on a project palette while a picture with slots is open: the painter's "Put in slot" menu. */
   onSlotMenu?: (paletteId: string, x: number, y: number) => void;
+  /** Takes an unused palette out of the project (to the backups folder); resolves true when it was removed. */
+  onRemoveProject?: (paletteId: string, name: string) => Promise<boolean>;
 }
 
-export default function PaletteManager({ projectName, projectPalettes, sceneSlots, picture, onClose, onWriteProject, onPick, onSlotMenu }: PaletteManagerProps) {
+/**
+ * Palettes from a file: GB Cartographer's JSON export ({ palettes: [{ name, colors }] }), or a plain color list such
+ * as Lospec's .hex (one color a line) or GIMP's .gpl (R G B per line), taken four colors at a time.
+ */
+export function parsePaletteFile(name: string, text: string): Palette[] {
+  const base = name.replace(/\.[^.]+$/, "");
+  try {
+    const data = JSON.parse(text) as { palettes?: { name?: unknown; colors?: unknown }[] } | { name?: unknown; colors?: unknown }[];
+    const list = Array.isArray(data) ? data : data.palettes ?? [];
+    return list.flatMap((item, index) => {
+      const colors = Array.isArray(item.colors) ? item.colors.map((color) => normalize(String(color))) : [];
+      return colors.length === 4 && colors.every(Boolean) ? [{ name: typeof item.name === "string" && item.name.trim() ? item.name.trim() : `${base} ${index + 1}`, colors: colors as string[] }] : [];
+    });
+  } catch {
+    // Not JSON: a list of colors.
+  }
+  const colors: string[] = [];
+  for (const line of text.split(/\r?\n/)) {
+    const gpl = /^\s*(\d{1,3})\s+(\d{1,3})\s+(\d{1,3})\b/.exec(line);
+    if (gpl) { colors.push(`#${gpl.slice(1, 4).map((value) => Math.min(255, Number(value)).toString(16).padStart(2, "0")).join("").toUpperCase()}`); continue; }
+    const hex = /^\s*#?([0-9a-f]{6})\b/i.exec(line);
+    if (hex) colors.push(`#${hex[1].toUpperCase()}`);
+  }
+  const palettes: Palette[] = [];
+  for (let at = 0; at + 4 <= colors.length; at += 4) palettes.push({ name: colors.length > 4 ? `${base} ${at / 4 + 1}` : base, colors: colors.slice(at, at + 4) });
+  return palettes;
+}
+
+export default function PaletteManager({ projectName, projectPalettes, sceneSlots, picture, onClose, onWriteProject, onPick, onSlotMenu, onRemoveProject }: PaletteManagerProps) {
   const [collection, setCollection] = useState<Collection>(projectPalettes.length ? "project" : LIBRARY[0]?.name ?? "mine");
   const [filter, setFilter] = useState("");
   const [mine, setMine] = useState<Palette[]>(() => readMine());
@@ -180,6 +210,68 @@ export default function PaletteManager({ projectName, projectPalettes, sceneSlot
     setNote("Saved.");
   }
 
+  /** Moves the picked palette of Mine up (-1) or down (1). */
+  function moveMine(step: number) {
+    if (collection !== "mine" || !picked) return;
+    const to = selected + step;
+    if (to < 0 || to >= mine.length) return;
+    const list = [...mine];
+    [list[selected], list[to]] = [list[to], list[selected]];
+    saveMine(list);
+    setSelected(to);
+  }
+
+  /** The shown collection as a JSON file (names and colors), to keep or to import elsewhere. */
+  function exportCollection() {
+    const data = JSON.stringify({ palettes: current.palettes.map(({ name: own, colors: four }) => ({ name: own, colors: four })) }, null, 2);
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(new Blob([data], { type: "application/json" }));
+    link.download = `${current.label.replace(/[^\w .-]+/g, "").trim() || "palettes"}.json`;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    setNote(`Exported ${current.palettes.length} palette${current.palettes.length === 1 ? "" : "s"}.`);
+  }
+
+  /** Palettes from a file (JSON export, Lospec .hex, GIMP .gpl) into Mine. */
+  function importFile() {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json,.hex,.gpl,.txt";
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const found = parsePaletteFile(file.name, await file.text());
+      if (!found.length) return setNote(`${file.name}: no palettes of four colors found.`);
+      const list = [...mine, ...found];
+      saveMine(list);
+      choose("mine", mine.length);
+      setNote(`Imported ${found.length} palette${found.length === 1 ? "" : "s"} into Mine.`);
+    };
+    input.click();
+  }
+
+  /** Arrow keys walk the list (in the order shown); Home and End jump to its ends. */
+  function listKey(event: React.KeyboardEvent) {
+    const order = groups.flatMap((group) => group.rows.map((row) => row.index));
+    if (!order.length || !["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const at = order.indexOf(selected);
+    const next = event.key === "Home" ? 0 : event.key === "End" ? order.length - 1 : Math.min(order.length - 1, Math.max(0, at + (event.key === "ArrowDown" ? 1 : -1)));
+    choose(current.id, order[next]);
+    (event.currentTarget.querySelectorAll("[role=option]")[next] as HTMLElement | undefined)?.scrollIntoView({ block: "nearest" });
+  }
+
+  async function removeFromProject() {
+    if (collection !== "project" || !picked?.id || !onRemoveProject || busy) return;
+    if (!window.confirm(`Take ${picked.name} out of the project? Nothing uses it; its file goes to the backups folder (Backups… can put it back).`)) return;
+    setBusy(true);
+    try {
+      if (await onRemoveProject(picked.id, picked.name)) choose("project", Math.max(0, selected - 1));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function deleteMine() {
     if (collection !== "mine" || !picked) return;
     const list = mine.filter((_, index) => index !== selected);
@@ -222,6 +314,8 @@ export default function PaletteManager({ projectName, projectPalettes, sceneSlot
         <nav className="gbp-pm-rail" aria-label="Collections">
           {collections.map((group) => { const Icon = COLLECTION_ICONS[group.id] ?? Layers; return <button key={group.id} className={`icon-button ${collection === group.id ? "active-tool" : ""}`} aria-pressed={collection === group.id} aria-label={`${group.label} (${group.palettes.length})`} title={`${group.label} · ${group.palettes.length}`} onClick={() => choose(group.id, 0)}><Icon size={16} /><b>{group.palettes.length}</b></button>; })}
           <span className="gbp-spacer" />
+          <button className="icon-button" aria-label="Import palettes" title="Import palettes into Mine: a JSON export, a Lospec .hex or a GIMP .gpl (four colors a palette)" onClick={importFile}><Upload size={16} /></button>
+          <button className="icon-button" aria-label="Export this collection" title="Export the palettes shown on the left as a JSON file" disabled={!current.palettes.length} onClick={exportCollection}><Download size={16} /></button>
           <button className="icon-button" aria-label="New palette" title="A new palette in Mine, in the GB greens" onClick={newPalette}><Plus size={16} /></button>
           <button className="icon-button" aria-label="Close" title="Close · Esc" onClick={onClose}><X size={16} /></button>
         </nav>
@@ -229,7 +323,7 @@ export default function PaletteManager({ projectName, projectPalettes, sceneSlot
           <div className="gbp-pm-head"><span className="eyebrow">{current.label}</span><input type="search" className="gbp-filter" placeholder="Filter" aria-label="Filter palettes by name" value={filter} onChange={(event) => setFilter(event.target.value)} />
             {collection === "project" && usage && <label className="gbp-check" title="Show only palettes no scene uses, or with the same colors as another"><input type="checkbox" checked={onlyOdd} onChange={(event) => setOnlyOdd(event.target.checked)} />Only unused or same colors</label>}
           </div>
-          <div className="gbp-palettes gbp-pm-rows" role="listbox" aria-label={`${current.label} palettes`}>
+          <div className="gbp-palettes gbp-pm-rows" role="listbox" tabIndex={0} aria-label={`${current.label} palettes`} onKeyDown={listKey}>
             {groups.map((group) => group.rows.length > 0 && (
               <div key={group.label} className="gbp-pm-group">
                 {group.label && <span className="eyebrow">{group.label}</span>}
@@ -272,7 +366,10 @@ export default function PaletteManager({ projectName, projectPalettes, sceneSlot
                 {collection !== "project" && <button className="quiet-button primary" disabled={!projectName || !valid || busy} title={projectName ? `Add a new palette file to ${projectName}` : "Open a project first"} onClick={() => void writeProject(true)}>Add to project</button>}
                 {collection === "project" && picked.id && <button className="quiet-button" title="Paint with this palette" onClick={() => { onPick(picked.id!); onClose(); }}>Use for brush</button>}
                 {collection === "mine" && <button className="quiet-button" disabled={!dirty || !valid} onClick={saveToMine}>Save</button>}
+                {collection === "mine" && <button className="icon-button small" aria-label="Move up" title="Move up in Mine" disabled={selected === 0} onClick={() => moveMine(-1)}><ArrowUp size={14} /></button>}
+                {collection === "mine" && <button className="icon-button small" aria-label="Move down" title="Move down in Mine" disabled={selected >= mine.length - 1} onClick={() => moveMine(1)}><ArrowDown size={14} /></button>}
                 {collection === "mine" && <button className="quiet-button danger" title="Remove from Mine" onClick={deleteMine}><Trash2 size={14} />Delete</button>}
+                {collection === "project" && picked.id && onRemoveProject && usage && <button className="quiet-button danger" disabled={busy || !unused(picked)} title={unused(picked) ? "Take this palette out of the project (its file goes to the backups folder)" : "Only a palette no scene uses can be taken out"} onClick={() => void removeFromProject()}><Trash2 size={14} />Remove from project</button>}
                 {dirty && <button className="quiet-button" onClick={() => setDraft(null)}>Revert</button>}
                 <span className="gbp-pm-note">{note || (collection === "project" ? "Rewrites this palette's file in the project · the old file goes to the backups folder" : projectName ? `Adds project/palettes/${fileNameFor(name.trim() || picked.name)}` : "")}</span>
               </div>

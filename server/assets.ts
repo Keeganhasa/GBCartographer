@@ -346,6 +346,42 @@ export function writeSpritePalettes(path: string, slots: readonly (number | null
 }
 
 /**
+ * Every project file (under project/, other than the palette's own) that mentions a palette id: scene slots, the
+ * defaults, and events that switch palettes. Paths inside the project.
+ */
+export function paletteMentions(project: string, id: string): string[] {
+  const found: string[] = [];
+  const walk = (folder: string) => {
+    for (const entry of readdirSync(folder, { withFileTypes: true })) {
+      const path = join(folder, entry.name);
+      if (entry.isDirectory()) walk(path);
+      else if (entry.name.endsWith(".gbsres") || entry.name.endsWith(".gbsproj")) {
+        const text = readFileSync(path, "utf8");
+        if (text.includes(id) && !(readJsonCached(path)?.id === id && readJsonCached(path)?._resourceType === "palette")) found.push(path.slice(project.length + 1).split("\\").join("/"));
+      }
+    }
+  };
+  if (existsSync(join(project, "project"))) walk(join(project, "project"));
+  return found;
+}
+
+/**
+ * Takes an unused palette out of the project: refused (409, with where it is used) when any scene, default or
+ * event mentions it. The file goes to the backups folder (Backups… can put it back) and is then removed.
+ */
+export function removePalette(project: string, id: string, backup: Backup): { file: string } {
+  const folder = join(project, "project", "palettes");
+  const file = existsSync(folder) ? readdirSync(folder).find((entry) => entry.endsWith(".gbsres") && readJson(join(folder, entry))?.id === id) : undefined;
+  if (!file) throw new AssetWriteError("No palette with that id in the project.", 404);
+  expectType(readJson(join(folder, file))!, "palette", join(folder, file));
+  const uses = paletteMentions(project, id);
+  if (uses.length) throw new AssetWriteError(`It is still used by ${uses.slice(0, 3).join(", ")}${uses.length > 3 ? ` and ${uses.length - 3} more` : ""}.`, 409);
+  backupFile(backup.dir, backup.project, join(folder, file));
+  unlinkSync(join(folder, file));
+  return { file };
+}
+
+/**
  * Puts a project palette into one of an asset's eight slots (`slot` 0–7): the scene's palette list
  * (`paletteIds` / `spritePaletteIds`) when a scene shows the asset, else the project's default palettes in
  * settings.gbsres. Every other field is kept; the old file is copied to the backup folder first. Returns the

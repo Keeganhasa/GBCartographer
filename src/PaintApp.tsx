@@ -1659,6 +1659,15 @@ export default function PaintApp() {
           onClose={() => setShowPalettes(false)}
           onWriteProject={writeProjectPalette}
           onPick={(id) => { const index = docPalettes.findIndex((item) => item.id === id); if (index >= 0) { setActivePalette(index + 1); setTool("palette"); } }}
+          onRemoveProject={async (id, name) => {
+            if (!await okToWriteProjectJson()) return false;
+            const response = await fetch("./__cartographer/gbstudio-palette-remove", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) }).catch(() => null);
+            const result = response ? await response.json().catch(() => null) as { ok?: boolean; error?: string } | null : null;
+            if (!response?.ok || !result?.ok) { say(`${name} stays: ${result?.error ?? "no answer"}`); return false; }
+            await loadProject();
+            say(`${name} was taken out of the project (Backups… can put it back).`);
+            return true;
+          }}
           onSlotMenu={doc?.asset?.slots?.length ? (id, x, y) => { const index = docPalettes.findIndex((item) => item.id === id); if (index >= 0) setSlotMenu({ x, y, palette: index + 1 }); else say("Open a picture of this project to put its palettes in slots."); } : undefined}
         />
       )}

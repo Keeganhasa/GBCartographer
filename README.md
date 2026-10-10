@@ -32,7 +32,8 @@ palettes straight back into the project.
   day / night / sunset variants (`Forest-2-Trees N`) save as their base palette's slot.
 - **A palette manager.** The project's palettes, a bundled library (Game Boy classics and the author's own CC0
   set) and your own, with a live preview of the open picture; add palettes to the project or edit its own, and
-  see which scenes use each one (unused and duplicate palettes are marked).
+  see which scenes use each one (unused and duplicate palettes are marked, and an unused one can be taken out);
+  import palettes from Lospec `.hex` or GIMP `.gpl` files and export your own as JSON.
 - **Palettes edited in place.** Click a shade square again to change that color; Save writes the recolored
   palette back into the project, and undo brings old colors back.
 - **The usual tools.** Pencil, eraser, spray, line, rectangle, ellipse, fill (Alt-click replaces a shade
@@ -55,7 +56,6 @@ palettes straight back into the project.
 ## Planned
 
 - Prebuilt apps for macOS, Windows and Linux (GitHub Releases and itch.io), and a tested Windows pass.
-- Palette manager round 2 (delete, reorder, import / export).
 
 ## Screenshots
 
@@ -85,8 +85,8 @@ GB Cartographer is careful with your game files. It only ever writes:
 - a new PNG when you make one with **New** (it never replaces a file; GB Studio adds its own settings for it);
 - the `tileColors` field of a background's or tileset's `.png.gbsres` sidecar;
 - the `paletteIndex` of the slices in a sprite sheet's `.png.gbsres` sidecar;
-- palette files in `project/palettes/`: a new one when you add a palette from the manager, or the name and
-  colors of one you edit there;
+- palette files in `project/palettes/`: a new one when you add a palette from the manager, the name and
+  colors of one you edit there, or taking out one that nothing in the project uses (it goes to the backups);
 - when you put a palette in a slot: that one entry of a scene's palette list (`paletteIds` or `spritePaletteIds`
   in its `scene.gbsres`), or of the project's default palettes (`defaultBackgroundPaletteIds` or
   `defaultSpritePaletteIds` in `project/settings.gbsres`).

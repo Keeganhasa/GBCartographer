@@ -324,6 +324,25 @@ describe("palette usage", () => {
   });
 });
 
+describe("removing a palette", () => {
+  it("removes only a palette nothing mentions, keeping it in the backups", async () => {
+    const remove = (id: string) => fetch(`${base}/gbstudio-palette-remove`, { method: "POST", body: JSON.stringify({ id }) });
+    // pal-town sits in scene and default slots: refused, with where.
+    const used = await remove("pal-town");
+    expect(used.status).toBe(409);
+    expect((await json<{ error: string }>(used)).error).toContain("project/scenes/town/scene.gbsres");
+    // An event that switches to a palette counts as a use too.
+    writeFileSync(join(project, "project/palettes/spare.gbsres"), JSON.stringify({ _resourceType: "palette", id: "pal-spare", name: "Spare", colors: ["ffffff", "aaaaaa", "555555", "000000"] }));
+    writeFileSync(join(project, "project/scenes/town/actors/sign.gbsres"), JSON.stringify({ _resourceType: "actor", script: [{ command: "EVENT_PALETTE_SET_BACKGROUND", args: { palette0: "pal-spare" } }] }));
+    expect((await remove("pal-spare")).status).toBe(409);
+    rmSync(join(project, "project/scenes/town/actors/sign.gbsres"));
+    expect(await json(await remove("pal-spare"))).toMatchObject({ ok: true, file: "spare.gbsres" });
+    expect(existsSync(join(project, "project/palettes/spare.gbsres"))).toBe(false);
+    expect(latestBackup("project/palettes/spare.gbsres")).toContain("pal-spare");
+    expect((await remove("pal-spare")).status).toBe(404);
+  });
+});
+
 describe("GB Studio versions", () => {
   it("explains a GB Studio 3 project, notes untested versions, and leaves files of an unexpected type alone", async () => {
     const gb3 = join(root, "old-game");
