@@ -1,0 +1,34 @@
+/* A palette set (src/app/PaletteSetWizard.tsx): the step strip, the source on the left and its colors on the right,
+   then the eight palettes as rows of swatches to swap and name. */
+.psw-steps { display: flex; gap: 6px; margin-bottom: var(--k-4); }
+.psw-step { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 999px; color: var(--k-ink-3); background: var(--k-sunk); border: 1px solid var(--k-edge); font-size: var(--k-text-xs); font-weight: 600; white-space: nowrap; }
+.psw-step b { display: grid; place-items: center; width: 16px; height: 16px; border-radius: 999px; background: #2a2e35; color: var(--k-ink-2); font-size: 10px; }
+.psw-step.is-done { color: var(--k-acc-text); } .psw-step.is-done b { background: var(--k-acc-lo); color: var(--k-on-acc); }
+.psw-step.is-now { color: var(--k-on-acc); background: linear-gradient(var(--k-acc-hi), var(--k-acc-lo)); border-color: var(--k-acc-hi); } .psw-step.is-now b { background: var(--k-on-acc); color: var(--k-acc-text); }
+
+.psw-two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--k-5); align-items: start; }
+.psw-error { margin: 0; color: var(--k-bad); font-size: var(--k-text-sm); }
+
+/* A strip of colors (the source's raw list) and the small read-only palette grid. */
+.psw-strip { display: flex; height: 28px; border-radius: 6px; overflow: hidden; box-shadow: 0 0 0 1px var(--k-edge-2); }
+.psw-strip i { flex: 1; min-width: 2px; }
+.psw-mini { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.psw-mini span { display: flex; height: 16px; border-radius: 4px; overflow: hidden; box-shadow: 0 0 0 1px var(--k-edge-2); }
+.psw-mini i { flex: 1; }
+.psw-empty { display: grid; place-items: center; min-height: 120px; padding: var(--k-4); text-align: center; }
+
+/* The palettes to edit: one row each, its number, four swatches to click, re-sort, a warning. */
+.psw-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--k-2); }
+.psw-row { display: flex; align-items: center; gap: var(--k-2); padding: 6px var(--k-2); }
+.psw-num { width: 16px; color: var(--k-ink-3); font-size: var(--k-text-xs); font-variant-numeric: tabular-nums; text-align: right; }
+.psw-swatches { display: flex; flex: 1; min-width: 0; border-radius: 6px; box-shadow: 0 0 0 1px var(--k-edge-2); }
+.psw-swatch { flex: 1; height: 30px; padding: 0; border: 0; cursor: pointer; position: relative; }
+.psw-swatch:first-child { border-radius: 6px 0 0 6px; } .psw-swatch:last-child { border-radius: 0 6px 6px 0; }
+.psw-swatch:hover { box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .5); z-index: 1; }
+.psw-swatch[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--k-acc-hi), 0 0 0 2px var(--k-acc-hi); z-index: 2; }
+
+/* Naming: a row of swatches beside each palette's name. */
+.psw-names { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--k-2) var(--k-4); }
+.psw-name { display: flex; align-items: center; gap: var(--k-2); }
+.psw-name .psw-strip { width: 72px; flex: none; height: 22px; }
+.psw-base { max-width: 280px; }

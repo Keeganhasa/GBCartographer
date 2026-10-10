@@ -97,15 +97,26 @@ export function groupsOfFour(base: string, colors: string[]): Palette[] {
   return palettes;
 }
 
-/** A Lospec palette by its link (lospec.com/palette-list/<name>) or name: fetched from Lospec (it allows it). */
-export async function fetchLospec(link: string): Promise<Palette[]> {
+/** A Lospec palette's name and every color, by its link (lospec.com/palette-list/<name>) or name (Lospec allows the fetch). */
+export async function fetchLospecColors(link: string): Promise<{ name: string; colors: string[] }> {
   const slug = (/palette-list\/([a-z0-9-]+)/i.exec(link)?.[1] ?? link.trim().toLowerCase().replace(/\s+/g, "-")).replace(/\.json$/, "");
   if (!/^[a-z0-9-]+$/.test(slug)) throw new Error("That doesn't look like a Lospec palette link.");
   const response = await fetch(`https://lospec.com/palette-list/${slug}.json`);
   if (!response.ok) throw new Error(response.status === 404 ? "Lospec has no palette by that name." : response.statusText);
   const data = await response.json() as { name?: string; author?: string; colors?: string[] };
   const colors = (data.colors ?? []).map((color) => normalize(color)).filter((color): color is string => Boolean(color));
-  return groupsOfFour(`${data.name ?? slug}${data.author ? ` (${data.author})` : ""}`, colors);
+  return { name: `${data.name ?? slug}${data.author ? ` (${data.author})` : ""}`, colors };
+}
+
+/** A Lospec palette as GB Studio palettes: its colors four at a time, each lightest first. */
+export async function fetchLospec(link: string): Promise<Palette[]> {
+  const { name, colors } = await fetchLospecColors(link);
+  return groupsOfFour(name, colors);
+}
+
+/** Adds palettes to Mine (this browser's own palettes), as the manager's Mine collection shows them. */
+export function addToMine(palettes: { name: string; colors: string[] }[]) {
+  writeMine([...readMine(), ...palettes.map(({ name, colors }) => ({ name, colors: [...colors] }))]);
 }
 
 export default function PaletteManager({ projectName, projectPalettes, sceneSlots, picture, onClose, onWriteProject, onPick, onSlotMenu, onRemoveProject }: PaletteManagerProps) {

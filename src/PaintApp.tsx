@@ -9,7 +9,7 @@ import { useEffect, useLayoutEffect, useReducer, useRef, useState } from "react"
 import { flushSync } from "react-dom";
 import { LogoMark } from "./ui/LogoMark";
 import { applyFont, loadFont, type FontChoice } from "./ui/theme";
-import PaletteManager from "./PaletteManager";
+import PaletteManager, { addToMine } from "./PaletteManager";
 import BackupsWindow from "./BackupsWindow";
 import { attachMiddlePan, attachWheelZoom, nextStep } from "./ui/wheelZoom";
 import { CELL, CLEAR, GB_SHADES, KEY_GREEN, KEY_MAGENTA, assignSlots, spriteShades, cellsWide, clipRect, colorize, countUniqueTiles, drop, fillRect, PATTERNS, type Pattern, mergeNearTiles, tileUsage, type TileUsage, dropCells, flipFloat, gbcCorrect, LOOK_SHADES, type Look, lift, liftCells, onTiles, rotateFloat, namedSlot, quantize, shadeLut, toRgba, type Floating, type Mirror, type Palette } from "./paint";
@@ -28,6 +28,7 @@ import { DnsWizard } from "./app/DnsWizard";
 import { BudgetFixer } from "./app/BudgetFixer";
 import { CheckupWizard } from "./app/CheckupWizard";
 import { NewBackgroundWizard, type NewBackground } from "./app/NewBackgroundWizard";
+import { PaletteSetWizard } from "./app/PaletteSetWizard";
 import type { FitResult } from "./app/pictureFit";
 import { NewPictureWindow, ResizeWindow, type NewPicture } from "./app/NewPictureWindow";
 import { Button, Chip, IconButton, Kbd, Menu, MenuAt, TabList, Tabs, Tooltip, type MenuEntry } from "./ui/kit";
@@ -784,6 +785,34 @@ export default function PaintApp() {
     await loadProject();
     setSlotsVersion((value) => value + 1);
     return written;
+  }
+
+  /** The background slots a palette set goes in: the open background's or tileset's (its scene's, or the defaults), else the project's defaults (through a tileset). */
+  function setSlotsAsset(): { asset: Asset; where: string } | null {
+    const open = doc?.asset;
+    const asset = open && (open.kind === "backgrounds" || open.kind === "tilesets") ? projectRef.current?.assets.find((item) => item.kind === open.kind && item.file === open.file) : null;
+    if (asset) return { asset, where: open?.slotScene ? `${open.slotScene}'s palettes` : "the project's default background palettes" };
+    // Tilesets always read the project's defaults, so any tileset stands in for them when nothing is open.
+    const tileset = projectRef.current?.assets.find((item) => item.kind === "tilesets");
+    return tileset ? { asset: tileset, where: "the project's default background palettes" } : null;
+  }
+
+  /** W3: adds a palette set to the project (reusing palettes it already has), and when asked puts it in slots 1…n. */
+  async function addPaletteSet(list: { name: string; colors: string[] }[], inSlots: boolean): Promise<number> {
+    const target = inSlots ? setSlotsAsset() : null;
+    if (inSlots && target && !window.confirm(`Add the ${list.length} palettes to the project and put them in ${target.where}, slots 1–${list.length}?\n\nThe old settings are backed up.`)) return 0;
+    if (!list.length || !await okToWriteProjectJson()) return 0;
+    const ids: string[] = [];
+    for (const palette of list) {
+      const existing = projectRef.current?.palettes.find((item) => item.name === palette.name && item.colors.join() === palette.colors.join());
+      const id = existing?.id ?? await writeProjectPalette(palette);
+      if (id) ids.push(id);
+    }
+    await loadProject();
+    if (target) { await putInSlots(target.asset, ids.slice(0, 8)); await rereadSlots(); }
+    setSlotsVersion((value) => value + 1);
+    say(target ? `Added ${ids.length} palettes and put them in ${target.where}.` : `Added ${ids.length} palettes to the project.`);
+    return ids.length;
   }
 
   // ---- Picture to background (W1, 2026-10-10) ----------------------------------------------------------------------
@@ -1970,6 +1999,11 @@ export default function PaintApp() {
       {wizard === "dns" && doc && project && (
         <DnsWizard slots={slotPalettes.map((index) => { const palette = index >= 0 ? docPalettes[index] : null; return palette?.id ? { id: palette.id, name: palette.name, colors: [...palette.colors] } : null; })} where={slotWhere} existing={project.palettes.map((palette) => palette.name)}
           picture={{ pixels: doc.pixels, cells: doc.cells, width: doc.width, height: doc.height, palettes: doc.palettes }} onClose={() => setWizard(null)} onCreate={addPalettes} />
+      )}
+      {wizard === "paletteSet" && project && (
+        <PaletteSetWizard projectName={project.name} slotsWhere={setSlotsAsset()?.where ?? null}
+          picture={doc ? { name: doc.name, width: doc.width, height: doc.height, rgba: (() => { const flat = doc.pixels.slice(); if (doc.float) drop(flat, doc.width, doc.height, doc.float); return toRgba(flat, doc.cells, doc.width, doc.palettes); })() } : null}
+          onClose={() => setWizard(null)} onAddToProject={addPaletteSet} onAddToMine={(list) => { addToMine(list); say(`Added ${list.length} palettes to Mine (the palette manager).`); }} />
       )}
       {wizard === "newBackground" && project && <NewBackgroundWizard projectName={project.name} palettes={project.palettes} onClose={() => setWizard(null)} onCreate={createBackground} />}
       {wizard === "budget" && doc && (

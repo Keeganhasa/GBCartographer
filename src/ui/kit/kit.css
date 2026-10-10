@@ -99,7 +99,9 @@
 .k-check { display: inline-flex; align-items: center; gap: var(--k-2); color: var(--k-ink-2); font-size: var(--k-text-sm); cursor: pointer; }
 .k-checkbox { width: 18px; height: 18px; display: grid; place-items: center; flex: none; background: var(--k-sunk); border: 1px solid var(--k-edge-2); border-radius: 5px; color: var(--k-on-acc); cursor: pointer; }
 .k-checkbox[data-state="checked"] { background: var(--k-acc); border-color: var(--k-acc-hi); }
-.k-checkbox svg { width: 13px; height: 13px; }
+.k-checkbox { padding: 0; }
+.k-checkbox > span { display: grid; place-items: center; }
+.k-checkbox svg { width: 13px; height: 13px; display: block; }
 .k-switch { width: 34px; height: 20px; flex: none; padding: 2px; background: var(--k-sunk); border: 1px solid var(--k-edge-2); border-radius: 999px; cursor: pointer; }
 .k-switch[data-state="checked"] { background: var(--k-acc); border-color: var(--k-acc-hi); }
 .k-switch-thumb { display: block; width: 14px; height: 14px; background: #e8eaee; border-radius: 999px; transition: transform .16s var(--k-ease); }
