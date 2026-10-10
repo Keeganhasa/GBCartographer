@@ -4,7 +4,7 @@
  * A tint only changes how the plain tiles look while painting. Saving writes one flat PNG, and for a project
  * picture also its tile palettes (see server/endpoints.ts).
  */
-import { ChevronDown, CircleHelp, Download, FilePlus, FlipHorizontal2, FolderOpen, FolderTree, Grid2x2, Grid3x3, Link2, Magnet, Minus, Palette as PaletteIcon, Pause, Play, Plus, Redo2, Save, ScanSearch, Tv, Undo2, X } from "lucide-react";
+import { ChevronDown, CircleHelp, Download, FilePlus, FlipHorizontal2, FolderOpen, FolderTree, Grid2x2, Grid3x3, Link2, Magnet, Minus, Palette as PaletteIcon, Pause, Play, Plus, Redo2, Save, ScanSearch, Tv, Undo2, Video, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useReducer, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { flushSync } from "react-dom";
 import { LogoMark } from "./ui/LogoMark";
@@ -55,6 +55,10 @@ export default function PaintApp() {
   const [linked, setLinked] = useState(false);
   /** Seamless view: the tile under the pointer (or the selection) repeated 3 × 3 above the picture. */
   const [seamless, setSeamless] = useState(false);
+  /** Camera walk: a 160 × 144 screen dragged over the picture (null: off). */
+  const [camera, setCamera] = useState<{ x: number; y: number } | null>(null);
+  const cameraCanvas = useRef<HTMLCanvasElement>(null);
+  const cameraDrag = useRef<{ dx: number; dy: number } | null>(null);
   const [hoverCell, setHoverCell] = useState<{ x: number; y: number } | null>(null);
   const seamlessCanvas = useRef<HTMLCanvasElement>(null);
   /** The fill pattern for Flood fill and Filled rectangle (D cycles it). */
@@ -1577,6 +1581,17 @@ export default function PaintApp() {
     });
   });
 
+  // The camera's view, copied from the picture as just drawn.
+  useLayoutEffect(() => {
+    const target = cameraCanvas.current, sheet = canvasRef.current;
+    if (!target || !sheet || !camera || !doc) return;
+    Object.assign(target, { width: 160, height: 144 });
+    const context = target.getContext("2d")!;
+    context.fillStyle = "#000";
+    context.fillRect(0, 0, 160, 144);
+    context.drawImage(sheet, camera.x, camera.y, 160, 144, 0, 0, 160, 144);
+  });
+
   // The seamless view copies the picture as just drawn, so it runs after the drawing above.
   useLayoutEffect(() => {
     const target = seamlessCanvas.current, sheet = canvasRef.current;
@@ -1653,6 +1668,7 @@ export default function PaintApp() {
         </span>
         <button className={`icon-button ${grid ? "active-tool" : ""}`} aria-label="Tile grid" title={`Tile grid: ${grid ? `${grid} px` : "off"} (click for off / 8 px / 16 px)`} onClick={() => setGrid(grid === 0 ? 8 : grid === 8 ? 16 : 0)}><Grid3x3 size={15} />{grid > 0 && <small>{grid}</small>}</button>
         <button className={`icon-button ${budgetView ? "active-tool" : ""}`} aria-label="Tile budget view" aria-pressed={budgetView} title="Tile budget view: red tiles are used only once; amber ones nearly match another tile (Picture tab can merge them)" onClick={() => setBudgetView(!budgetView)}><ScanSearch size={15} /></button>
+        <button className={`icon-button ${camera ? "active-tool" : ""}`} aria-label="Camera walk" aria-pressed={Boolean(camera)} title="Camera walk: drag a 160 × 144 screen across the picture and see what the player sees" onClick={() => setCamera(camera ? null : { x: 0, y: 0 })}><Video size={15} /></button>
         <button className={`icon-button ${screens ? "active-tool" : ""}`} aria-label="Game Boy screens" aria-pressed={screens} title="Game Boy screens: outline every 160 × 144 area (one screen) on the picture" onClick={() => { setScreens(!screens); store(SCREENS_KEY, !screens); }}><Tv size={15} /></button>
         <button className={`icon-button ${snap ? "active-tool" : ""}`} aria-label="Snap selections to tiles" aria-pressed={snap} title="Snap selections and moves to 8 px tiles" onClick={() => setSnap(!snap)}><Magnet size={15} /></button>
         <button className={`icon-button ${showHelp ? "active-tool" : ""}`} aria-label="Help" title="Tools, keys and what Save writes · ?" onClick={() => setShowHelp(!showHelp)}><CircleHelp size={15} /></button>
@@ -1731,6 +1747,12 @@ export default function PaintApp() {
               <button className="quiet-button" title="Keep painting; Save will ask before replacing the file on disk" onClick={() => { doc.changedOnDisk = { ...doc.changedOnDisk!, kept: true }; bump(); }}>Keep mine</button>
             </div>
           )}
+          {doc && camera && (
+            <div className="gbp-frames gbp-seamless gbp-camera-strip" role="group" aria-label="Camera view">
+              <span className="gbp-frames-label">camera at {camera.x}, {camera.y} · tile {camera.x >> 3}, {camera.y >> 3} · drag its handle on the picture (Shift snaps to tiles)</span>
+              <canvas ref={cameraCanvas} style={{ width: 320, height: 288 }} />
+            </div>
+          )}
           {doc && seamless && (
             <div className="gbp-frames gbp-seamless" role="group" aria-label="Seamless view">
               <span className="gbp-frames-label">{seamlessArea ? (doc.sel ? `selection ${seamlessArea.w} × ${seamlessArea.h}` : `tile ${hoverCell!.x}, ${hoverCell!.y}`) : "point at a tile"} · repeated 3 × 3</span>
@@ -1750,6 +1772,21 @@ export default function PaintApp() {
                 {gridLines && <div className="gbp-grid" style={{ backgroundSize: `${gridLines} ${gridLines}` }} />}
                 {budgetView && <canvas ref={usageCanvas} className="gbp-usage" />}
                 {tool === "priority" && doc.priority && <canvas ref={priorityCanvas} className="gbp-usage gbp-priority" />}
+                {camera && (
+                  <div className="gbp-camera" style={{ left: camera.x * doc.zoom, top: camera.y * doc.zoom, width: 160 * doc.zoom, height: 144 * doc.zoom }}>
+                    <span className="gbp-camera-handle" title="Drag to move the camera (Shift snaps to tiles)"
+                      onPointerDown={(event) => { event.stopPropagation(); event.currentTarget.setPointerCapture(event.pointerId); const box = wrapRef.current!.getBoundingClientRect(); cameraDrag.current = { dx: (event.clientX - box.left) / doc.zoom - camera.x, dy: (event.clientY - box.top) / doc.zoom - camera.y }; }}
+                      onPointerMove={(event) => {
+                        if (!cameraDrag.current) return;
+                        event.stopPropagation();
+                        const box = wrapRef.current!.getBoundingClientRect();
+                        let x = Math.round((event.clientX - box.left) / doc.zoom - cameraDrag.current.dx), y = Math.round((event.clientY - box.top) / doc.zoom - cameraDrag.current.dy);
+                        if (event.shiftKey) { x = Math.round(x / 8) * 8; y = Math.round(y / 8) * 8; }
+                        setCamera({ x: Math.max(0, Math.min(Math.max(0, doc.width - 160), x)), y: Math.max(0, Math.min(Math.max(0, doc.height - 144), y)) });
+                      }}
+                      onPointerUp={(event) => { event.stopPropagation(); cameraDrag.current = null; }}>camera ⠿</span>
+                  </div>
+                )}
                 {screens && <div className="gbp-screens" style={{ backgroundSize: `${160 * doc.zoom}px ${144 * doc.zoom}px` }} />}
                 {current && current.tiles.map((tile, index) => <div key={index} className="gbp-frame-slice" style={{ left: tile.sliceX * doc.zoom, top: tile.sliceY * doc.zoom, width: 8 * doc.zoom, height: 16 * doc.zoom }} />)}
                 {doc.sel && <div className={`gbp-selection ${doc.float ? "floating" : ""}`} style={{ left: doc.sel.x * doc.zoom, top: doc.sel.y * doc.zoom, width: doc.sel.w * doc.zoom, height: doc.sel.h * doc.zoom }} />}

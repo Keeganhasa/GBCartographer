@@ -574,3 +574,10 @@
 /* Dialogue box preview. */
 .gbp-dialogue-stage { display: flex; flex-direction: column; gap: 12px; }
 .gbp-dialogue-stage textarea { width: 480px; box-sizing: border-box; font: 13px var(--mono); color: var(--ink); background: var(--b-ctl, #181b20); border: 1px solid var(--b-edge, var(--line)); border-radius: 8px; padding: 8px; resize: vertical; }
+
+/* Camera walk: the 160 × 144 screen over the picture, the rest dimmed. */
+.gbp-camera { position: absolute; z-index: 3; box-sizing: border-box; border: 2px solid #ffc440; box-shadow: 0 0 0 99999px rgba(0, 0, 0, .45); pointer-events: none; }
+.gbp-camera-handle { position: absolute; left: -2px; top: -2px; padding: 1px 8px; color: #1a1408; background: #ffc440; border-radius: 0 0 6px 0; font: 600 10px var(--ui); cursor: grab; pointer-events: auto; touch-action: none; user-select: none; }
+.gbp-camera-handle:active { cursor: grabbing; }
+.gbp-camera-strip canvas { image-rendering: pixelated; }
+.gbp-wrap { overflow: hidden; }
