@@ -332,6 +332,18 @@ describe("palette usage", () => {
   });
 });
 
+describe("parallax", () => {
+  it("reads a background's scene parallax layers", async () => {
+    const sceneFile = join(project, "project/scenes/town/scene.gbsres");
+    const before = readFileSync(sceneFile, "utf8");
+    writeFileSync(sceneFile, JSON.stringify({ ...JSON.parse(before), parallax: [{ height: 3, speed: 2 }, { height: 3, speed: 1 }, { height: 0, speed: 0 }] }));
+    const info = await json<{ parallax: { height: number; speed: number }[] }>(await fetch(`${base}/gbstudio-asset-info?kind=backgrounds&file=town.png`));
+    expect(info.parallax).toEqual([{ height: 3, speed: 2 }, { height: 3, speed: 1 }, { height: 0, speed: 0 }]);
+    writeFileSync(sceneFile, before);
+    expect((await json<{ parallax: unknown[] }>(await fetch(`${base}/gbstudio-asset-info?kind=backgrounds&file=town.png`))).parallax).toEqual([]);
+  });
+});
+
 describe("map room layouts", () => {
   it("keeps a project's maps in the app's data folder, never in the project", async () => {
     expect((await json<{ maps: unknown[] }>(await fetch(`${base}/maps`))).maps).toEqual([]);

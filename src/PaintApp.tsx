@@ -326,7 +326,7 @@ export default function PaintApp() {
         if (old < 0) last = id;
         // Backgrounds and tilesets: each tile's priority flag (bit 7: draws over sprites).
         const flags = asset && info && (asset.kind === "backgrounds" || asset.kind === "tilesets") ? Array.from({ length: picture.cells.length }, (_, cell) => (info.tileColors[cell] ?? 0) >= 0 && (info.tileColors[cell] ?? 0) & 0x80 ? 1 : 0) : null;
-        const opened: Doc = { id, ...(handle && !asset ? { fileTime: file.lastModified } : {}), name: asset?.name ?? file.name, width: bitmap.width, height: bitmap.height, pixels: picture.pixels, cells: picture.cells, ...(flags ? { priority: Uint8Array.from(flags) } : {}), hasAlpha: picture.hasAlpha || keyGreen, palettes: picture.palettes, undo: [], redo: [], dirty: false, handle, asset: asset && info ? { kind: asset.kind, file: asset.file, name: asset.name, mtime: info.mtime, ...(hasSlots(asset.kind) ? { slots: info.slots, slotScene: info.slotScene ?? null, metaMtime: info.metaMtime, opened: info.tileColors.map((value) => value < 0 ? -1 : value & 7), ...(flags ? { openedPriority: flags } : {}) } : {}), ...(asset.kind === "sprites" && info.animations?.length ? { animations: info.animations, animSpeed: info.animSpeed ?? null } : {}), project: projectRef.current?.path, ...(info.autoColor ? { autoColor: true } : {}) } : undefined, keyGreen: keyGreen || undefined, ...(keyMagenta ? { keyMagenta: true } : {}), zoom: old >= 0 ? docs.current[old].zoom : fitZoom(bitmap.width, bitmap.height), sel: null, float: null };
+        const opened: Doc = { id, ...(handle && !asset ? { fileTime: file.lastModified } : {}), name: asset?.name ?? file.name, width: bitmap.width, height: bitmap.height, pixels: picture.pixels, cells: picture.cells, ...(flags ? { priority: Uint8Array.from(flags) } : {}), hasAlpha: picture.hasAlpha || keyGreen, palettes: picture.palettes, undo: [], redo: [], dirty: false, handle, asset: asset && info ? { kind: asset.kind, file: asset.file, name: asset.name, mtime: info.mtime, ...(hasSlots(asset.kind) ? { slots: info.slots, slotScene: info.slotScene ?? null, metaMtime: info.metaMtime, opened: info.tileColors.map((value) => value < 0 ? -1 : value & 7), ...(flags ? { openedPriority: flags } : {}) } : {}), ...(asset.kind === "sprites" && info.animations?.length ? { animations: info.animations, animSpeed: info.animSpeed ?? null } : {}), ...(asset.kind === "backgrounds" && info.parallax?.length ? { parallax: info.parallax } : {}), project: projectRef.current?.path, ...(info.autoColor ? { autoColor: true } : {}) } : undefined, keyGreen: keyGreen || undefined, ...(keyMagenta ? { keyMagenta: true } : {}), zoom: old >= 0 ? docs.current[old].zoom : fitZoom(bitmap.width, bitmap.height), sel: null, float: null };
         if (old >= 0) docs.current[old] = opened;
         else docs.current.push(opened);
         if (old >= 0) continue;
@@ -754,7 +754,7 @@ export default function PaintApp() {
         item.priority = Uint8Array.from(flags);
         asset.openedPriority = flags;
       }
-      Object.assign(asset, { slots: info.slots, slotScene: info.slotScene ?? null, ...(asset.kind === "sprites" ? { animSpeed: info.animSpeed ?? null } : {}) });
+      Object.assign(asset, { slots: info.slots, slotScene: info.slotScene ?? null, ...(asset.kind === "sprites" ? { animSpeed: info.animSpeed ?? null } : {}), ...(asset.kind === "backgrounds" ? { parallax: info.parallax ?? [] } : {}) });
     }));
     if (ours.length) bump();
   }
@@ -1653,7 +1653,17 @@ export default function PaintApp() {
     const context = target.getContext("2d")!;
     context.fillStyle = "#000";
     context.fillRect(0, 0, 160, 144);
-    context.drawImage(sheet, camera.x, camera.y, 160, 144, 0, 0, 160, 144);
+    // Parallax (GB Studio): layers from the top of the screen, n tile rows each, scroll at camera x / 2^speed
+    // (speed 128 stays put); the last layer reaches the bottom of the screen; rows below the layers scroll normally.
+    const layers = doc.asset?.parallax ?? [];
+    let row = 0;
+    layers.forEach((layer, index) => {
+      const last = index === layers.length - 1, rows = last ? 18 - row : Math.min(layer.height, 18 - row);
+      const x = layer.speed === 128 ? 0 : camera.x >> layer.speed;
+      context.drawImage(sheet, x, camera.y + row * 8, 160, rows * 8, 0, row * 8, 160, rows * 8);
+      row += rows;
+    });
+    if (row < 18) context.drawImage(sheet, camera.x, camera.y + row * 8, 160, 144 - row * 8, 0, row * 8, 160, 144 - row * 8);
   });
 
   // The seamless view copies the picture as just drawn, so it runs after the drawing above.
@@ -1814,7 +1824,7 @@ export default function PaintApp() {
           )}
           {doc && camera && (
             <div className="gbp-frames gbp-seamless gbp-camera-strip" role="group" aria-label="Camera view">
-              <span className="gbp-frames-label">camera at {camera.x}, {camera.y} · tile {camera.x >> 3}, {camera.y >> 3} · drag its handle on the picture (Shift snaps to tiles)</span>
+              <span className="gbp-frames-label">camera at {camera.x}, {camera.y} · tile {camera.x >> 3}, {camera.y >> 3} · drag its handle on the picture (Shift snaps to tiles){doc.asset?.parallax?.length ? ` · parallax: ${doc.asset.parallax.map((layer) => layer.speed === 128 ? "fixed" : layer.speed === 0 ? "1" : `1/${2 ** layer.speed}`).join(", ")}` : ""}</span>
               <canvas ref={cameraCanvas} style={{ width: 320, height: 288 }} />
             </div>
           )}
