@@ -4,7 +4,7 @@
  * A tint only changes how the plain tiles look while painting. Saving writes one flat PNG, and for a project
  * picture also its tile palettes (see server/endpoints.ts).
  */
-import { ChevronDown, CircleHelp, Download, FilePlus, FlipHorizontal2, FolderOpen, FolderTree, Grid3x3, Magnet, Minus, Palette as PaletteIcon, Pause, Play, Plus, Redo2, Save, Tv, Undo2, X } from "lucide-react";
+import { ChevronDown, CircleHelp, Download, FilePlus, FlipHorizontal2, FolderOpen, FolderTree, Grid3x3, Magnet, Minus, Palette as PaletteIcon, Pause, Play, Plus, Redo2, Save, ScanSearch, Tv, Undo2, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useReducer, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { flushSync } from "react-dom";
 import { LogoMark } from "./ui/LogoMark";
@@ -12,7 +12,7 @@ import { FONTS, applyFont, loadFont, type FontChoice } from "./ui/theme";
 import PaletteManager from "./PaletteManager";
 import BackupsWindow from "./BackupsWindow";
 import { attachMiddlePan, attachWheelZoom, nextStep } from "./ui/wheelZoom";
-import { CELL, CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, cellsWide, clipRect, colorize, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, closeShades, dropCells, flipFloat, gbcCorrect, LOOK_SHADES, type Look, lift, liftCells, linePoints, mirrorPoints, onTiles, replaceShade, rotateFloat, namedSlot, quantize, rectFrom, shadeLut, snapRect, spray, toRgba, type Floating, type Mirror, type Palette } from "./paint";
+import { CELL, CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, cellsWide, clipRect, colorize, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, closeShades, mergeNearTiles, tileUsage, type TileUsage, dropCells, flipFloat, gbcCorrect, LOOK_SHADES, type Look, lift, liftCells, linePoints, mirrorPoints, onTiles, replaceShade, rotateFloat, namedSlot, quantize, rectFrom, shadeLut, snapRect, spray, toRgba, type Floating, type Mirror, type Palette } from "./paint";
 import { ASSET_URL, BUDGETS, BUDGET_KEY, BUILT_IN_TINTS, CUSTOM_TINT_KEY, FILE_MANAGER_LABEL, GRID_KEY, MIRRORS, MIRROR_LABEL, NAMED_SLOTS_KEY, SCREENS_KEY, LOOK_KEY, PNG_TYPES, PROJECT_KIND_KEY, PROJECT_PANEL_KEY, PROJECT_URL, TINT_KEY, UI_SLOT, UNDO_BYTES, UNDO_LIMIT, ZOOMS, hasSlots, isKeyed, versionTime, type Asset, type AssetInfo, type AssetKind, type Doc, type Drag, type FileHandle, type Opening, type PickerWindow, type Point, type Project, type ToolId } from "./app/model";
 import { TOOLS } from "./app/tools";
 import { readStored, sessionStore, store } from "./app/storage";
@@ -45,6 +45,10 @@ export default function PaintApp() {
   const [screens, setScreens] = useState<boolean>(() => readStored(SCREENS_KEY, false));
   /** How the picture shows while painting: plain, or like an original, Pocket or Color Game Boy screen. */
   const [look, setLook] = useState<Look>(() => readStored(LOOK_KEY, "plain"));
+  /** The tile budget view: tiles used once and tiles that nearly match another, over the picture. */
+  const [budgetView, setBudgetView] = useState(false);
+  const [usage, setUsage] = useState<{ key: string; usage: TileUsage } | null>(null);
+  const usageCanvas = useRef<HTMLCanvasElement>(null);
   const [palettes, setPalettes] = useState<Palette[]>([]);
   const [activePalette, setActivePalette] = useState(0);
   const [tint, setTint] = useState(() => readStored(TINT_KEY, "GB greens"));
@@ -108,6 +112,8 @@ export default function PaintApp() {
   /** The palettes of the picture a clip was copied from, so its tile palettes land on the same palettes when pasted. */
   const clipPalettes = useRef<Palette[]>([]);
   const lastRecolor = useRef(0);
+  /** Counts edits, so work that follows the pixels (the tile budget view) knows when to look again. */
+  const editCount = useRef(0);
   const spaceDown = useRef(false);
   const paintTool = useRef<ToolId>("pencil");
   const palettesRef = useRef<Palette[]>([]);
@@ -157,6 +163,7 @@ export default function PaintApp() {
   }
 
   function touch(target: Doc) {
+    editCount.current += 1;
     target.dirty = true;
     scheduleSession();
     bump();
@@ -1234,6 +1241,45 @@ export default function PaintApp() {
     return () => window.clearTimeout(timer);
   });
 
+  // The budget view's numbers trail painting by a moment too (finding near matches compares every pair of tiles).
+  const usageKey = doc ? `${doc.id}|${editCount.current}|${doc.width}x${doc.height}|${budget.flips}|${doc.float ? "float" : ""}` : "";
+  useEffect(() => {
+    if (!doc || (!budgetView && sideTab !== "picture") || usage?.key === usageKey) return;
+    const timer = window.setTimeout(() => {
+      let pixels = doc.pixels;
+      if (doc.float) { pixels = pixels.slice(); drop(pixels, doc.width, doc.height, doc.float); }
+      setUsage({ key: usageKey, usage: tileUsage(pixels, doc.width, doc.height, budget.flips) });
+    }, 300);
+    return () => window.clearTimeout(timer);
+  });
+  const shownUsage = usage && usage.key === usageKey ? usage.usage : null;
+  const usedOnce = shownUsage ? shownUsage.uses.reduce((count, value) => count + (value === 1 ? 1 : 0), 0) : 0;
+  const nearCount = shownUsage ? shownUsage.near.reduce((count, value) => count + (value >= 0 ? 1 : 0), 0) : 0;
+  // The overlay: red tiles are used only once, amber ones nearly match another tile (merge candidates).
+  useLayoutEffect(() => {
+    const canvas = usageCanvas.current;
+    if (!canvas || !doc || !shownUsage) return;
+    const cw = Math.ceil(doc.width / CELL), ch = Math.ceil(doc.height / CELL);
+    Object.assign(canvas, { width: cw, height: ch });
+    const context = canvas.getContext("2d")!;
+    context.clearRect(0, 0, cw, ch);
+    shownUsage.uses.forEach((value, cell) => {
+      if (value > 1) return;
+      context.fillStyle = shownUsage.near[cell] >= 0 ? "rgba(255, 190, 40, .55)" : "rgba(235, 60, 60, .45)";
+      context.fillRect(cell % cw, Math.floor(cell / cw), 1, 1);
+    });
+  });
+
+  function mergeNear() {
+    if (!doc || !shownUsage || !nearCount) return;
+    if (!window.confirm(`Make ${nearCount} tile${nearCount === 1 ? "" : "s"} that differ from another tile in at most 3 pixels into copies of it? This saves ${nearCount} tile${nearCount === 1 ? "" : "s"} of the budget; undo brings them back.`)) return;
+    dropFloat(doc);
+    pushUndo(doc);
+    const merged = mergeNearTiles(doc.pixels, doc.width, doc.height, shownUsage);
+    touch(doc);
+    say(`Merged ${merged} near-duplicate tile${merged === 1 ? "" : "s"}.`);
+  }
+
   const animations = doc?.asset?.animations ?? [];
   const animation = animations[Math.min(frame.animation, Math.max(0, animations.length - 1))];
   const frames = animation?.frames ?? [];
@@ -1383,6 +1429,7 @@ export default function PaintApp() {
           <button className="icon-button small" aria-label="Zoom in" disabled={!doc} onClick={() => zoomBy(1)}><Plus size={12} /></button>
         </span>
         <button className={`icon-button ${grid ? "active-tool" : ""}`} aria-label="Tile grid" title={`Tile grid: ${grid ? `${grid} px` : "off"} (click for off / 8 px / 16 px)`} onClick={() => setGrid(grid === 0 ? 8 : grid === 8 ? 16 : 0)}><Grid3x3 size={15} />{grid > 0 && <small>{grid}</small>}</button>
+        <button className={`icon-button ${budgetView ? "active-tool" : ""}`} aria-label="Tile budget view" aria-pressed={budgetView} title="Tile budget view: red tiles are used only once; amber ones nearly match another tile (Picture tab can merge them)" onClick={() => setBudgetView(!budgetView)}><ScanSearch size={15} /></button>
         <button className={`icon-button ${screens ? "active-tool" : ""}`} aria-label="Game Boy screens" aria-pressed={screens} title="Game Boy screens: outline every 160 × 144 area (one screen) on the picture" onClick={() => { setScreens(!screens); store(SCREENS_KEY, !screens); }}><Tv size={15} /></button>
         <button className={`icon-button ${snap ? "active-tool" : ""}`} aria-label="Snap selections to tiles" aria-pressed={snap} title="Snap selections and moves to 8 px tiles" onClick={() => setSnap(!snap)}><Magnet size={15} /></button>
         <button className={`icon-button ${showHelp ? "active-tool" : ""}`} aria-label="Help" title="Tools, keys and what Save writes · ?" onClick={() => setShowHelp(!showHelp)}><CircleHelp size={15} /></button>
@@ -1464,6 +1511,7 @@ export default function PaintApp() {
               <div className="gbp-wrap" ref={wrapRef} style={{ width: doc.width * doc.zoom, height: doc.height * doc.zoom }}>
                 <canvas ref={canvasRef} />
                 {gridLines && <div className="gbp-grid" style={{ backgroundSize: `${gridLines} ${gridLines}` }} />}
+                {budgetView && <canvas ref={usageCanvas} className="gbp-usage" />}
                 {screens && <div className="gbp-screens" style={{ backgroundSize: `${160 * doc.zoom}px ${144 * doc.zoom}px` }} />}
                 {current && current.tiles.map((tile, index) => <div key={index} className="gbp-frame-slice" style={{ left: tile.sliceX * doc.zoom, top: tile.sliceY * doc.zoom, width: 8 * doc.zoom, height: 16 * doc.zoom }} />)}
                 {doc.sel && <div className={`gbp-selection ${doc.float ? "floating" : ""}`} style={{ left: doc.sel.x * doc.zoom, top: doc.sel.y * doc.zoom, width: doc.sel.w * doc.zoom, height: doc.sel.h * doc.zoom }} />}
@@ -1560,6 +1608,14 @@ export default function PaintApp() {
                   <dt>Unique tiles</dt><dd>{tileCount} of {budget.limit}</dd>
                 </dl>
                 <button className="quiet-button" title="A new size in whole tiles" onClick={() => setShowResize(true)}>Resize…</button>
+                <div className="gbp-budget">
+                  <span className="eyebrow">Where the tiles go</span>
+                  {shownUsage ? <p className="gbp-note">{tileCount} different tiles; {usedOnce} used only once{nearCount ? `, ${nearCount} of them within 3 pixels of another tile` : ""}.</p> : <p className="gbp-note">Counting…</p>}
+                  <span className="gbp-budget-actions">
+                    <button className={`quiet-button ${budgetView ? "active-tool" : ""}`} onClick={() => setBudgetView(!budgetView)}>{budgetView ? "Hide" : "Show"} on the picture</button>
+                    <button className="quiet-button" disabled={!nearCount} title="Each tile within 3 pixels of another becomes a copy of it (undoable)" onClick={mergeNear}>Merge {nearCount || ""} near matches</button>
+                  </span>
+                </div>
                 </>
               ) : <p className="gbp-note">No picture open.</p>}
               <label className="gbp-field">Tile budget

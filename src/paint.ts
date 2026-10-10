@@ -431,6 +431,84 @@ export function countUniqueTiles(pixels: Uint8Array, width: number, height: numb
   return seen.size;
 }
 
+/** A tile's 64 pixels (edges padded see-through), row by row. */
+function tileAt(pixels: Uint8Array, width: number, height: number, cell: number): Uint8Array {
+  const cw = cellsWide(width), tx = (cell % cw) * CELL, ty = Math.floor(cell / cw) * CELL;
+  const tile = new Uint8Array(64);
+  for (let y = 0; y < CELL; y += 1) for (let x = 0; x < CELL; x += 1) tile[y * CELL + x] = tx + x < width && ty + y < height ? pixels[(ty + y) * width + tx + x] : CLEAR;
+  return tile;
+}
+
+/** How the tiles are spent: per cell, how many cells share its pattern, and for a tile used once, a near twin. */
+export interface TileUsage {
+  /** Per cell: how many cells show this pattern (flipped copies count when `flips`). */
+  uses: Uint16Array;
+  /** Per cell: for a tile used once, the cell of the closest other pattern within `maxDiff` pixels, else -1. */
+  near: Int32Array;
+  /** Per cell: how many pixels differ from `near`. */
+  diff: Uint8Array;
+}
+
+/**
+ * Where the tile budget goes: tiles used only once cost a whole tile each; one that differs from another tile in a
+ * few pixels (`maxDiff`) could be merged into it. The twin is the most used close pattern (fewest differences first).
+ */
+export function tileUsage(pixels: Uint8Array, width: number, height: number, flips: boolean, maxDiff = 3): TileUsage {
+  const cw = cellsWide(width), count = cw * Math.ceil(height / CELL);
+  const tiles = Array.from({ length: count }, (_, cell) => tileAt(pixels, width, height, cell));
+  const key = (tile: Uint8Array, order: (x: number, y: number) => number) => { let text = ""; for (let y = 0; y < CELL; y += 1) for (let x = 0; x < CELL; x += 1) text += tile[order(x, y)]; return text; };
+  const orders: ((x: number, y: number) => number)[] = [(x, y) => y * CELL + x, (x, y) => y * CELL + 7 - x, (x, y) => (7 - y) * CELL + x, (x, y) => (7 - y) * CELL + 7 - x];
+  // Each cell's pattern id: the first cell with the same tile (or a flip of it, with `flips`).
+  const ids = new Int32Array(count), firstByKey = new Map<string, number>();
+  tiles.forEach((tile, cell) => {
+    const plain = key(tile, orders[0]);
+    let id = firstByKey.get(plain);
+    if (id === undefined && flips) for (const order of orders.slice(1)) { id = firstByKey.get(key(tile, order)); if (id !== undefined) break; }
+    if (id === undefined) { id = cell; firstByKey.set(plain, cell); }
+    ids[cell] = id;
+  });
+  const total = new Map<number, number>();
+  for (const id of ids) total.set(id, (total.get(id) ?? 0) + 1);
+  const uses = Uint16Array.from(ids, (id) => total.get(id)!);
+  const near = new Int32Array(count).fill(-1), diff = new Uint8Array(count);
+  const patterns = [...total.keys()];
+  for (let cell = 0; cell < count; cell += 1) {
+    if (uses[cell] > 1) continue;
+    let best = -1, bestDiff = maxDiff + 1, bestUses = 0;
+    for (const other of patterns) {
+      if (other === ids[cell]) continue;
+      let differs = 0;
+      for (let at = 0; at < 64 && differs <= maxDiff; at += 1) if (tiles[cell][at] !== tiles[other][at]) differs += 1;
+      const otherUses = total.get(other)!;
+      if (differs <= maxDiff && (differs < bestDiff || (differs === bestDiff && otherUses > bestUses))) { best = other; bestDiff = differs; bestUses = otherUses; }
+    }
+    if (best >= 0) { near[cell] = best; diff[cell] = bestDiff; }
+  }
+  return { uses, near, diff };
+}
+
+/**
+ * Makes each listed cell a copy of its near twin's tile (merging near duplicates). A twin that was itself just
+ * changed is not copied from (two single-use tiles that are each other's twin would otherwise swap). Returns how
+ * many tiles changed.
+ */
+export function mergeNearTiles(pixels: Uint8Array, width: number, height: number, usage: TileUsage): number {
+  const cw = cellsWide(width);
+  const changed = new Set<number>();
+  let merged = 0;
+  usage.near.forEach((twin, cell) => {
+    if (twin < 0 || changed.has(twin)) return;
+    changed.add(cell);
+    const tx = (cell % cw) * CELL, ty = Math.floor(cell / cw) * CELL, sx = (twin % cw) * CELL, sy = Math.floor(twin / cw) * CELL;
+    for (let y = 0; y < CELL; y += 1) for (let x = 0; x < CELL; x += 1) {
+      if (tx + x >= width || ty + y >= height || sx + x >= width || sy + y >= height) continue;
+      pixels[(ty + y) * width + tx + x] = pixels[(sy + y) * width + sx + x];
+    }
+    merged += 1;
+  });
+  return merged;
+}
+
 /** How the picture is shown while painting, like a real screen (never saved). */
 export type Look = "plain" | "dmg" | "pocket" | "gbc";
 /** The original Game Boy's pea-green LCD and the Game Boy Pocket's grey one, lightest first: palettes don't show. */

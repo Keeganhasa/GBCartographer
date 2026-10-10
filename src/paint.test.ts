@@ -1,7 +1,28 @@
 import { describe, expect, it } from "vitest";
-import { CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, clipRect, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, hexRgb, closeShades, colorDistance, gbStudioShade, gbcCorrect, dropCells, flipFloat, lift, liftCells, linePoints, onTiles, replaceShade, rotateFloat, mirrorPoints, namedSlot, quantize, snapRect, toRgba } from "./paint";
+import { CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, clipRect, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, hexRgb, closeShades, colorDistance, mergeNearTiles, tileUsage, gbStudioShade, gbcCorrect, dropCells, flipFloat, lift, liftCells, linePoints, onTiles, replaceShade, rotateFloat, mirrorPoints, namedSlot, quantize, snapRect, toRgba } from "./paint";
 
 describe("GB Cartographer pixels", () => {
+  it("shows where the tile budget goes and merges tiles that nearly match another", () => {
+    // Four tiles in a row: A, A, A with one pixel changed, and a very different B.
+    const width = 32, pixels = new Uint8Array(32 * 8);
+    for (let y = 0; y < 8; y += 1) for (let x = 0; x < 32; x += 1) pixels[y * width + x] = x >= 24 ? (x + y) % 4 : (x % 2);
+    pixels[3 * width + 16 + 4] = 3;
+    const usage = tileUsage(pixels, width, 8, false);
+    expect([...usage.uses]).toEqual([2, 2, 1, 1]);
+    expect([...usage.near]).toEqual([-1, -1, 0, -1]);
+    expect(usage.diff[2]).toBe(1);
+    expect(mergeNearTiles(pixels, width, 8, usage)).toBe(1);
+    expect([...tileUsage(pixels, width, 8, false).uses]).toEqual([3, 3, 3, 1]);
+    // Two single-use tiles that are each other's twin: one becomes the other (not a swap).
+    const pair = new Uint8Array(16 * 8);
+    pair[0] = 1;
+    pair[8 + 1] = 1;
+    const both = tileUsage(pair, 16, 8, false);
+    expect([...both.near]).toEqual([1, 0]);
+    expect(mergeNearTiles(pair, 16, 8, both)).toBe(1);
+    expect([...tileUsage(pair, 16, 8, false).uses]).toEqual([2, 2]);
+  });
+
   it("flags neighbouring shades that are hard to tell apart", () => {
     expect(colorDistance("#000000", "#FFFFFF")).toBeCloseTo(100, 0);
     expect(closeShades(["#E0F8CF", "#86C06C", "#306850", "#071821"])).toEqual([]);
