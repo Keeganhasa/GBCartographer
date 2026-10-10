@@ -12,8 +12,8 @@ import { FONTS, applyFont, loadFont, type FontChoice } from "./ui/theme";
 import PaletteManager from "./PaletteManager";
 import BackupsWindow from "./BackupsWindow";
 import { attachMiddlePan, attachWheelZoom, nextStep } from "./ui/wheelZoom";
-import { CELL, CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, cellsWide, clipRect, colorize, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, dropCells, flipFloat, lift, liftCells, linePoints, mirrorPoints, onTiles, replaceShade, rotateFloat, namedSlot, quantize, rectFrom, shadeLut, snapRect, spray, toRgba, type Floating, type Mirror, type Palette } from "./paint";
-import { ASSET_URL, BUDGETS, BUDGET_KEY, BUILT_IN_TINTS, CUSTOM_TINT_KEY, FILE_MANAGER_LABEL, GRID_KEY, MIRRORS, MIRROR_LABEL, NAMED_SLOTS_KEY, SCREENS_KEY, PNG_TYPES, PROJECT_KIND_KEY, PROJECT_PANEL_KEY, PROJECT_URL, TINT_KEY, UI_SLOT, UNDO_BYTES, UNDO_LIMIT, ZOOMS, hasSlots, isKeyed, versionTime, type Asset, type AssetInfo, type AssetKind, type Doc, type Drag, type FileHandle, type Opening, type PickerWindow, type Point, type Project, type ToolId } from "./app/model";
+import { CELL, CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, cellsWide, clipRect, colorize, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, dropCells, flipFloat, gbcCorrect, LOOK_SHADES, type Look, lift, liftCells, linePoints, mirrorPoints, onTiles, replaceShade, rotateFloat, namedSlot, quantize, rectFrom, shadeLut, snapRect, spray, toRgba, type Floating, type Mirror, type Palette } from "./paint";
+import { ASSET_URL, BUDGETS, BUDGET_KEY, BUILT_IN_TINTS, CUSTOM_TINT_KEY, FILE_MANAGER_LABEL, GRID_KEY, MIRRORS, MIRROR_LABEL, NAMED_SLOTS_KEY, SCREENS_KEY, LOOK_KEY, PNG_TYPES, PROJECT_KIND_KEY, PROJECT_PANEL_KEY, PROJECT_URL, TINT_KEY, UI_SLOT, UNDO_BYTES, UNDO_LIMIT, ZOOMS, hasSlots, isKeyed, versionTime, type Asset, type AssetInfo, type AssetKind, type Doc, type Drag, type FileHandle, type Opening, type PickerWindow, type Point, type Project, type ToolId } from "./app/model";
 import { TOOLS } from "./app/tools";
 import { readStored, sessionStore, store } from "./app/storage";
 import { HelpTip } from "./app/HelpTip";
@@ -43,6 +43,8 @@ export default function PaintApp() {
   const [snap, setSnap] = useState(false);
   /** Outlines every 160 × 144 area of the picture: one Game Boy screen. */
   const [screens, setScreens] = useState<boolean>(() => readStored(SCREENS_KEY, false));
+  /** How the picture shows while painting: plain, or like an original, Pocket or Color Game Boy screen. */
+  const [look, setLook] = useState<Look>(() => readStored(LOOK_KEY, "plain"));
   const [palettes, setPalettes] = useState<Palette[]>([]);
   const [activePalette, setActivePalette] = useState(0);
   const [tint, setTint] = useState(() => readStored(TINT_KEY, "GB greens"));
@@ -1311,7 +1313,10 @@ export default function PaintApp() {
       }
     }
     const image = new ImageData(doc.width, doc.height);
-    colorize(pixels, cells, doc.width, luts, new Uint32Array(image.data.buffer));
+    // A mono screen shows only the shades (GB Studio's monochrome mode ignores palettes); a GBC screen dims and mixes colors.
+    if (look === "dmg" || look === "pocket") colorize(pixels, cells, doc.width, [shadeLut(LOOK_SHADES[look])], new Uint32Array(image.data.buffer));
+    else colorize(pixels, cells, doc.width, luts, new Uint32Array(image.data.buffer));
+    if (look === "gbc") gbcCorrect(image.data);
     canvas.getContext("2d")!.putImageData(image, 0, 0);
   });
 
@@ -1561,6 +1566,14 @@ export default function PaintApp() {
                   {BUDGETS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
                 </select>
               </label>
+              <label className="gbp-field" title="How the picture shows while you paint, like a real Game Boy screen. Never saved.">Screen
+                <select aria-label="Screen" value={look} onChange={(event) => { const next = event.target.value as Look; setLook(next); store(LOOK_KEY, next); }}>
+                  <option value="plain">Plain (as the file and palettes say)</option>
+                  <option value="dmg">Game Boy (green LCD, shades only)</option>
+                  <option value="pocket">Game Boy Pocket (grey, shades only)</option>
+                  <option value="gbc">Game Boy Color (its screen's colors)</option>
+                </select>
+              </label>
               <label className="gbp-field" title="Preview colors for tiles without a palette. Saving always writes the GB greens.">Tint
                 <select value={tint} onChange={(event) => setTint(event.target.value)}>
                   {BUILT_IN_TINTS.map(({ name }) => <option key={name}>{name}</option>)}
@@ -1582,6 +1595,7 @@ export default function PaintApp() {
         <span className="gbp-status-hint"><b>{hint[1]}</b> · {hint[4]}</span>
         <span ref={readoutRef} className="gbp-readout" />
         <span className="gbp-spacer" />
+        {look !== "plain" && <button className="gbp-look-tag" title="The picture shows like a real screen (Picture tab → Screen); the file is unchanged. Click for plain." onClick={() => { setLook("plain"); store(LOOK_KEY, "plain"); }}>{look === "dmg" ? "Game Boy screen" : look === "pocket" ? "Pocket screen" : "GBC screen"} ×</button>}
         {doc?.sel && <span>sel {doc.sel.w} × {doc.sel.h} at {doc.sel.x}, {doc.sel.y}</span>}
         {doc && <span title={doc.asset ? `assets/${doc.asset.kind}/${doc.asset.file}` : doc.name}>{doc.width} × {doc.height} · {doc.width / CELL} × {doc.height / CELL} tiles</span>}
       </footer>

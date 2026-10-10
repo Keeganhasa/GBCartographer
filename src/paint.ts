@@ -430,3 +430,25 @@ export function countUniqueTiles(pixels: Uint8Array, width: number, height: numb
   }
   return seen.size;
 }
+
+/** How the picture is shown while painting, like a real screen (never saved). */
+export type Look = "plain" | "dmg" | "pocket" | "gbc";
+/** The original Game Boy's pea-green LCD and the Game Boy Pocket's grey one, lightest first: palettes don't show. */
+export const LOOK_SHADES: Record<"dmg" | "pocket", readonly string[]> = {
+  dmg: ["#9BBC0F", "#8BAC0F", "#306230", "#0F380F"],
+  pocket: ["#C5CAA4", "#8C926B", "#4A5138", "#181818"],
+};
+
+/**
+ * The Game Boy Color screen's color response (higan's well-known approximation): colors are cut to the GBC's 5 bits
+ * per channel, then mixed and dimmed the way its LCD shows them. Works in place on RGBA bytes (alpha kept).
+ */
+export function gbcCorrect(rgba: Uint8ClampedArray): Uint8ClampedArray {
+  for (let at = 0; at < rgba.length; at += 4) {
+    const r = rgba[at] >> 3, g = rgba[at + 1] >> 3, b = rgba[at + 2] >> 3;
+    rgba[at] = Math.min(960, r * 26 + g * 4 + b * 2) >> 2;
+    rgba[at + 1] = Math.min(960, g * 24 + b * 8) >> 2;
+    rgba[at + 2] = Math.min(960, r * 6 + g * 4 + b * 22) >> 2;
+  }
+  return rgba;
+}

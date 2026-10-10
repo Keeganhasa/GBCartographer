@@ -24,6 +24,7 @@ export const PROJECT_PANEL_KEY = "gb-cartographer.project-panel";
 export const PROJECT_KIND_KEY = "gb-cartographer.project-kind";
 export const NAMED_SLOTS_KEY = "gb-cartographer.named-slots";
 export const SCREENS_KEY = "gb-cartographer.screens";
+export const LOOK_KEY = "gb-cartographer.look";
 /** GB Studio draws dialogue boxes and menus with the eighth background palette. */
 export const UI_SLOT = 7;
 /** A backup version's time from its name (2026-10-09T23-12-05-123Z.png). */
