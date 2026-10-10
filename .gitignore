@@ -21,5 +21,11 @@ demo-project/
 # Design mockups and review screenshots (local only)
 review/
 
-# The to-do list and planning notes stay local (not public)
+# Private working files: the to-do list and plan, notes for Claude, the dev log, the internal spec,
+# the author's per-tile coloring record, and Claude's launch config. They live only on the author's machines.
 TODO.md
+CLAUDE.md
+PROGRESS.md
+docs/SPEC.md
+docs/demo-tile-palettes.json
+.claude/
