@@ -8,13 +8,7 @@ palettes straight back into the project.
 > will be bugs. It writes into your GB Studio project when you save, so keep the project backed up or in version
 > control, and close GB Studio while you work. Please report problems in the repository's issues.
 
-![GB Cartographer with GB Studio's sample project open: "Paint and Color directly in app" painted over the wide parallax background in its scene's palettes, the project's backgrounds on the left and the palettes on the right](docs/screenshot-paint-directly.png)
-
-![Painting palettes onto the demo's Winter Tileset, tile by tile, with the palette brush](docs/demo.gif)
-
-| Spray | Select and move | Pencil |
-| :---: | :---: | :---: |
-| ![Spraying shades over the demo's Free Furniture tileset](docs/demo-spray.gif) | ![Selecting a television on the Free Furniture tileset and moving it](docs/demo-select-move.gif) | ![Drawing zig-zag strokes with the pencil over the Free Furniture tileset](docs/demo-pencil.gif) |
+Screenshots will come back once the artists whose work they show have said yes.
 
 ## Features
 
@@ -36,8 +30,7 @@ palettes straight back into the project.
   import palettes from Lospec `.hex` or GIMP `.gpl` files and export your own as JSON.
 - **A store.** Credited palette sets to take into a project, a whole set or one palette at a time: the author's
   Chorbi and Overworld sets (CC0), Game Boy screens, and SpicyGame's public-domain palettes, each with its license
-  and source. And a wireframe library (CC0): over 100 placeholder pieces to paint over: walking characters,
-  creatures, things, animated objects, emotes, avatars, window frames and cursors, tile sheets and whole scenes.
+  and source.
 - **Wizards and generators.** A picture to a background, day/sunset/night palettes, a palette set from Lospec or a
   picture, a tile budget fixer, a project check-up, and live cave/dungeon and overworld generators in placeholder
   art to paint over.
@@ -57,23 +50,11 @@ palettes straight back into the project.
 - **Careful with your files.** The last 10 versions of every file it overwrites, restorable from **Backups…**; a
   warning when a file changed on disk (pictures GB Studio changes reload by themselves) or GB Studio is open; and a
   short, fixed list of what it ever writes (below).
-- **Works offline**, with its fonts built in. **A demo project** to try it on, with CC0 and MIT art by credited
-  authors.
+- **Works offline**, with its fonts built in. **A demo project** to try it on (its art joins once its artists say yes).
 
 ## Planned
 
 - Prebuilt apps for macOS, Windows and Linux (GitHub Releases and itch.io), and a tested Windows pass.
-
-## Screenshots
-
-![GB Cartographer with the demo's winter scene open: the project's pictures on the left, the paint tools, and the scene's palettes on the right](docs/screenshot.png)
-
-GB Studio's own sample project opened in GB Cartographer: a font sheet with its live sample sentence, and a wide
-parallax background painted with its scene's palettes.
-
-![A GB Studio font sheet open, with "The quick brown fox" set in its glyphs above it](docs/screenshot-font.png)
-
-![A 640 × 144 background from GB Studio's sample project, painted in color](docs/screenshot-sample-background.png)
 
 ## GB Studio versions
 
@@ -90,12 +71,10 @@ lists opens with a note: keep a backup and look for a GB Cartographer update.
 
 ## Try it with the demo project
 
-The app ships with a small GB Studio 4 project in `demo/`: a winter scene, a cabin interior and a forest, a furniture
-tileset, animal and snow-folk sprite sheets, four fonts, and a set of palettes. **Try the demo project** on the
-start screen opens a copy of it (in the app's data folder, so the shipped copy stays clean). The art is by
-Spencer "Raptorspank" Gerowe (CC0) and by GumpyFunction, yoanqwp, krümel, Paige Ashlynn, Anima
-and KizulEmeraldfire from the GB Studio Community Assets repository (MIT); the full list is in
-[demo/CREDITS.md](demo/CREDITS.md).
+`demo/` holds a small GB Studio 4 project: its scenes, palettes and settings. Its art isn't in the repository yet:
+it will join once each artist has given their blessing (credits in [demo/CREDITS.md](demo/CREDITS.md)). Until
+then, open your own GB Studio project to try GB Cartographer. **Try the demo project** on the start screen opens a
+copy of it (in the app's data folder, so the shipped copy stays clean).
 
 ## What GB Cartographer writes into your project
 
@@ -172,7 +151,5 @@ npm run build
 
 Code: MIT (see LICENSE). The logo is the author's pixel art, CC0. [Public Pixel](https://ggbot.itch.io/public-pixel-font)
 by GGBotNet (CC0, shipped in `public/fonts/`) is an optional UI font. Inter by Rasmus Andersson and the Inter Project Authors, and JetBrains Mono by JetBrains, ship with the app (SIL Open Font License 1.1, licences in `public/fonts/`).
-Bundled palettes: the author's own (CC0) and [SpicyGame's](https://spicygame.itch.io/palettes) (public domain), grouped into Game Boy palettes. The demo project's art is credited in [demo/CREDITS.md](demo/CREDITS.md). The main screenshot and the font and wide-background screenshots show GB
-Studio's sample project (`appData/templates/gbs2` in the [GB Studio repository](https://github.com/chrismaltby/gb-studio)),
-Copyright (c) 2019-2026 Chris Maltby, used under the MIT license. GB Studio is by Chris Maltby and
+Bundled palettes: the author's own (CC0) and [SpicyGame's](https://spicygame.itch.io/palettes) (public domain), grouped into Game Boy palettes. The repository ships no art (the demo project's will join with its artists' blessing; credits in [demo/CREDITS.md](demo/CREDITS.md)). GB Studio is by Chris Maltby and
 contributors; GB Cartographer is not affiliated with it.

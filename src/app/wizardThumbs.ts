@@ -4,7 +4,6 @@
  */
 import library from "../palettes/library.json";
 import { Pen, canvas } from "../wireframes/pen";
-import { scenes } from "../wireframes/scenes";
 import { drawCave, drawWorld, type Generated } from "./generators";
 
 export type WizardThumb = "picture" | "dns" | "paletteSet" | "newBackground" | "budget" | "cave" | "world" | "map" | "checkup";
@@ -88,13 +87,11 @@ export function wizardThumb(id: WizardThumb): Generated {
   if (id === "cave") return crop(drawCave({ style: "cave", columns: 1, rows: 1, cell: 8, seed: 11, fill: 45, smooth: 4, rooms: 6, roomSize: 4, connected: true, stairs: true, theme: "V20-5-Stone" }));
   if (id === "world") return crop(drawWorld({ columns: 2, rows: 2, seed: 5, water: 38, mountains: 18, forest: 35, towns: 2, scale: 4, island: true, roads: true, theme: "vibe20" }), 2, 24);
   if (id === "map") {
-    // A grid of screens: a town at half size, the screen edges drawn over it.
-    const town = scenes.town(), out = blank(["OW-7-Town"]);
-    const small = crop({ ...town }, 2, 48);
-    out.pixels.set(small.pixels);
+    // A grid of screens: a small overworld, the screen edges drawn over it.
+    const out = crop(drawWorld({ columns: 2, rows: 2, seed: 9, water: 30, mountains: 15, forest: 30, towns: 3, scale: 3, island: false, roads: true, theme: "overworld" }), 2, 24);
     const p = new Pen(out);
     for (const x of [0, 80, 159]) p.rect(x, 0, 1, H, 3);
-    p.rect(0, 0, W, 1, 3); p.rect(0, 72, W, 1, 3); p.rect(0, 95, W, 1, 3);
+    p.rect(0, 0, W, 1, 3); p.rect(0, 48, W, 1, 3); p.rect(0, 95, W, 1, 3);
     return out;
   }
   // checkup: a health report, ticked off one by one.

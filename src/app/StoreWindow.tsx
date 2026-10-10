@@ -9,8 +9,13 @@ import { Check, ExternalLink, FilePlus2, Plus, Scale, Search, Store } from "luci
 import { useEffect, useMemo, useState } from "react";
 import { toRgba } from "../paint";
 import { Button, Chip, Dialog, IconButton, Popover, Segmented } from "../ui/kit";
-import { WIREFRAME_GROUPS, WIREFRAMES, type WireAsset } from "../wireframes/library";
 import type { Canvas } from "../wireframes/pen";
+import type { WireAsset } from "../wireframes/types";
+
+// The wireframe library is local-only until its art is approved: the aisle shows when its catalog is there.
+const WIRE_LIBRARY = Object.values(import.meta.glob<{ WIREFRAMES: WireAsset[]; WIREFRAME_GROUPS: string[] }>("../wireframes/library.ts", { eager: true }))[0];
+const WIREFRAMES = WIRE_LIBRARY?.WIREFRAMES ?? [];
+const WIREFRAME_GROUPS = WIRE_LIBRARY?.WIREFRAME_GROUPS ?? [];
 import { LICENSES, hasPalette, storeShelves, type StorePalette, type StoreSet } from "./store";
 import "./StoreWindow.css";
 
@@ -101,8 +106,8 @@ export function StoreWindow({ projectName, projectPalettes, onClose, onAddToProj
 
   return (
     <Dialog open onOpenChange={(next) => { if (!next && !busy) onClose(); }} wide tall title="Store" icon={<Store size={18} />}
-      sub={projectName ? `Credited palettes and placeholder art to take into ${projectName}, piece by piece` : "Credited palettes and placeholder art: open a project to add them to it"}
-      headExtra={<Segmented size="sm" label="Aisle" value={aisle} onChange={(next) => { setAisle(next); setQuery(""); setOpen(null); }} options={[{ value: "palettes", label: "Palettes" }, { value: "wireframes", label: "Wireframes" }]} />}>
+      sub={projectName ? `Credited ${WIREFRAMES.length ? "palettes and placeholder art" : "palettes"} to take into ${projectName}, piece by piece` : `Credited ${WIREFRAMES.length ? "palettes and placeholder art" : "palettes"}: open a project to add them to it`}
+      headExtra={WIREFRAMES.length > 0 && <Segmented size="sm" label="Aisle" value={aisle} onChange={(next) => { setAisle(next); setQuery(""); setOpen(null); }} options={[{ value: "palettes", label: "Palettes" }, { value: "wireframes", label: "Wireframes" }]} />}>
       <div className="st">
         <nav className="st-shelves k-stack k-stack--tight" aria-label="Shelves">
           <label className="st-search"><Search size={14} /><input className="k-input" placeholder={aisle === "palettes" ? "Find a palette" : "Find art"} aria-label="Find" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
