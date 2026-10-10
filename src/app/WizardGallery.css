@@ -1,0 +1,9 @@
+/* The Wizards gallery: a card per wizard, its thumbnail on top. */
+.wg { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: var(--k-3); overflow: auto; height: 100%; align-content: start; padding: 2px; }
+.wg-card { display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: var(--k-2); color: inherit; text-align: left; font: inherit; cursor: pointer; }
+.wg-card:hover:not(:disabled) { border-color: rgba(var(--k-acc-rgb), .6); }
+.wg-card:disabled { opacity: .55; cursor: default; }
+.wg-thumb { display: block; width: 100%; aspect-ratio: 160 / 96; border-radius: 8px; image-rendering: pixelated; }
+.wg-name { display: flex; align-items: center; gap: 6px; padding: 0 2px; font-weight: 600; color: var(--k-ink); }
+.wg-name svg { width: 15px; height: 15px; color: var(--k-acc); }
+.wg-about { padding: 0 2px 2px; }

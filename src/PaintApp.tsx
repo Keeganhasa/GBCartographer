@@ -31,6 +31,7 @@ import { NewBackgroundWizard, type NewBackground } from "./app/NewBackgroundWiza
 import { PaletteSetWizard } from "./app/PaletteSetWizard";
 import { GeneratorWizard, type GeneratorMode } from "./app/GeneratorWizard";
 import { StoreWindow } from "./app/StoreWindow";
+import { WizardGallery, type WizardCard } from "./app/WizardGallery";
 import type { Generated } from "./app/generators";
 import type { FitResult } from "./app/pictureFit";
 
@@ -100,6 +101,7 @@ export default function PaintApp() {
   const [served, setServed] = useState(false);
   const [showPalettes, setShowPalettes] = useState(false);
   const [showStore, setShowStore] = useState(false);
+  const [showWizards, setShowWizards] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const [showHealth, setShowHealth] = useState(false);
@@ -1843,17 +1845,17 @@ export default function PaintApp() {
   ] : [];
   // The wizards (W1…W8, the author's picks 2026-10-10); the text tool (W5) is in the tool column.
   const noProject = !project, sceneOpen = Boolean(doc?.asset?.slots?.length);
-  const wizardItems: MenuEntry[] = [
-    { heading: "Wizards" },
-    { label: "Picture to background…", icon: <ImagePlus />, disabled: noProject, title: "Any picture or photo, framed to screens and fitted to GB Studio's palettes and tile budget", onSelect: () => setShowPictureWizard(true) },
-    { label: "Day, sunset and night…", icon: <PxCloudMoon size={15} />, disabled: !sceneOpen, title: sceneOpen ? "Time-of-day versions of the open picture's slot palettes" : "Open a project background or sprite sheet first", onSelect: () => setWizard("dns") },
-    { label: "A palette set…", icon: <SwatchBook />, disabled: noProject, title: "Eight palettes from a Lospec palette, a picture or the library", onSelect: () => setWizard("paletteSet") },
-    { label: "New background…", icon: <FilePlus />, disabled: noProject, title: "A blank background in screens, with a palette set in its slots", onSelect: () => setWizard("newBackground") },
-    { label: "Tile budget fixer…", icon: <PhPiggyBank size={15} />, disabled: !doc, title: "Get the open picture under GB Studio's tile limit, one merge at a time", onSelect: () => setWizard("budget") },
-    { label: "Cave or dungeon…", icon: <Pickaxe />, title: "A cave or dungeon in placeholder art, 2 × 2 screens to start; sliders redraw it live", onSelect: () => setWizard("cave") },
-    { label: "Overworld…", icon: <Mountain />, title: "An RPG-style overworld in placeholder art: water, forest, mountains, towns and roads", onSelect: () => setWizard("world") },
-    { label: "New map…", icon: <MapIcon />, disabled: noProject, title: "An adventure-style grid of screens, in the Map Room", onSelect: () => setShowMapRoom(true) },
-    { label: "Project check-up…", icon: <PxHeart size={15} />, disabled: noProject, title: "The health report one issue at a time, each with its fix", onSelect: () => setWizard("checkup") },
+  const needProject = noProject ? "Open a GB Studio project first" : null;
+  const wizardCards: WizardCard[] = [
+    { thumb: "picture", name: "Picture to background", icon: <ImagePlus />, about: "Any picture or photo, framed to screens and fitted to GB Studio's palettes and tile budget, keeping its colors as best it can.", blocked: needProject, onStart: () => setShowPictureWizard(true) },
+    { thumb: "dns", name: "Day, sunset and night", icon: <PxCloudMoon size={15} />, about: "Time-of-day versions of the open picture's slot palettes, named so GB Studio events can swap them.", blocked: sceneOpen ? null : "Open a project background or sprite sheet first", onStart: () => setWizard("dns") },
+    { thumb: "paletteSet", name: "A palette set", icon: <SwatchBook />, about: "Eight palettes from a Lospec palette, any picture or the library, grouped lightest first.", blocked: needProject, onStart: () => setWizard("paletteSet") },
+    { thumb: "newBackground", name: "New background", icon: <FilePlus />, about: "A blank background sized in screens, with a palette set in its slots.", blocked: needProject, onStart: () => setWizard("newBackground") },
+    { thumb: "budget", name: "Tile budget fixer", icon: <PhPiggyBank size={15} />, about: "Get the open picture under GB Studio's tile limit, one merge of near-twin tiles at a time.", blocked: doc ? null : "Open a picture first", onStart: () => setWizard("budget") },
+    { thumb: "cave", name: "Cave or dungeon", icon: <Pickaxe />, about: "A cave or a dungeon of rooms in placeholder art, 2 × 2 screens to start; sliders redraw it live.", blocked: null, onStart: () => setWizard("cave") },
+    { thumb: "world", name: "Overworld", icon: <Mountain />, about: "An RPG-style overworld: water, forest, mountains, towns and roads, in the palettes you pick.", blocked: null, onStart: () => setWizard("world") },
+    { thumb: "map", name: "New map", icon: <MapIcon />, about: "An adventure-style grid of screens, laid out in the Map Room with a live preview.", blocked: needProject, onStart: () => setShowMapRoom(true) },
+    { thumb: "checkup", name: "Project check-up", icon: <PxHeart size={15} />, about: "The health report one issue at a time, each with its fix (old → new shown first).", blocked: needProject, onStart: () => setWizard("checkup") },
   ];
   const lookName = look === "dmg" ? "Game Boy screen" : look === "pocket" ? "Pocket screen" : "GBC screen";
 
@@ -1874,7 +1876,7 @@ export default function PaintApp() {
           {project && <Button icon={<MapIcon />} title="Map Room: adventure-style grids of screens, each a background" onClick={() => setShowMapRoom(true)}>Maps</Button>}
           <Button icon={<SwatchBook />} title="Palette manager: the project's palettes, a library, and your own" onClick={() => setShowPalettes(true)}>Palettes</Button>
           <Button icon={<StoreIcon />} title="Store: credited palette sets to take into your project, a set or a palette at a time" onClick={() => setShowStore(true)}>Store</Button>
-          <Menu items={wizardItems} trigger={<Button icon={<PxRobotHappy size={15} />} title="Wizards: step-by-step helpers">Wizards</Button>} />
+          <Button icon={<PxRobotHappy size={15} />} title="Wizards: step-by-step helpers" onClick={() => setShowWizards(true)}>Wizards</Button>
         </span>
         <IconButton label="Undo" keys="Ctrl+Z" disabled={!doc?.undo.length} onClick={() => stepHistory("undo")}><Undo2 /></IconButton>
         <IconButton label="Redo" keys="Ctrl+Shift+Z" disabled={!doc?.redo.length} onClick={() => stepHistory("redo")}><Redo2 /></IconButton>
@@ -2021,6 +2023,7 @@ export default function PaintApp() {
           picture={doc ? { name: doc.name, width: doc.width, height: doc.height, rgba: (() => { const flat = doc.pixels.slice(); if (doc.float) drop(flat, doc.width, doc.height, doc.float); return toRgba(flat, doc.cells, doc.width, doc.palettes); })() } : null}
           onClose={() => setWizard(null)} onAddToProject={addPaletteSet} onAddToMine={(list) => { addToMine(list); say(`Added ${list.length} palettes to Mine (the palette manager).`); }} />
       )}
+      {showWizards && <WizardGallery cards={wizardCards} onClose={() => setShowWizards(false)} />}
       {showStore && (
         <StoreWindow projectName={project?.name ?? null} projectPalettes={project?.palettes ?? []} onClose={() => setShowStore(false)}
           onAddToProject={async (list) => { const written = await addPalettes(list); if (written) say(`Added ${written} palette${written === 1 ? "" : "s"} to the project.`); return written; }}
