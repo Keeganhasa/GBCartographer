@@ -27,7 +27,6 @@ palettes straight back into the project.
 - **Paint directly with palettes.** The palette brush gives each 8 × 8 background or tileset tile (or 8 × 16
   sprite tile) one of its eight palettes, in 1, 2 × 2 or 3 × 3 tile steps, with Shift-click for straight lines and
   I to pick a tile's palette. Save writes them as GB Studio does: `tileColors`, or a sprite slice's `paletteIndex`.
-  A priority brush marks background tiles that draw over sprites.
 - **Put a palette in a slot.** Right-click a palette (in the sidebar or the palette manager) to place it in one of
   the eight slots: the scene's palette list, or the project's default palettes. An optional named-slots rule lets
   day / night / sunset variants (`Forest-2-Trees N`) save as their base palette's slot.
