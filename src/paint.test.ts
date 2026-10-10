@@ -299,3 +299,28 @@ describe("timeVariant", () => {
     expect(timeVariant("Sunset")).toBeNull();
   });
 });
+
+describe("Picture to background", () => {
+  it("posterizes to at most the asked colors, keeping see-through pixels, and dithers gradients", async () => {
+    const { posterize, fitTileBudget } = await import("./paint");
+    const width = 64, height = 8, rgba = new Uint8ClampedArray(width * height * 4);
+    for (let y = 0; y < height; y += 1) for (let x = 0; x < width; x += 1) rgba.set([x * 4, 128, 255 - x * 4, x === 0 ? 0 : 255], (y * width + x) * 4);
+    const flat = posterize(rgba, width, height, 4);
+    const distinct = new Set<string>();
+    for (let p = 0; p < flat.length; p += 4) if (flat[p + 3] >= 128) distinct.add(`${flat[p]},${flat[p + 1]},${flat[p + 2]}`);
+    expect(distinct.size).toBeLessThanOrEqual(4);
+    expect(distinct.size).toBeGreaterThan(1);
+    expect(flat[3]).toBe(0);                                   // see-through stays see-through
+    // Dithering mixes neighbouring colors inside a band: more color changes between neighbours than without.
+    const changes = (data: Uint8ClampedArray) => { let n = 0; for (let p = 4; p < data.length; p += 4) if (data[p] !== data[p - 4] || data[p + 2] !== data[p - 2]) n += 1; return n; };
+    expect(changes(posterize(rgba, width, height, 4, true))).toBeGreaterThan(changes(flat));
+    // Tile budget: 8 single-use tiles that differ by one pixel each merge down to the limit.
+    const pixels = new Uint8Array(64 * 8);
+    for (let tile = 0; tile < 8; tile += 1) pixels[tile * 8 + tile] = 3;   // each tile: one dark pixel in a different place
+    const fitted = fitTileBudget(pixels, 64, 8, false, 2);   // no flips: the diagonal dots mirror each other
+    expect(fitted.before).toBe(8);
+    expect(fitted.tiles).toBeLessThanOrEqual(2);
+    expect(fitted.merged).toBeGreaterThan(0);
+    expect(fitTileBudget(pixels, 64, 8, false, 400).merged).toBe(0);
+  });
+});

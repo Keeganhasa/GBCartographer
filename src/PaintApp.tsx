@@ -4,7 +4,7 @@
  * A tint only changes how the plain tiles look while painting. Saving writes one flat PNG, and for a project
  * picture also its tile palettes (see server/endpoints.ts).
  */
-import { ChevronDown, Clock, Copy, FolderArchive, FolderSearch, FolderX, Gamepad2, History, Info, MessageSquare, RotateCcw, FilePlus, FolderOpen, FolderTree, Grid3x3, Magnet, Map as MapIcon, Minus, SwatchBook, Plus, Redo2, Rocket, Save, Undo2, X } from "lucide-react";
+import { ChevronDown, Clock, Copy, ImagePlus, FolderArchive, FolderSearch, FolderX, Gamepad2, History, Info, MessageSquare, RotateCcw, FilePlus, FolderOpen, FolderTree, Grid3x3, Magnet, Map as MapIcon, Minus, SwatchBook, Plus, Redo2, Rocket, Save, Undo2, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { LogoMark } from "./ui/LogoMark";
@@ -23,8 +23,10 @@ import { SpriteOnBackground } from "./app/SpriteOnBackground";
 import { DialoguePreview } from "./app/DialoguePreview";
 import { MapRoom } from "./app/MapRoom";
 import { FitWindow } from "./app/FitWindow";
+import { PictureWizard } from "./app/PictureWizard";
+import type { FitResult } from "./app/pictureFit";
 import { NewPictureWindow, ResizeWindow, type NewPicture } from "./app/NewPictureWindow";
-import { Button, Chip, IconButton, Kbd, Menu, MenuAt, TabList, Tabs, Tooltip, usePrompt, type MenuEntry } from "./ui/kit";
+import { Button, Chip, IconButton, Kbd, Menu, MenuAt, TabList, Tabs, Tooltip, type MenuEntry } from "./ui/kit";
 import "./app/shell.css";
 import { StartScreen } from "./app/StartScreen";
 import { ProjectPanel } from "./app/ProjectPanel";
@@ -37,6 +39,7 @@ import { PhPiggyBank, PhSticker, PxGamepad, PxHeart, PxLightbulb, PxSnake } from
 import { PalettesPane } from "./app/PalettesPane";
 import { FramesStrip } from "./app/FramesStrip";
 import { StampsStrip } from "./app/StampsStrip";
+import { SaveStampDialog, type StampSave } from "./app/SaveStampDialog";
 
 /** A new picture's id: one above every open one (a counter would restart when the module reloads in development). */
 const newDocId = (docs: readonly { id: number }[]) => docs.reduce((top, item) => Math.max(top, item.id), 0) + 1;
@@ -86,6 +89,8 @@ export default function PaintApp() {
   const [showHelp, setShowHelp] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const [showHealth, setShowHealth] = useState(false);
+  const [showPictureWizard, setShowPictureWizard] = useState(false);
+  const [stampSave, setStampSave] = useState<{ hint: string; resolve: (save: StampSave | null) => void } | null>(null);
   const [showDialogue, setShowDialogue] = useState(false);
   const [showMapRoom, setShowMapRoom] = useState(false);
   /** Fit to GB Studio's colors: the picture as shown (its colors), when open. */
@@ -161,7 +166,6 @@ export default function PaintApp() {
   const swatchColors = picked ? shown(picked.colors) : tintColors;
   const clonePalettes = (list: readonly Palette[]): Palette[] => list.map(({ name, colors, id }) => ({ name, colors: [...colors], ...(id ? { id } : {}) }));
   const blank = (target: Doc) => target.hasAlpha ? CLEAR : 0;
-  const [promptDialog, askText] = usePrompt();
   const { takeStamp, setStamp, pointerDown, pointerMove, pointerUp } = usePainting({
     doc, tool, shade, brush, cellBrush, mirror, pattern, linked, snap, seamless, activePalette, hoverCell,
     wrapRef, scrollerRef, readoutRef, brushRef, spaceDown, paintTool,
@@ -693,9 +697,83 @@ export default function PaintApp() {
     // The thumbnail in the project panel shows the new file.
     setProject((current) => current && { ...current, assets: current.assets.map((item) => item.kind === asset.kind && item.file === asset.file ? { ...item, mtime: asset.mtime } : item) });
     const notes = [asset.kind === "stamps" ? `Saved the stamp ${asset.name} (Cartographer/stamps)` : `Saved ${asset.name} into the GB Studio project`];
-    if (hasSlots(asset.kind) && asset.slots?.length) notes.push(...await saveTileColors(target));
+    if (hasSlots(asset.kind) && asset.slots?.length) {
+      // A picture GB Studio hasn't read yet has no .gbsres to hold its tile palettes: look again (GB Studio may have
+      // made one since), else keep the picture unsaved with its palettes until it has.
+      if (asset.metaMtime == null) {
+        const info = await fetch(`${ASSET_URL}-info?${assetQuery(asset)}`, { cache: "no-cache" }).then((response) => response.ok ? response.json() as Promise<AssetInfo> : null).catch(() => null);
+        if (info?.metaMtime != null) Object.assign(asset, { metaMtime: info.metaMtime, opened: info.tileColors.map((value) => value < 0 ? -1 : value & 7) });
+      }
+      if (asset.metaMtime == null && target.cells.some(Boolean)) {
+        target.dirty = true;
+        notes.push("Its tile palettes wait: GB Studio hasn't read this picture yet. Open the project in GB Studio once (it adds the picture's settings file), then Save here again");
+      } else notes.push(...await saveTileColors(target));
+    }
     if (asset.kind === "stamps") notes.push(...await saveStampMeta(target));
     say(notes.join(". "));
+    return true;
+  }
+
+
+  // ---- Picture to background (W1, 2026-10-10) ----------------------------------------------------------------------
+
+  /** The wizard's result as an untitled picture here: its palettes are palettes of the file. */
+  async function openFittedPicture(result: FitResult, name: string) {
+    await palettesReady.current;
+    const id = newDocId(docs.current);
+    const palettes = clonePalettes(palettesRef.current);
+    const first = palettes.length;
+    result.palettes.forEach((colors, index) => palettes.push({ name: `${name} ${index + 1}`, colors: [...colors] }));
+    docs.current.push({ id, name: `${name.replace(/\.png$/i, "")}.png`, width: result.width, height: result.height, pixels: result.pixels.slice(), cells: Uint8Array.from(result.cells, (wear) => wear ? first + wear : 0), hasAlpha: false, palettes, undo: [], redo: [], dirty: true, zoom: fitZoom(result.width, result.height), sel: null, float: null });
+    setActiveId(id);
+    setShowPictureWizard(false);
+    scheduleSession();
+    bump();
+    say(`${name}: ${result.palettes.length} palettes of the file. Save asks where it goes.`);
+  }
+
+  /**
+   * The wizard's result as a new background in the project: the PNG (in GB greens) goes to assets/backgrounds, the
+   * palettes are added to the project and put in the default slots 1…n, and the tiles' slots are written.
+   */
+  async function saveFittedBackground(result: FitResult, name: string): Promise<boolean> {
+    if (!projectRef.current) return false;
+    // The default slots are what every scene without its own palettes uses: say so before changing them.
+    const count = result.palettes.length;
+    if (!window.confirm(`Make assets/backgrounds/${name}.png and add its ${count} palette${count === 1 ? "" : "s"} to the project?\n\nThey go in the project's default background slots 1–${count}, which every scene without its own palettes uses (the old defaults are backed up). Put them in a scene's own slots later with Put in slot.`)) return false;
+    if (!await okToWriteProjectJson()) return false;
+    const ids: string[] = [];
+    for (const [index, colors] of result.palettes.entries()) {
+      const id = await writeProjectPalette({ name: `${name} ${index + 1}`, colors: [...colors] });
+      if (!id) { say("Not every palette could be added to the project; nothing else changed."); return false; }
+      ids.push(id);
+    }
+    const canvas = document.createElement("canvas");
+    Object.assign(canvas, { width: result.width, height: result.height });
+    canvas.getContext("2d")!.putImageData(new ImageData(toRgba(result.pixels, result.cells, result.width, []), result.width, result.height), 0, 0);
+    const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((made) => made ? resolve(made) : reject(new Error("No PNG")), "image/png"));
+    const response = await fetch(`./__cartographer/gbstudio-new-asset?${new URLSearchParams({ kind: "backgrounds", name })}`, { method: "POST", body: blob }).catch(() => null);
+    const made = response ? await response.json().catch(() => null) as { ok?: boolean; error?: string; file?: string } | null : null;
+    if (!response?.ok || !made?.ok || !made.file) { say(`Could not make the background: ${made?.error ?? response?.statusText ?? "no answer"}`); return false; }
+    await loadProject();
+    setProjectKind("backgrounds");
+    const asset = projectRef.current?.assets.find((item) => item.kind === "backgrounds" && item.file === made.file);
+    if (!asset) { say(`Made assets/backgrounds/${made.file}, but it could not be opened.`); return true; }
+    // The palettes into the slots the new background reads (the project's defaults until a scene shows it).
+    for (const [slot, paletteId] of ids.entries()) {
+      await fetch(`./__cartographer/gbstudio-palette-slot?${assetQuery(asset)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slot, paletteId }) }).catch(() => null);
+    }
+    await openAsset(asset);
+    const target = docs.current.find((item) => item.asset?.kind === "backgrounds" && item.asset.file === made.file);
+    if (target) {
+      target.cells = Uint8Array.from(result.cells, (wear) => { const at = wear ? target.palettes.findIndex((palette) => palette.id === ids[wear - 1]) : -1; return at < 0 ? 0 : at + 1; });
+      if (target.asset) target.asset.slots = ids.concat(target.asset.slots?.slice(ids.length) ?? []);
+      touch(target);
+      await saveDoc(target, false, false);
+    }
+    await rereadSlots();
+    setSlotsVersion((value) => value + 1);
+    say(`Made assets/backgrounds/${made.file} with ${ids.length} palettes in slots 1–${ids.length}.${target?.dirty ? " Its tile palettes wait until GB Studio has read the project once: then Save it here again." : ""}`);
     return true;
   }
 
@@ -714,7 +792,7 @@ export default function PaintApp() {
     return { slots, tileColors };
   }
 
-  async function postStampMeta(file: string, meta: { slots: string[]; tileColors: number[] }, metaMtime: number | null | undefined, force = false) {
+  async function postStampMeta(file: string, meta: { slots: string[]; tileColors: number[]; tags?: string[] }, metaMtime: number | null | undefined, force = false) {
     return fetch(`./__cartographer/stamp-meta?${new URLSearchParams({ file })}${metaMtime != null ? `&metaMtime=${metaMtime}` : ""}${force ? "&force=1" : ""}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(meta) });
   }
 
@@ -742,8 +820,10 @@ export default function PaintApp() {
     if (!target?.sel || !project) return;
     const area = clipRect(target.sel, target.width, target.height);
     if (!area) return;
-    const name = await askText({ title: "Save as stamp", label: "Name", placeholder: "e.g. Cabin bed", hint: `A PNG in ${project.name}/Cartographer/stamps${onTiles(area) ? ", with its tile palettes" : ""}`, confirm: "Save stamp" });
-    if (!name) return;
+    const picked = await new Promise<StampSave | null>((resolve) => setStampSave({ hint: `A PNG in ${project.name}/Cartographer/stamps${onTiles(area) ? ", with its tile palettes" : ""}`, resolve }));
+    setStampSave(null);
+    if (!picked) return;
+    const { name, tags } = picked;
     const flat = target.pixels.slice(), flatCells = target.cells.slice();
     if (target.float) { drop(flat, target.width, target.height, target.float); dropCells(flatCells, target.width, target.height, target.float); }
     const piece = lift(flat, target.width, area);
@@ -757,7 +837,7 @@ export default function PaintApp() {
     const made = await fetch(`./__cartographer/gbstudio-new-asset?${new URLSearchParams({ kind: "stamps", name })}`, { method: "POST", body: blob }).catch(() => null);
     const result = made ? await made.json().catch(() => null) as { ok?: boolean; file?: string; error?: string } | null : null;
     if (!made?.ok || !result?.ok || !result.file) return say(`The stamp was not saved: ${result?.error ?? "no answer"}`);
-    if (cells && cells.some(Boolean)) await postStampMeta(result.file, stampMeta(cells, target.palettes), null);
+    if ((cells && cells.some(Boolean)) || tags.length) await postStampMeta(result.file, { ...(cells ? stampMeta(cells, target.palettes) : { slots: [], tileColors: [] }), tags }, null);
     takeStamp(target, area);
     await loadProject();
     say(`Saved the stamp ${name} in ${project.name}/Cartographer/stamps${cells ? " with its tile palettes" : ""}. It's in hand: pick the Stamp tool (C) to use it.`);
@@ -1486,6 +1566,8 @@ export default function PaintApp() {
 
   async function onDrop(event: React.DragEvent) {
     event.preventDefault();
+    // A drop on a window (the picture wizard takes its own) doesn't open the file behind it.
+    if ((event.target as Element).closest?.("[role=dialog]")) return;
     // Handles must be asked for before the first await: the drop's items are gone after it.
     const items = [...event.dataTransfer.items].filter((item) => item.kind === "file").map((item) => ({
       file: item.getAsFile(),
@@ -1523,6 +1605,7 @@ export default function PaintApp() {
     ...(otherRecent.length ? [{ separator: true } as MenuEntry, { heading: <><Clock size={11} /> Recent</> } as MenuEntry, ...otherRecent.slice(0, 5).map((item) => ({ label: item.name, indent: true, title: item.path, onSelect: () => void openProjectPath(item.path) }))] : []),
     ...(project ? [
       { separator: true } as MenuEntry,
+      { label: "Picture to background…", icon: <ImagePlus />, title: "Any picture or photo, framed to screens and fitted to GB Studio's palettes and tile budget", onSelect: () => setShowPictureWizard(true) },
       { label: "Map Room…", icon: <MapIcon />, onSelect: () => setShowMapRoom(true) },
       { label: "Project health…", icon: <PxHeart size={15} />, onSelect: () => setShowHealth(true) },
       { label: "Dialogue box…", icon: <MessageSquare />, onSelect: () => setShowDialogue(true) },
@@ -1719,7 +1802,6 @@ export default function PaintApp() {
         )}
       </footer>
       {toast && <div className="app-toast" role="status">{toast}</div>}
-      {promptDialog}
       {slotMenu && slotItems.length > 0 && <MenuAt x={slotMenu.x} y={slotMenu.y} items={slotItems} label="Put in slot" onClose={() => setSlotMenu(null)} />}
       {selectionMenu && selectionItems.length > 0 && <MenuAt x={selectionMenu.x} y={selectionMenu.y} items={selectionItems} label="Selection" onClose={() => setSelectionMenu(null)} />}
       {assetMenu && <MenuAt x={assetMenu.x} y={assetMenu.y} items={assetItems} label={assetMenu.asset.name} onClose={() => setAssetMenu(null)} />}
@@ -1729,6 +1811,8 @@ export default function PaintApp() {
       {fitting && doc && <FitWindow name={doc.name} rgba={fitting} width={doc.width} height={doc.height} slotsTarget={doc.asset?.slots?.length && (doc.asset.kind === "backgrounds" || doc.asset.kind === "tilesets") ? doc.asset.slotScene ?? "the project's defaults" : null} onClose={() => setFitting(null)} onApply={applyFit} />}
       {showMapRoom && project && <MapRoom project={project} onClose={() => setShowMapRoom(false)} onOpen={(asset) => { setProjectKind("backgrounds"); void openAsset(asset); }} onProjectChanged={async () => { await loadProject(); setSlotsVersion((value) => value + 1); }} onExport={(blob, name) => saveBlob(blob, name, PNG_TYPES)} say={say} />}
       {showDialogue && project && <DialoguePreview backgrounds={project.assets.filter((asset) => asset.kind === "backgrounds")} hasFrame={project.assets.some((asset) => asset.kind === "ui" && asset.file === "frame.png")} onClose={() => setShowDialogue(false)} />}
+      {stampSave && <SaveStampDialog hint={stampSave.hint} known={[...new Set((project?.assets ?? []).flatMap((asset) => asset.tags ?? []))]} onClose={() => stampSave.resolve(null)} onSave={(save) => stampSave.resolve(save)} />}
+      {showPictureWizard && <PictureWizard projectName={project?.name ?? null} onClose={() => setShowPictureWizard(false)} onOpen={openFittedPicture} onSave={saveFittedBackground} />}
       {showHealth && project && <HealthWindow projectName={project.name} onClose={() => setShowHealth(false)} onOpen={(kind, file) => { const asset = project.assets.find((item) => item.kind === kind && item.file === file); if (asset) { setProjectKind(kind); void openAsset(asset); } }} />}
       {showNew && <NewPictureWindow projectName={project?.name ?? null} initialKind={projectKind} onClose={() => setShowNew(false)} onCreate={createPicture} />}
       {showResize && doc && <ResizeWindow name={doc.asset?.name ?? doc.name} width={doc.width} height={doc.height} sprite={doc.asset?.kind === "sprites"} inProject={Boolean(doc.asset)} onClose={() => setShowResize(false)} onResize={resizePicture} />}

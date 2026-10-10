@@ -39,7 +39,7 @@ const sidecarOf = (path: string, kind: AssetKind) => kind === "stamps" ? `${path
 /** Where backups go: the backups folder and the project the written file belongs to (see backups.ts). */
 export interface Backup { dir: string; project: string }
 
-export interface AssetEntry { kind: AssetKind; file: string; name: string; width: number; height: number; mtime: number }
+export interface AssetEntry { kind: AssetKind; file: string; name: string; width: number; height: number; mtime: number; /** A stamp's tags (its own sidecar). */ tags?: string[] }
 export interface ProjectPalette { id: string; name: string; colors: string[]; /** The palette file's modification time (for the changed-on-disk check). */ mtime: number }
 /**
  * What GB Cartographer needs besides the pixels. `tileColors`: one attribute per 8 × 8 cell whose low three bits are the
@@ -179,7 +179,8 @@ export function listAssets(project: string): AssetEntry[] {
       if (!size) continue;
       const sidecar = readJson(`${path}.gbsres`);
       const name = typeof sidecar?.name === "string" && sidecar.name ? sidecar.name : file.replace(/\.png$/i, "");
-      entries.push({ kind, file, name, width: size.width, height: size.height, mtime: statSync(path).mtimeMs });
+      const tags = kind === "stamps" ? stampTags(readJson(`${path}.json`)) : undefined;
+      entries.push({ kind, file, name, width: size.width, height: size.height, mtime: statSync(path).mtimeMs, ...(tags?.length ? { tags } : {}) });
     }
   }
   return entries;
@@ -660,10 +661,18 @@ export function ownFolderReadme(project: string) {
  * A stamp's tile palettes: `slots` (palette ids, up to 8) and each 8 × 8 tile's slot (-1: no palette), written to
  * Cartographer/stamps/<file>.json (the old one backed up first; unchanged on disk since `expectedMtime` unless forced).
  */
-export function writeStampMeta(path: string, slots: readonly string[], tileColors: readonly number[], backup: Backup, expectedMtime: number | null, force: boolean): { mtime: number } {
+/** A stamp sidecar's tags: up to 12 short strings. */
+export function stampTags(meta: unknown): string[] {
+  const list = (meta as { tags?: unknown } | null)?.tags;
+  return Array.isArray(list) ? list.filter((tag): tag is string => typeof tag === "string" && !!tag.trim()).map((tag) => tag.trim().slice(0, 24)).slice(0, 12) : [];
+}
+
+export function writeStampMeta(path: string, slots: readonly string[], tileColors: readonly number[], backup: Backup, expectedMtime: number | null, force: boolean, tags?: readonly string[]): { mtime: number } {
   const meta = `${path}.json`;
   if (existsSync(meta) && !force && expectedMtime !== null && Math.abs(statSync(meta).mtimeMs - expectedMtime) > 1) throw new AssetWriteError("The stamp's palettes changed on disk since it was opened.", 409, statSync(meta).mtimeMs);
-  const clean = { _resourceType: "cartographerStamp", slots: slots.slice(0, 8).map((id) => typeof id === "string" ? id : ""), tileColors: tileColors.map((value) => Number.isInteger(value) && value >= 0 && value < 8 ? value : -1) };
+  // Tags not sent stay as they are (an edited stamp's palettes are written without them).
+  const kept = tags === undefined ? stampTags(readJson(meta)) : stampTags({ tags });
+  const clean = { _resourceType: "cartographerStamp", slots: slots.slice(0, 8).map((id) => typeof id === "string" ? id : ""), tileColors: tileColors.map((value) => Number.isInteger(value) && value >= 0 && value < 8 ? value : -1), ...(kept.length ? { tags: kept } : {}) };
   if (existsSync(meta)) return { mtime: writeSidecar(meta, clean, backup) };
   writeFileSync(meta, `${JSON.stringify(clean, null, 2)}\n`);
   return { mtime: statSync(meta).mtimeMs };

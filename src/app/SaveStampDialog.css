@@ -1,0 +1,5 @@
+/* Save as stamp (src/app/SaveStampDialog.tsx): the tag buttons under the name. */
+.ssd-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: var(--k-2); }
+.ssd-tag[aria-pressed="true"] { background: var(--k-hover); color: var(--k-hover-ink); border-color: var(--k-hover-edge); }
+.ssd-own { width: 160px; }
+.ssd-remove { all: unset; cursor: pointer; display: inline-grid; place-items: center; margin-left: 2px; }

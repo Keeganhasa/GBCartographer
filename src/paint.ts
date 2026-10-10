@@ -838,3 +838,82 @@ export function fitPalettes(rgba: Uint8ClampedArray, width: number, height: numb
   }
   return { palettes, cells, pixels, report: { overfull, before, after: groups.length, changed } };
 }
+
+// ---- Picture to background (2026-10-10) -----------------------------------------------------------------------------
+
+/** Luma-weighted squared distance between two RGB triples (red 3, green 6, blue 1, like the eye). */
+const rgbDistance = (r: number, g: number, b: number, r2: number, g2: number, b2: number) => 3 * (r - r2) ** 2 + 6 * (g - g2) ** 2 + (b - b2) ** 2;
+
+/** 4 × 4 ordered-dither thresholds, -0.5 … 0.5. */
+const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((value) => value / 16 - 0.5);
+
+/**
+ * Fewer colors: median cut to at most `colors` colors (the "keep colors" slider), each pixel mapped to its nearest.
+ * With `dither`, an ordered 4 × 4 pattern is added before the mapping, so gradients break into textures instead of
+ * bands (the amount scales with how coarse the result is). See-through pixels (alpha < 128) stay as they are.
+ */
+export function posterize(rgba: Uint8ClampedArray, width: number, height: number, colors: number, dither = false): Uint8ClampedArray {
+  const out = new Uint8ClampedArray(rgba);
+  const opaque: number[] = [];
+  for (let p = 0; p < rgba.length; p += 4) if (rgba[p + 3] >= 128) opaque.push(p);
+  if (!opaque.length || colors < 2) return out;
+  // Median cut: split the box with the widest channel range at its median, largest box first.
+  type Box = { members: number[]; range: number; channel: number };
+  const measure = (members: number[]): Box => {
+    const lo = [255, 255, 255], hi = [0, 0, 0];
+    for (const p of members) for (let c = 0; c < 3; c += 1) { const v = rgba[p + c]; if (v < lo[c]) lo[c] = v; if (v > hi[c]) hi[c] = v; }
+    const spans = [hi[0] - lo[0], (hi[1] - lo[1]) * 1.2, hi[2] - lo[2]];
+    const channel = spans.indexOf(Math.max(...spans));
+    return { members, range: spans[channel] * Math.log2(members.length + 1), channel };
+  };
+  const boxes: Box[] = [measure(opaque)];
+  while (boxes.length < colors) {
+    boxes.sort((a, b) => b.range - a.range);
+    const box = boxes[0];
+    if (box.range <= 0 || box.members.length < 2) break;
+    const sorted = [...box.members].sort((a, b) => rgba[a + box.channel] - rgba[b + box.channel]);
+    const half = sorted.length >> 1;
+    boxes.splice(0, 1, measure(sorted.slice(0, half)), measure(sorted.slice(half)));
+  }
+  const palette = boxes.map(({ members }) => {
+    const sum = [0, 0, 0];
+    for (const p of members) for (let c = 0; c < 3; c += 1) sum[c] += rgba[p + c];
+    return sum.map((value) => Math.round(value / members.length));
+  });
+  // Dither strength: the average gap between neighbouring palette levels, so a 64-color result barely moves.
+  const amount = dither ? Math.min(48, 160 / Math.sqrt(palette.length)) : 0;
+  for (const p of opaque) {
+    const x = (p >> 2) % width, y = Math.floor((p >> 2) / width);
+    const bias = amount ? BAYER4[(y & 3) * 4 + (x & 3)] * amount : 0;
+    const r = rgba[p] + bias, g = rgba[p + 1] + bias, b = rgba[p + 2] + bias;
+    let best = 0, bestDistance = Infinity;
+    for (let i = 0; i < palette.length; i += 1) {
+      const d = rgbDistance(r, g, b, palette[i][0], palette[i][1], palette[i][2]);
+      if (d < bestDistance) { bestDistance = d; best = i; }
+    }
+    out.set(palette[best], p);
+  }
+  void height;
+  return out;
+}
+
+/**
+ * Brings a picture under GB Studio's tile budget: tiles used once that differ from another tile in a few pixels become
+ * copies of it, trying ever looser matches (3, 6, 10, 16, 24 differing pixels) until the count fits or nothing more
+ * merges. Returns the new pixels, the unique tile count, and how many tiles were merged.
+ */
+export function fitTileBudget(pixels: Uint8Array, width: number, height: number, flips: boolean, limit: number): { pixels: Uint8Array; tiles: number; merged: number; before: number } {
+  const out = pixels.slice();
+  const before = countUniqueTiles(out, width, height, flips);
+  let tiles = before, merged = 0;
+  for (const maxDiff of [3, 6, 10, 16, 24]) {
+    while (tiles > limit) {
+      const changed = mergeNearTiles(out, width, height, tileUsage(out, width, height, flips, maxDiff));
+      if (!changed) break;
+      merged += changed;
+      tiles = countUniqueTiles(out, width, height, flips);
+    }
+    if (tiles <= limit) break;
+  }
+  return { pixels: out, tiles, merged, before };
+}

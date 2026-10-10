@@ -1,0 +1,17 @@
+/* Picture to background (src/app/PictureWizard.tsx): the live result on the left, the controls on the right. */
+.pw-body { display: grid; grid-template-columns: minmax(0, 1fr) 272px; gap: var(--k-5); align-items: start; }
+.pw-stage { display: flex; flex-direction: column; gap: var(--k-3); min-width: 0; }
+.pw-pic { margin: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.pw-frame { display: grid; place-items: center; padding: var(--k-3); background: var(--k-well); border-radius: var(--k-r-card); position: relative; }
+.pw-frame canvas { display: block; max-width: 100%; max-height: 52vh; image-rendering: pixelated; }
+.pw-frame--source canvas { max-height: 22vh; image-rendering: auto; }
+.pw-busy { position: absolute; top: 8px; right: 10px; }
+.pw-drop { display: grid; place-items: center; gap: var(--k-3); min-height: 280px; padding: var(--k-8); text-align: center; border: 2px dashed var(--k-edge-2); border-radius: var(--k-r-card); background: var(--k-well); color: var(--k-ink-2); }
+.pw-drop.is-over { border-color: var(--k-acc); color: var(--k-ink); }
+.pw-controls { display: flex; flex-direction: column; gap: var(--k-4); }
+.pw-section { display: flex; flex-direction: column; gap: var(--k-2); }
+.pw-palettes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.pw-palettes span { display: grid; grid-template-columns: repeat(4, 1fr); height: 18px; border-radius: 5px; overflow: hidden; box-shadow: 0 0 0 1px var(--k-edge-2); }
+.pw-palettes i { display: block; }
+.pw-report { margin: 0; color: var(--k-ink-2); font-size: var(--k-text-xs); font-variant-numeric: tabular-nums; }
+.pw-name { width: 180px; }

@@ -12,7 +12,7 @@
  *                                             &resize=1 allows a new size in whole tiles)
  *   POST /__cartographer/gbstudio-new-asset   ?kind=&name= a new PNG in assets/<kind>/ (never replaces a file; no sidecar)
  *   POST /__cartographer/gbstudio-tile-colors { slots } per-cell palette slots into the sidecar (?kind=&file=&metaMtime=&force=1)
- *   POST /__cartographer/stamp-meta           { slots, tileColors } a saved stamp's tile palettes (?file=&metaMtime=&force=1),
+ *   POST /__cartographer/stamp-meta           { slots, tileColors, tags? } a saved stamp's tile palettes and tags (?file=&metaMtime=&force=1),
  *                                             in Cartographer/stamps/<file>.json (stamps: kind=stamps on the asset routes)
  *   POST /__cartographer/gbstudio-palette     { name, colors } adds a palette file to the project; { id, name, colors } rewrites one
  *   POST /__cartographer/gbstudio-palette-slot { slot, paletteId } puts a palette in an asset's slot (?kind=&file=): the
@@ -359,14 +359,14 @@ export async function handleCartographerRequest(req: IncomingMessage, res: Serve
         reply(res, 404, { error: "No such stamp" });
         return true;
       }
-      const body = JSON.parse((await readBody(req)).toString("utf8")) as { slots?: unknown; tileColors?: unknown };
-      if (!Array.isArray(body.slots) || body.slots.length > 8 || !body.slots.every((id) => typeof id === "string") || !Array.isArray(body.tileColors) || !body.tileColors.every((value) => Number.isInteger(value) && value >= -1 && value <= 7)) {
-        reply(res, 400, { error: "slots must be up to 8 palette ids, tileColors slots 0–7 or -1" });
+      const body = JSON.parse((await readBody(req)).toString("utf8")) as { slots?: unknown; tileColors?: unknown; tags?: unknown };
+      if (!Array.isArray(body.slots) || body.slots.length > 8 || !body.slots.every((id) => typeof id === "string") || !Array.isArray(body.tileColors) || !body.tileColors.every((value) => Number.isInteger(value) && value >= -1 && value <= 7) || (body.tags !== undefined && (!Array.isArray(body.tags) || !body.tags.every((tag) => typeof tag === "string")))) {
+        reply(res, 400, { error: "slots must be up to 8 palette ids, tileColors slots 0–7 or -1, tags strings" });
         return true;
       }
       const expected = url.searchParams.get("metaMtime");
       try {
-        reply(res, 200, { ok: true, ...writeStampMeta(path, body.slots as string[], body.tileColors as number[], backup, expected === null ? null : Number(expected), url.searchParams.get("force") === "1") });
+        reply(res, 200, { ok: true, ...writeStampMeta(path, body.slots as string[], body.tileColors as number[], backup, expected === null ? null : Number(expected), url.searchParams.get("force") === "1", body.tags as string[] | undefined) });
       } catch (error) {
         if (error instanceof AssetWriteError) reply(res, error.status, { error: error.message, mtime: error.mtime });
         else throw error;

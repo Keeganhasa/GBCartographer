@@ -56,6 +56,12 @@
 .app-strip canvas { image-rendering: pixelated; border-radius: 6px; box-shadow: 0 0 0 1px var(--k-edge); }
 .app-strip--alert { border-color: rgba(230, 162, 60, .5); background: #1b1710; }
 .app-frames { display: flex; gap: 6px; overflow-x: auto; }
+.app-stamp { position: relative; flex: none; }
+.app-stamp-edit { position: absolute; top: 2px; right: 2px; display: grid; place-items: center; width: 18px; height: 18px; padding: 0; border: 1px solid var(--k-edge-2); border-radius: 6px; background: var(--k-raised); color: var(--k-ink); opacity: 0; transition: opacity .12s; cursor: pointer; }
+.app-stamp:hover .app-stamp-edit, .app-stamp-edit:focus-visible { opacity: 1; }
+.app-stamp-edit:hover { background: var(--k-hover); color: var(--k-hover-ink); }
+.app-strip-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.app-strip-tags .k-btn[aria-pressed="true"] { background: var(--k-hover); color: var(--k-hover-ink); border-color: var(--k-hover-edge); }
 .app-frame { position: relative; flex: none; width: 52px; height: 52px; display: grid; place-items: center; padding: 0; overflow: hidden; background: repeating-conic-gradient(#20232a 0 25%, #17191e 0 50%) 0 0 / 8px 8px; border: 1px solid var(--k-edge); border-radius: 8px; cursor: pointer; }
 .app-frame[aria-pressed="true"] { outline: 2px solid var(--k-acc-hi); outline-offset: 1px; box-shadow: 0 0 12px rgba(var(--k-acc-rgb), .4); }
 .app-frame canvas { image-rendering: pixelated; transform: scale(2.5); box-shadow: none; }
@@ -103,4 +109,5 @@
 .app-tiles.over { color: var(--k-bad); } .app-tiles.over .k-meter-fill { background: var(--k-bad); }
 .app-tiles span:last-child { font-variant-numeric: tabular-nums; }
 .app-toast { position: fixed; left: 50%; bottom: 44px; transform: translateX(-50%); z-index: 70; max-width: min(640px, calc(100vw - 48px)); padding: 8px 18px; color: var(--k-ink); background: #1a1d22; border: 1px solid var(--k-edge-2); border-radius: 999px; box-shadow: var(--k-float); font: var(--k-text-sm) var(--k-font); }
-.app-anim-scene { image-rendering: pixelated; border-radius: 8px; background: repeating-conic-gradient(#20232a 0 25%, #17191e 0 50%) 0 0 / 12px 12px; }
+.app-anim-scene { display: grid; place-items: center; flex: none; border-radius: 8px; background: rgba(128, 128, 128, .35); }
+.app-anim-scene canvas { display: block; image-rendering: pixelated; }
