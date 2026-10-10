@@ -17,6 +17,8 @@
  *   GET  /__cartographer/gbstudio-running     whether a GB Studio process is running (it may overwrite project JSON when it saves)
  *   POST /__cartographer/reveal               ?kind=&file= shows that asset in Finder / Explorer (no kind: the project folder;
  *                                             ?backups=1: this project's backups folder)
+ *   GET  /__cartographer/gbstudio-preview-sheet ?kind= every thumbnail of a kind on one sheet: { stamp, cells } here,
+ *                                             the image at gbstudio-preview-sheet.png?kind=&stamp= (cached by stamp)
  *   GET  /__cartographer/palette-usage        which scenes (and defaults) use each palette, and same-colored palettes
  *   POST /__cartographer/asset-times          { assets: [{ kind, file }] } their PNG and sidecar times (null: gone)
  *   GET  /__cartographer/backups              this project's backed-up files and their versions (?file= one file)
@@ -29,7 +31,7 @@ import { execFileSync, spawn } from "node:child_process";
 import { dirname, resolve, sep } from "node:path";
 import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { AssetWriteError, ASSET_KINDS, createAsset, paletteUsage, assetInfo, assetPath, listAssets, listPalettes, projectName, renderPreview, writeAsset, writePalette, writePaletteSlot, writeSpritePalettes, writeTileColors, type AssetKind } from "./assets";
+import { AssetWriteError, ASSET_KINDS, createAsset, paletteUsage, previewSheet, assetInfo, assetPath, listAssets, listPalettes, projectName, renderPreview, writeAsset, writePalette, writePaletteSlot, writeSpritePalettes, writeTileColors, type AssetKind } from "./assets";
 import { backupPath, listBackups, projectBackupDir, restoreBackup } from "./backups";
 import { demoProjectCopy, projectFolder, projectFolderFor, projectProblem, projectVersion, recentProjects, saveProjectFolder, setProjectFolder, versionNote } from "./project";
 
@@ -194,6 +196,20 @@ export async function handleCartographerRequest(req: IncomingMessage, res: Serve
         if (error instanceof AssetWriteError) reply(res, error.status, { error: error.message });
         else throw error;
       }
+      return true;
+    }
+    if (url.pathname === "/__cartographer/gbstudio-preview-sheet" || url.pathname === "/__cartographer/gbstudio-preview-sheet.png") {
+      const kind = url.searchParams.get("kind") ?? "";
+      if (!(ASSET_KINDS as readonly string[]).includes(kind)) {
+        reply(res, 400, { error: "Unknown asset kind" });
+        return true;
+      }
+      const sheet = previewSheet(project, kind as AssetKind);
+      if (url.pathname.endsWith(".png")) {
+        res.setHeader("Content-Type", "image/png");
+        res.setHeader("Cache-Control", url.searchParams.get("stamp") === sheet.stamp ? "private, max-age=31536000" : "no-cache");
+        res.end(Buffer.from(sheet.png));
+      } else reply(res, 200, { ok: true, stamp: sheet.stamp, width: sheet.width, height: sheet.height, cells: sheet.cells });
       return true;
     }
     if (url.pathname === "/__cartographer/palette-usage") {

@@ -6,7 +6,7 @@
  * (backups.ts) and goes through a temporary file. Everything else is only ever read.
  */
 import { closeSync, copyFileSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { basename, dirname, join, resolve } from "node:path";
 import { deflateSync, inflateSync } from "node:zlib";
 import { backupFile } from "./backups";
@@ -97,6 +97,21 @@ function readJson(path: string): Record<string, unknown> | null {
   }
 }
 
+/**
+ * Project JSON read through a cache keyed by the file's time: a big project's thumbnails look up every scene for
+ * every picture, and the scenes rarely change. Reads only; writes always read the file afresh.
+ */
+const jsonCache = new Map<string, { mtime: number; data: Record<string, unknown> | null }>();
+function readJsonCached(path: string): Record<string, unknown> | null {
+  let mtime: number;
+  try { mtime = statSync(path).mtimeMs; } catch { return null; }
+  const hit = jsonCache.get(path);
+  if (hit && hit.mtime === mtime) return hit.data;
+  const data = readJson(path);
+  jsonCache.set(path, { mtime, data });
+  return data;
+}
+
 /** Width and height from a PNG's IHDR chunk, or null when the bytes are not a PNG. */
 export function pngSize(bytes: Buffer): { width: number; height: number } | null {
   if (bytes.length < 24 || !bytes.subarray(0, 8).equals(PNG_SIGNATURE) || bytes.toString("latin1", 12, 16) !== "IHDR") return null;
@@ -183,12 +198,12 @@ function slotSource(project: string, kind: AssetKind, assetId: string | undefine
   const settingsFile = join(project, "project/settings.gbsres");
   const sprite = kind === "sprites";
   const defaultsField = sprite ? "defaultSpritePaletteIds" : "defaultBackgroundPaletteIds";
-  const defaults = idList(readJson(settingsFile)?.[defaultsField]);
+  const defaults = idList(readJsonCached(settingsFile)?.[defaultsField]);
   const scenesDir = join(project, "project/scenes");
   if (assetId && kind !== "tilesets" && existsSync(scenesDir)) {
     for (const folder of readdirSync(scenesDir).sort()) {
       const file = join(scenesDir, folder, "scene.gbsres");
-      const scene = readJson(file);
+      const scene = readJsonCached(file);
       if (!scene) continue;
       const name = typeof scene.name === "string" && scene.name ? scene.name : folder;
       if (!sprite) {
@@ -199,7 +214,7 @@ function slotSource(project: string, kind: AssetKind, assetId: string | undefine
       if (!overrides.some(Boolean)) continue;
       const actors: Record<string, unknown>[] = Array.isArray(scene.actors) ? scene.actors as Record<string, unknown>[] : [];
       const actorsDir = join(scenesDir, folder, "actors");
-      if (existsSync(actorsDir)) for (const entry of readdirSync(actorsDir)) { const actor = readJson(join(actorsDir, entry)); if (actor) actors.push(actor); }
+      if (existsSync(actorsDir)) for (const entry of readdirSync(actorsDir)) { const actor = readJsonCached(join(actorsDir, entry)); if (actor) actors.push(actor); }
       if (actors.some((actor) => actor.spriteSheetId === assetId)) return { file, field: "spritePaletteIds", scene: name, ids: overrides, defaults };
     }
   }
@@ -399,6 +414,78 @@ export function writePalette(project: string, palette: { id?: string; name: stri
  * project panel's thumbnails.
  */
 export function renderPreview(project: string, kind: AssetKind, path: string): Uint8Array {
+  const { rgba, width, height } = previewPixels(project, kind, path);
+  return encodePng(rgba, width, height, (bytes) => deflateSync(bytes));
+}
+
+/** What the project's palettes and slots look like now: changes when any palette, scene or the settings change. */
+function projectStamp(project: string): string {
+  const times: number[] = [];
+  const add = (path: string) => { try { times.push(statSync(path).mtimeMs); } catch { /* gone */ } };
+  add(join(project, "project/settings.gbsres"));
+  for (const sub of ["project/palettes", "project/scenes"]) {
+    const folder = join(project, sub);
+    if (!existsSync(folder)) continue;
+    for (const entry of readdirSync(folder)) add(join(folder, entry, sub.endsWith("scenes") ? "scene.gbsres" : ""));
+  }
+  return createHash("sha1").update(times.join(",")).digest("hex").slice(0, 12);
+}
+
+/** Rendered previews, by file, file times and project stamp (a big project's thumbnails are drawn once). */
+const previewCache = new Map<string, { rgba: Uint8ClampedArray; width: number; height: number }>();
+function previewPixels(project: string, kind: AssetKind, path: string, stamp = projectStamp(project)): { rgba: Uint8ClampedArray; width: number; height: number } {
+  const sidecar = `${path}.gbsres`;
+  const key = `${path}|${statSync(path).mtimeMs}|${existsSync(sidecar) ? statSync(sidecar).mtimeMs : 0}|${stamp}`;
+  const hit = previewCache.get(key);
+  if (hit) return hit;
+  const made = drawPreview(project, kind, path);
+  if (previewCache.size > 4000) previewCache.clear();
+  previewCache.set(key, made);
+  return made;
+}
+
+export interface SheetCell { file: string; x: number; y: number; w: number; h: number }
+const sheetCache = new Map<string, { stamp: string; cells: SheetCell[]; width: number; height: number; png: Uint8Array }>();
+
+/**
+ * Every picture of one kind on one sheet (one request for a whole folder of thumbnails): each preview is shrunk to
+ * fit a 128 × 128 square (never enlarged), in a grid. `stamp` changes whenever any picture, palette or scene does.
+ */
+export function previewSheet(project: string, kind: AssetKind): { stamp: string; cells: SheetCell[]; width: number; height: number; png: Uint8Array } {
+  const CELL = 128, COLUMNS = 16;
+  const assets = listAssets(project).filter((asset) => asset.kind === kind);
+  const projectTimes = projectStamp(project);
+  // The layout is part of the stamp: a sheet cached by the browser under an old layout is never reused.
+  const stamp = createHash("sha1").update(`sheet-v1-${CELL}-${COLUMNS}|${projectTimes}|${assets.map((asset) => `${asset.file}:${asset.mtime}:${existsSync(`${join(project, "assets", kind, asset.file)}.gbsres`) ? statSync(`${join(project, "assets", kind, asset.file)}.gbsres`).mtimeMs : 0}`).join("|")}`).digest("hex").slice(0, 16);
+  const cached = sheetCache.get(`${project}|${kind}`);
+  if (cached?.stamp === stamp) return cached;
+  const columns = Math.max(1, Math.min(COLUMNS, assets.length)), rows = Math.max(1, Math.ceil(assets.length / COLUMNS));
+  const width = columns * CELL, height = rows * CELL;
+  const out = new Uint8ClampedArray(width * height * 4);
+  const cells: SheetCell[] = [];
+  assets.forEach((asset, index) => {
+    const path = join(project, "assets", kind, asset.file);
+    let preview: { rgba: Uint8ClampedArray; width: number; height: number };
+    try { preview = previewPixels(project, kind, path, projectTimes); } catch { return; }
+    const scale = Math.min(1, CELL / preview.width, CELL / preview.height);
+    const w = Math.max(1, Math.round(preview.width * scale)), h = Math.max(1, Math.round(preview.height * scale));
+    const ox = (index % COLUMNS) * CELL, oy = Math.floor(index / COLUMNS) * CELL;
+    for (let y = 0; y < h; y += 1) {
+      const sy = Math.min(preview.height - 1, Math.floor(y / scale));
+      for (let x = 0; x < w; x += 1) {
+        const sx = Math.min(preview.width - 1, Math.floor(x / scale));
+        const from = (sy * preview.width + sx) * 4;
+        out.set(preview.rgba.subarray(from, from + 4), ((oy + y) * width + ox + x) * 4);
+      }
+    }
+    cells.push({ file: asset.file, x: ox, y: oy, w, h });
+  });
+  const sheet = { stamp, cells, width, height, png: encodePng(out, width, height, (bytes) => deflateSync(bytes)) };
+  sheetCache.set(`${project}|${kind}`, sheet);
+  return sheet;
+}
+
+function drawPreview(project: string, kind: AssetKind, path: string): { rgba: Uint8ClampedArray; width: number; height: number } {
   const image = decodePng(readFileSync(path), (bytes) => inflateSync(bytes));
   const info = assetInfo(project, kind, path);
   const palettes = listPalettes(project).map(({ id, name, colors }) => ({ id, name, colors }));
@@ -425,9 +512,9 @@ export function renderPreview(project: string, kind: AssetKind, path: string): U
         }
       }
     }
-    return encodePng(out, width, height, (bytes) => deflateSync(bytes));
+    return { rgba: out, width, height };
   }
-  return encodePng(rgba, image.width, image.height, (bytes) => deflateSync(bytes));
+  return { rgba, width: image.width, height: image.height };
 }
 
 export class AssetWriteError extends Error {

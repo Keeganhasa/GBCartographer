@@ -257,6 +257,24 @@ describe("tile palettes", () => {
   });
 });
 
+describe("thumbnails", () => {
+  it("puts every picture of a kind on one sheet, and the sheet changes when a picture does", async () => {
+    const first = await json<{ stamp: string; width: number; height: number; cells: { file: string; x: number; y: number; w: number; h: number }[] }>(await fetch(`${base}/gbstudio-preview-sheet?kind=backgrounds`));
+    expect(first.cells.map((cell) => cell.file)).toContain("town.png");
+    const town = first.cells.find((cell) => cell.file === "town.png")!;
+    // 160 × 144 shrinks to fit a 128 px cell.
+    expect([town.w, town.h]).toEqual([128, 115]);
+    const png = new Uint8Array(await (await fetch(`${base}/gbstudio-preview-sheet.png?kind=backgrounds&stamp=${first.stamp}`)).arrayBuffer());
+    expect(Buffer.from(png).readUInt32BE(16)).toBe(first.width);
+    // Repainting a picture gives a new stamp.
+    const file = join(project, "assets/backgrounds/town.png");
+    writeFileSync(file, readFileSync(file));
+    const again = await json<{ stamp: string }>(await fetch(`${base}/gbstudio-preview-sheet?kind=backgrounds`));
+    expect(again.stamp).not.toBe(first.stamp);
+    expect((await fetch(`${base}/gbstudio-preview-sheet?kind=music`)).status).toBe(400);
+  });
+});
+
 describe("new pictures and resizing", () => {
   it("adds a new picture in whole tiles without replacing anything, and resizes only when asked", async () => {
     const blank = (w: number, h: number) => encodePng(new Uint8ClampedArray(w * h * 4).fill(255), w, h, deflateSync);

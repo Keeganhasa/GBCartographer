@@ -22,6 +22,7 @@ import { AboutWindow } from "./app/AboutWindow";
 import { NewPictureWindow, ResizeWindow, type NewPicture } from "./app/NewPictureWindow";
 import { Menu } from "./app/Menu";
 import { StartScreen } from "./app/StartScreen";
+import { SheetThumb, type SheetCell } from "./app/SheetThumb";
 
 /** A new picture's id: one above every open one (a counter would restart when the module reloads in development). */
 const newDocId = (docs: readonly { id: number }[]) => docs.reduce((top, item) => Math.max(top, item.id), 0) + 1;
@@ -80,6 +81,10 @@ export default function PaintApp() {
   namedSlotsRef.current = namedSlots;
   /** Bumped when palette slots change, so thumbnails are drawn again. */
   const [slotsVersion, setSlotsVersion] = useState(0);
+  /** The open folder's thumbnails on one sheet: the image, and where each picture sits on it. */
+  const [sheet, setSheet] = useState<{ kind: AssetKind; image: HTMLImageElement; cells: Map<string, SheetCell> } | null>(null);
+  /** The sheet could not be made: the cards fetch their thumbnails one by one instead. */
+  const [sheetFailed, setSheetFailed] = useState(false);
   const projectRef = useRef<Project | null>(null);
   /** The frames strip: which animation and frame of the open sprite sheet is current, and whether it plays. */
   const [frame, setFrame] = useState({ animation: 0, index: 0 });
@@ -1235,6 +1240,24 @@ export default function PaintApp() {
   const current = frames[Math.min(frame.index, Math.max(0, frames.length - 1))];
   useEffect(() => { setFrame({ animation: 0, index: 0 }); setPlaying(false); }, [activeId]);
   useEffect(() => { void rereadSlots(); }, [project]);
+  // The thumbnail sheet of the folder on show: fetched again when its pictures, palettes or slots change.
+  const sheetKey = project ? `${project.path}|${projectKind}|${project.assets.filter((asset) => asset.kind === projectKind).map((asset) => `${asset.file}:${Math.round(asset.mtime)}`).join(",")}|${slotsVersion}` : "";
+  useEffect(() => {
+    if (!project) return setSheet(null);
+    let live = true;
+    const kind = projectKind;
+    setSheetFailed(false);
+    const failed = () => { if (live) setSheetFailed(true); };
+    void fetch(`./__cartographer/gbstudio-preview-sheet?kind=${kind}`, { cache: "no-cache" }).then((response) => response.ok ? response.json() as Promise<{ stamp: string; cells: SheetCell[] }> : null).then((result) => {
+      if (!live) return;
+      if (!result) return failed();
+      const image = new Image();
+      image.onerror = failed;
+      image.onload = () => { if (live) setSheet({ kind, image, cells: new Map(result.cells.map((cell) => [cell.file, cell])) }); };
+      image.src = `./__cartographer/gbstudio-preview-sheet.png?kind=${kind}&stamp=${result.stamp}`;
+    }).catch(failed);
+    return () => { live = false; };
+  }, [sheetKey]);
   // Watch the open pictures' files: every 4 seconds while the window is visible, and when it comes back to front.
   useEffect(() => {
     if (!project) return;
@@ -1401,7 +1424,10 @@ export default function PaintApp() {
                   const openDoc = docs.current.find((item) => item.asset?.kind === asset.kind && item.asset.file === asset.file);
                   return (
                     <button key={asset.file} role="listitem" onContextMenu={(event) => { event.preventDefault(); setAssetMenu({ x: event.clientX, y: event.clientY, asset }); }} className={`gbp-asset ${openDoc && openDoc.id === activeId ? "selected" : openDoc ? "open" : ""}`} title={`${asset.file} · ${asset.width} × ${asset.height} px${openDoc ? " · open" : ""}`} onClick={() => void openAsset(asset)}>
-                      <img className="gbp-asset-thumb" loading="lazy" decoding="async" alt="" src={`${ASSET_URL}-preview?${assetQuery(asset)}&v=${Math.round(asset.mtime)}&pv=${PREVIEW_VERSION}&s=${slotsVersion}`} />
+                      {sheet?.kind === asset.kind && sheet.cells.has(asset.file)
+                        ? <SheetThumb sheet={sheet.image} cell={sheet.cells.get(asset.file)!} />
+                        : !sheetFailed && sheet?.kind !== asset.kind ? <span className="gbp-asset-thumb" aria-hidden="true" />
+                        : <img className="gbp-asset-thumb" loading="lazy" decoding="async" alt="" src={`${ASSET_URL}-preview?${assetQuery(asset)}&v=${Math.round(asset.mtime)}&pv=${PREVIEW_VERSION}&s=${slotsVersion}`} />}
                       <span className="gbp-asset-meta"><span className={`gbp-asset-name ${openDoc?.dirty ? "gbp-unsaved" : ""}`}>{asset.name}{openDoc?.dirty ? " *" : ""}</span><span className="gbp-asset-size">{asset.width}×{asset.height}</span></span>
                     </button>
                   );

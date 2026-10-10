@@ -525,3 +525,6 @@
 .gbp-presets small { color: var(--muted); font-size: var(--fs-xs); }
 .gbp-size-row { display: flex; align-items: center; gap: 6px; }
 .gbp-size-row input { width: 80px; }
+
+/* Thumbnails cut from a preview sheet are canvases: same box as the images they replace. */
+:root .gbp-asset canvas.gbp-asset-thumb { display: block; }
