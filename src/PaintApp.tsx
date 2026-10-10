@@ -4,19 +4,18 @@
  * A tint only changes how the plain tiles look while painting. Saving writes one flat PNG, and for a project
  * picture also its tile palettes (see server/endpoints.ts).
  */
-import { ChevronDown, CircleHelp, Download, FilePlus, FolderOpen, FolderTree, Grid3x3, Magnet, Map as MapIcon, Minus, Palette as PaletteIcon, Pause, Play, Plus, Redo2, Save, ScanSearch, Tv, Undo2, Video, X } from "lucide-react";
-import { useEffect, useLayoutEffect, useReducer, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { ChevronDown, CircleHelp, Download, FilePlus, FolderOpen, FolderTree, Grid3x3, Magnet, Map as MapIcon, Minus, Palette as PaletteIcon, Plus, Redo2, Save, ScanSearch, Tv, Undo2, Video, X } from "lucide-react";
+import { useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { LogoMark } from "./ui/LogoMark";
 import { applyFont, loadFont, type FontChoice } from "./ui/theme";
 import PaletteManager from "./PaletteManager";
 import BackupsWindow from "./BackupsWindow";
 import { attachMiddlePan, attachWheelZoom, nextStep } from "./ui/wheelZoom";
-import { CELL, CLEAR, GB_SHADES, KEY_GREEN, KEY_MAGENTA, assignSlots, spriteShades, cellsWide, clipRect, colorize, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, closeShades, PATTERNS, type Pattern, linkGroups, syncLinked, mergeNearTiles, tileUsage, type TileUsage, dropCells, flipFloat, gbcCorrect, LOOK_SHADES, type Look, lift, liftCells, linePoints, mirrorPoints, onTiles, replaceShade, rotateFloat, namedSlot, quantize, rectFrom, shadeLut, snapRect, spray, toRgba, type Floating, type Mirror, type Palette } from "./paint";
-import { ASSET_URL, BUDGETS, BUDGET_KEY, BUILT_IN_TINTS, CUSTOM_TINT_KEY, FILE_MANAGER_LABEL, GRID_KEY, MIRRORS, NAMED_SLOTS_KEY, SCREENS_KEY, LOOK_KEY, PATTERN_KEY, PNG_TYPES, PROJECT_KIND_KEY, PROJECT_PANEL_KEY, PROJECT_URL, TINT_KEY, UI_SLOT, UNDO_BYTES, UNDO_LIMIT, ZOOMS, hasSlots, isKeyed, versionTime, type Asset, type AssetInfo, type AssetKind, type Doc, type Drag, type FileHandle, type Opening, type PickerWindow, type Point, type Project, type ToolId } from "./app/model";
+import { CELL, CLEAR, GB_SHADES, KEY_GREEN, KEY_MAGENTA, assignSlots, spriteShades, cellsWide, clipRect, colorize, countUniqueTiles, drop, fillRect, PATTERNS, type Pattern, mergeNearTiles, tileUsage, type TileUsage, dropCells, flipFloat, gbcCorrect, LOOK_SHADES, type Look, lift, liftCells, onTiles, rotateFloat, namedSlot, quantize, shadeLut, toRgba, type Floating, type Mirror, type Palette } from "./paint";
+import { ASSET_URL, BUDGETS, BUDGET_KEY, BUILT_IN_TINTS, CUSTOM_TINT_KEY, FILE_MANAGER_LABEL, GRID_KEY, MIRRORS, NAMED_SLOTS_KEY, SCREENS_KEY, LOOK_KEY, PATTERN_KEY, PNG_TYPES, PROJECT_KIND_KEY, PROJECT_PANEL_KEY, PROJECT_URL, TINT_KEY, UI_SLOT, UNDO_BYTES, UNDO_LIMIT, ZOOMS, hasSlots, isKeyed, versionTime, type Asset, type AssetInfo, type AssetKind, type Doc, type FileHandle, type Opening, type PickerWindow, type Project, type ToolId } from "./app/model";
 import { TOOLS } from "./app/tools";
 import { readStored, sessionStore, store } from "./app/storage";
-import { HelpTip } from "./app/HelpTip";
 import { HelpWindow } from "./app/HelpWindow";
 import { AboutWindow } from "./app/AboutWindow";
 import { HealthWindow } from "./app/HealthWindow";
@@ -32,6 +31,9 @@ import { encodeGif } from "./gb/gif";
 import { framesOf, saveFile } from "./app/files";
 import { ToolColumn } from "./app/ToolColumn";
 import { PicturePane } from "./app/PicturePane";
+import { usePainting } from "./app/usePainting";
+import { PalettesPane } from "./app/PalettesPane";
+import { FramesStrip } from "./app/FramesStrip";
 
 /** A new picture's id: one above every open one (a counter would restart when the module reloads in development). */
 const newDocId = (docs: readonly { id: number }[]) => docs.reduce((top, item) => Math.max(top, item.id), 0) + 1;
@@ -69,8 +71,6 @@ export default function PaintApp() {
   /** The fill pattern for Flood fill and Filled rectangle (D cycles it). */
   const [pattern, setPattern] = useState<Pattern>(() => readStored(PATTERN_KEY, "solid"));
   const cyclePattern = () => { const next = PATTERNS[(PATTERNS.findIndex((item) => item.id === pattern) + 1) % PATTERNS.length]; setPattern(next.id); store(PATTERN_KEY, next.id); say(`Fill pattern: ${next.label}`); };
-  /** During a stroke with linked tiles: the groups, the pixels before the stroke, and after the last step. */
-  const linkStroke = useRef<{ link: ReturnType<typeof linkGroups>; base: Uint8Array; previous: Uint8Array } | null>(null);
   const [usage, setUsage] = useState<{ key: string; usage: TileUsage } | null>(null);
   const usageCanvas = useRef<HTMLCanvasElement>(null);
   const priorityCanvas = useRef<HTMLCanvasElement>(null);
@@ -138,14 +138,10 @@ export default function PaintApp() {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const readoutRef = useRef<HTMLSpanElement>(null);
   const brushRef = useRef<HTMLDivElement>(null);
-  const drag = useRef<Drag | null>(null);
-  const lastPoint = useRef<Point | null>(null);
   const clip = useRef<Floating | null>(null);
   /** The palettes of the picture a clip was copied from, so its tile palettes land on the same palettes when pasted. */
   const clipPalettes = useRef<Palette[]>([]);
   const lastRecolor = useRef(0);
-  /** The stamp tool's block: pixels, tile palettes when whole tiles, and the palettes they refer to. */
-  const stamp = useRef<(Floating & { palettes: Palette[] }) | null>(null);
   /** Counts edits, so work that follows the pixels (the tile budget view) knows when to look again. */
   const editCount = useRef(0);
   const spaceDown = useRef(false);
@@ -164,6 +160,11 @@ export default function PaintApp() {
   const swatchColors = picked ? shown(picked.colors) : tintColors;
   const clonePalettes = (list: readonly Palette[]): Palette[] => list.map(({ name, colors, id }) => ({ name, colors: [...colors], ...(id ? { id } : {}) }));
   const blank = (target: Doc) => target.hasAlpha ? CLEAR : 0;
+  const { takeStamp, pointerDown, pointerMove, pointerUp } = usePainting({
+    doc, tool, shade, brush, cellBrush, mirror, pattern, linked, snap, seamless, activePalette, hoverCell,
+    wrapRef, scrollerRef, readoutRef, brushRef, spaceDown, paintTool,
+    setShade, setActivePalette, setHoverCell, setToolState, say, pushUndo, touch, bump, floatSelection, dropFloat, moveFloat, clonePalettes, blank,
+  });
 
   function say(message: string) {
     setToast(message);
@@ -1039,255 +1040,7 @@ export default function PaintApp() {
     setTint("Custom");
   }
 
-  // ---- painting ----------------------------------------------------------------------------------------------------
-
-  function pointAt(event: { clientX: number; clientY: number }): Point {
-    const box = wrapRef.current!.getBoundingClientRect();
-    return { x: Math.floor((event.clientX - box.left) / box.width * doc!.width), y: Math.floor((event.clientY - box.top) / box.height * doc!.height) };
-  }
-
-  const inside = (target: Doc, { x, y }: Point) => x >= 0 && y >= 0 && x < target.width && y < target.height;
-
-  function mark(target: Doc, { x, y }: Point, value: number) {
-    for (const [mx, my] of mirrorPoints(x, y, target.width, target.height, mirror)) dot(target.pixels, target.width, target.height, mx, my, brush, value);
-  }
-
-  /**
-   * The palette brush covers `cellBrush` × `cellBrush` tiles around the pointer (8 × 8 each, or on a sprite sheet
-   * the 8 × 16 pairs GB Studio's sprite tiles are made of).
-   */
-  function setCell(target: Doc, point: Point) {
-    if (!inside(target, point)) return;
-    const cw = cellsWide(target.width), ch = Math.ceil(target.height / CELL);
-    const tall = target.keyGreen ? 2 : 1;
-    const offset = Math.floor((cellBrush - 1) / 2);
-    const cx0 = (point.x >> 3) - offset, cy0 = (target.keyGreen ? point.y >> 4 << 1 : point.y >> 3) - offset * tall;
-    for (let by = 0; by < cellBrush * tall; by += 1) {
-      for (let bx = 0; bx < cellBrush; bx += 1) {
-        const cx = cx0 + bx, cy = cy0 + by;
-        if (cx >= 0 && cy >= 0 && cx < cw && cy < ch) target.cells[cy * cw + cx] = activePalette;
-      }
-    }
-  }
-
-  /** Picks up a block of the picture (and, on tile edges, its tile palettes) as the stamp. */
-  function takeStamp(target: Doc, rect: { x: number; y: number; w: number; h: number }) {
-    const area = clipRect(rect, target.width, target.height);
-    if (!area) return;
-    const flat = target.float ? target.pixels.slice() : target.pixels;
-    if (target.float) drop(flat, target.width, target.height, target.float);
-    stamp.current = { ...lift(flat, target.width, area), ...(onTiles(area) ? { cells: liftCells(target.cells, target.width, area) } : {}), palettes: clonePalettes(target.palettes) };
-    say(`Stamp: ${area.w} × ${area.h}${onTiles(area) ? " (with its tile palettes)" : ""}. Click or drag to stamp it on the grid.`);
-  }
-
-  /** Stamps a copy with its top-left on the 8 px grid under `point` (see-through pixels leave the picture alone). */
-  function putStamp(target: Doc, point: Point) {
-    const source = stamp.current;
-    if (!source) return;
-    const x = point.x & ~7, y = point.y & ~7;
-    drop(target.pixels, target.width, target.height, { ...source, x, y });
-    if (source.cells) {
-      // Tile palettes land on the same palettes in this picture (matched by id, else name and colors; added if missing).
-      const cells = source.cells.map((wear) => {
-        const palette = wear ? source.palettes[wear - 1] : undefined;
-        if (!palette) return 0;
-        let index = target.palettes.findIndex((own) => (palette.id && own.id === palette.id) || (!palette.id && own.name === palette.name && own.colors.join() === palette.colors.join()));
-        if (index < 0) index = target.palettes.push({ ...palette, colors: [...palette.colors] }) - 1;
-        return index + 1;
-      });
-      dropCells(target.cells, target.width, target.height, { ...source, x, y, cells });
-    }
-  }
-
-  /** Marks (or clears) the priority flag of the tiles under the palette brush's size. */
-  function setPriority(target: Doc, point: Point, on: boolean) {
-    if (!target.priority || !inside(target, point)) return;
-    const cw = cellsWide(target.width), ch = Math.ceil(target.height / CELL), offset = Math.floor((cellBrush - 1) / 2);
-    for (let by = 0; by < cellBrush; by += 1) for (let bx = 0; bx < cellBrush; bx += 1) {
-      const cx = (point.x >> 3) - offset + bx, cy = (point.y >> 3) - offset + by;
-      if (cx >= 0 && cy >= 0 && cx < cw && cy < ch) target.priority[cy * cw + cx] = on ? 1 : 0;
-    }
-  }
-
-  function drawShape(target: Doc, a: Point, b: Point, value: number) {
-    if (tool === "rectFill") return fillRect(target.pixels, target.width, target.height, rectFrom(a.x, a.y, b.x, b.y), value, pattern);
-    const points = tool === "line" ? linePoints(a.x, a.y, b.x, b.y)
-      : tool === "ellipse" ? ellipsePoints(a.x, a.y, b.x, b.y)
-      : [...linePoints(a.x, a.y, b.x, a.y), ...linePoints(b.x, a.y, b.x, b.y), ...linePoints(b.x, b.y, a.x, b.y), ...linePoints(a.x, b.y, a.x, a.y)];
-    for (const [x, y] of points) dot(target.pixels, target.width, target.height, x, y, brush, value);
-  }
-
-  function pickShade(target: Doc, point: Point) {
-    if (!inside(target, point)) return;
-    const flat = target.float ? target.pixels.slice() : target.pixels;
-    if (target.float) drop(flat, target.width, target.height, target.float);
-    setShade(flat[point.y * target.width + point.x]);
-  }
-
-  function pointerDown(event: React.PointerEvent) {
-    if (!doc || event.button === 1) return;
-    const scroller = scrollerRef.current!;
-    event.currentTarget.setPointerCapture(event.pointerId);
-    if (tool === "hand" || spaceDown.current) {
-      drag.current = { kind: "pan", x: event.clientX, y: event.clientY, left: scroller.scrollLeft, top: scroller.scrollTop };
-      return;
-    }
-    const point = pointAt(event);
-    if (event.button === 2 && tool === "stamp") {
-      if (inside(doc, point)) takeStamp(doc, { x: point.x & ~7, y: point.y & ~7, w: CELL, h: CELL });
-      return;
-    }
-    if (event.button === 2 && tool === "priority" && doc.priority) {
-      pushUndo(doc);
-      setPriority(doc, point, false);
-      drag.current = { kind: "priority", last: point, on: false };
-      return touch(doc);
-    }
-    if (event.button === 2) {
-      if (tool === "palette" && inside(doc, point)) setActivePalette(doc.cells[(point.y >> 3) * cellsWide(doc.width) + (point.x >> 3)]);
-      else pickShade(doc, point);
-      return;
-    }
-    const value = tool === "eraser" || tool === "fillErase" || (shade === CLEAR && !doc.hasAlpha) ? blank(doc) : shade;
-    linkStroke.current = linked && !["eyedropper", "select", "move", "palette", "hand"].includes(tool) ? { link: linkGroups(doc.pixels, doc.width, doc.height), base: doc.pixels.slice(), previous: doc.pixels.slice() } : null;
-    if (tool === "eyedropper") {
-      // Came here from the palette brush: pick the tile's palette instead of a shade.
-      if (paintTool.current === "palette") { if (inside(doc, point)) setActivePalette(doc.cells[(point.y >> 3) * cellsWide(doc.width) + (point.x >> 3)]); }
-      else pickShade(doc, point);
-      setToolState(paintTool.current);
-    } else if (tool === "select" || tool === "move") {
-      const sel = doc.sel;
-      if (tool === "move" || (sel && point.x >= sel.x && point.y >= sel.y && point.x < sel.x + sel.w && point.y < sel.y + sel.h)) {
-        const floating = floatSelection(doc, event.altKey);
-        if (floating) drag.current = { kind: "move", start: point, ox: floating.x, oy: floating.y };
-      } else {
-        dropFloat(doc);
-        doc.sel = null;
-        drag.current = { kind: "marquee", start: point };
-      }
-    } else if (tool === "stamp") {
-      if (!stamp.current) { say("Right-click a tile to pick it up as the stamp, or select a block and pick the stamp tool again."); return; }
-      dropFloat(doc);
-      pushUndo(doc);
-      putStamp(doc, point);
-      const origin = { x: point.x & ~7, y: point.y & ~7 };
-      drag.current = { kind: "stamp", origin, last: origin };
-    } else if (tool === "priority") {
-      if (!doc.priority) { say("The priority brush is for project backgrounds and tilesets (GB Studio's draw-over-sprites flag)."); return; }
-      pushUndo(doc);
-      const on = !event.altKey;
-      setPriority(doc, point, on);
-      drag.current = { kind: "priority", last: point, on };
-    } else if (tool === "palette") {
-      pushUndo(doc);
-      for (const [x, y] of event.shiftKey && lastPoint.current ? linePoints(lastPoint.current.x, lastPoint.current.y, point.x, point.y) : [[point.x, point.y]]) setCell(doc, { x, y });
-      drag.current = { kind: "cells", last: point };
-      lastPoint.current = point;
-    } else if (tool === "fill" || tool === "fillErase") {
-      pushUndo(doc);
-      // Alt-click replaces that shade everywhere (inside the selection, if any) instead of filling one area.
-      const changed = event.altKey ? replaceShade(doc.pixels, doc.width, doc.height, doc.pixels[point.y * doc.width + point.x], value, doc.sel) > 0 : floodFill(doc.pixels, doc.width, doc.height, point.x, point.y, value, pattern);
-      if (!changed) doc.undo.pop();
-    } else if (tool === "pencil" || tool === "eraser") {
-      pushUndo(doc);
-      for (const [x, y] of event.shiftKey && lastPoint.current ? linePoints(lastPoint.current.x, lastPoint.current.y, point.x, point.y) : [[point.x, point.y]]) mark(doc, { x, y }, value);
-      drag.current = { kind: "stroke", last: point };
-      lastPoint.current = point;
-    } else if (tool === "spray") {
-      pushUndo(doc);
-      for (const [x, y] of mirrorPoints(point.x, point.y, doc.width, doc.height, mirror)) spray(doc.pixels, doc.width, doc.height, x, y, brush, value);
-      drag.current = { kind: "spray", last: point };
-    } else {
-      pushUndo(doc);
-      drag.current = { kind: "shape", start: point, base: doc.pixels.slice() };
-      drawShape(doc, point, point, value);
-    }
-    followLinks(doc);
-    touch(doc);
-  }
-
-  /** With linked tiles on, what the last step painted goes to every identical copy of each tile it touched. */
-  function followLinks(target: Doc) {
-    const stroke = linkStroke.current;
-    if (!stroke) return;
-    syncLinked(target.pixels, stroke.previous, stroke.base, target.width, target.height, stroke.link);
-    stroke.previous.set(target.pixels);
-  }
-
-  function pointerMove(event: React.PointerEvent) {
-    if (!doc) return;
-    const point = pointAt(event);
-    if (readoutRef.current) readoutRef.current.textContent = inside(doc, point) ? `${point.x}, ${point.y} · tile ${point.x >> 3}, ${point.y >> 3}` : "";
-    const outline = brushRef.current;
-    if (outline) {
-      if (tool === "stamp") {
-        // The stamp's footprint where it would land.
-        const visible = inside(doc, point) && Boolean(stamp.current);
-        Object.assign(outline.style, { display: visible ? "block" : "none", left: `${(point.x & ~7) * doc.zoom}px`, top: `${(point.y & ~7) * doc.zoom}px`, width: `${(stamp.current?.w ?? CELL) * doc.zoom}px`, height: `${(stamp.current?.h ?? CELL) * doc.zoom}px` });
-      } else {
-        const cells = tool === "palette" || tool === "priority", tall = tool === "palette" && doc.keyGreen;
-        const cellH = tall ? 2 * CELL : CELL, cellOffset = Math.floor((cellBrush - 1) / 2);
-        const size = cells ? CELL * cellBrush : brush, offset = cells ? 0 : Math.floor((brush - 1) / 2);
-        const [x, y] = cells ? [(point.x & ~7) - cellOffset * CELL, (tall ? point.y & ~15 : point.y & ~7) - cellOffset * cellH] : [point.x - offset, point.y - offset];
-        const visible = inside(doc, point) && tool !== "hand" && tool !== "select" && tool !== "move";
-        Object.assign(outline.style, { display: visible ? "block" : "none", left: `${x * doc.zoom}px`, top: `${y * doc.zoom}px`, width: `${size * doc.zoom}px`, height: `${(cells ? cellH * cellBrush : size) * doc.zoom}px` });
-      }
-    }
-    if (seamless && inside(doc, point) && (hoverCell?.x !== point.x >> 3 || hoverCell?.y !== point.y >> 3)) setHoverCell({ x: point.x >> 3, y: point.y >> 3 });
-    const state = drag.current;
-    if (!state) return;
-    const value = tool === "eraser" || (shade === CLEAR && !doc.hasAlpha) ? blank(doc) : shade;
-    if (state.kind === "pan") {
-      const scroller = scrollerRef.current!;
-      scroller.scrollLeft = state.left - (event.clientX - state.x);
-      scroller.scrollTop = state.top - (event.clientY - state.y);
-      return;
-    }
-    if (state.kind === "stroke") {
-      for (const [x, y] of linePoints(state.last.x, state.last.y, point.x, point.y)) mark(doc, { x, y }, value);
-      state.last = lastPoint.current = point;
-    } else if (state.kind === "spray") {
-      for (const [x, y] of mirrorPoints(point.x, point.y, doc.width, doc.height, mirror)) spray(doc.pixels, doc.width, doc.height, x, y, brush, value);
-    } else if (state.kind === "cells") {
-      for (const [x, y] of linePoints(state.last.x, state.last.y, point.x, point.y)) setCell(doc, { x, y });
-      state.last = lastPoint.current = point;
-    } else if (state.kind === "stamp") {
-      // Copies tile outward from the first one, a stamp's size apart, so a block repeats seamlessly.
-      const source = stamp.current;
-      if (source) {
-        const at = { x: state.origin.x + Math.floor((point.x - state.origin.x) / source.w) * source.w, y: state.origin.y + Math.floor((point.y - state.origin.y) / source.h) * source.h };
-        if (at.x !== state.last.x || at.y !== state.last.y) {
-          drop(doc.pixels, doc.width, doc.height, { ...source, ...at });
-          if (source.cells && at.x % CELL === 0 && at.y % CELL === 0) putStamp(doc, at);
-          state.last = at;
-        }
-      }
-    } else if (state.kind === "priority") {
-      for (const [x, y] of linePoints(state.last.x, state.last.y, point.x, point.y)) setPriority(doc, { x, y }, state.on);
-      state.last = point;
-    } else if (state.kind === "shape") {
-      doc.pixels.set(state.base);
-      drawShape(doc, state.start, point, value);
-    } else if (state.kind === "marquee") {
-      const rect = rectFrom(state.start.x, state.start.y, point.x, point.y);
-      doc.sel = clipRect(snap ? snapRect(rect, CELL) : rect, doc.width, doc.height);
-    } else if (state.kind === "move") {
-      const step = (distance: number) => snap ? Math.round(distance / CELL) * CELL : distance;
-      moveFloat(doc, state.ox + step(point.x - state.start.x), state.oy + step(point.y - state.start.y));
-    }
-    if (state.kind === "stroke" || state.kind === "spray" || state.kind === "shape" || state.kind === "stamp") followLinks(doc);
-    bump();
-  }
-
-  function pointerUp() {
-    const state = drag.current;
-    drag.current = null;
-    linkStroke.current = null;
-    if (!doc || !state || state.kind === "pan") return;
-    if (state.kind === "marquee" && doc.sel && doc.sel.w < 2 && doc.sel.h < 2) doc.sel = null;
-    if (state.kind !== "marquee") touch(doc);
-    else bump();
-  }
+  // ---- zoom --------------------------------------------------------------------------------------------------------
 
   function zoomBy(direction: 1 | -1): number | null {
     if (!doc) return null;
@@ -1657,23 +1410,11 @@ export default function PaintApp() {
 
   const hint = TOOLS.find(([id]) => id === tool)!;
   const gridLines = doc && grid && grid * doc.zoom >= 3 ? `${grid * doc.zoom}px` : null;
-  const matches = (name: string, filter: string) => !filter.trim() || name.toLowerCase().includes(filter.trim().toLowerCase());
-  // A project background or sprite sheet carries its eight palette slots: shown as a strip, and first in the list.
+  // A project background or sprite sheet carries its eight palette slots (the Palettes tab and the slot menu show them).
   const sceneSlots = doc?.asset?.slots ?? [];
-  const slotOf = (palette: Palette) => palette.id ? sceneSlots.indexOf(palette.id) : -1;
   const slotPalettes = sceneSlots.map((id) => docPalettes.findIndex((palette) => palette.id === id));
-  const slotNames = slotPalettes.map((index) => index >= 0 ? docPalettes[index].name : undefined);
-  const paletteList = [{ name: "None (GB greens)", colors: [...GB_SHADES] } as Palette, ...docPalettes].map((palette, index) => {
-    const slot = index ? slotOf(palette) : -1;
-    return { palette, index, slot, named: index && slot < 0 && namedSlots && sceneSlots.length ? namedSlot(palette.name, slotNames) : -1 };
-  });
   const slotWhere = doc?.asset?.slotScene ? `${doc.asset.slotScene}'s palettes` : doc?.asset?.kind === "sprites" ? "the project's default sprite palettes (every scene without its own)" : "the project's default background palettes (every scene without its own)";
-  const openSlotMenu = (event: ReactMouseEvent, palette: number) => { if (!sceneSlots.length || !palette) return; event.preventDefault(); setSlotMenu({ x: event.clientX, y: event.clientY, palette }); };
-  const shownPalettes = paletteList
-    .filter(({ palette, index }) => index === activePalette || matches(palette.name, paletteFilter))
-    .sort((a, b) => (a.index === 0 ? -1 : b.index === 0 ? 1 : a.slot >= 0 && b.slot >= 0 ? a.slot - b.slot : a.slot >= 0 ? -1 : b.slot >= 0 ? 1 : a.index - b.index));
   const pickPalette = (index: number) => { setActivePalette(index); if (index && tool !== "palette") setTool("palette"); };
-  const paletteHelp = doc?.asset?.kind === "tilesets" && sceneSlots.length ? "Each 8 × 8 tile wears one of the project's eight default background palettes. Save writes the tileset in the GB greens and each tile's palette into GB Studio as its slot. None leaves a tile's slot as it is." : doc?.asset?.kind === "sprites" && sceneSlots.length ? "Each 8 × 16 sprite tile wears one of the scene's eight sprite palettes; a palette's colors 1–3 dress the shades and color 0 is see-through. Save writes the sheet in the GB greens and each tile's palette as its slot." : doc?.asset?.kind === "backgrounds" && sceneSlots.length ? "Each 8 × 8 tile wears one of the scene's eight palettes. Save writes the picture in the GB greens and each tile's palette into GB Studio as its slot. None leaves a tile's slot as it is." : "Each 8 × 8 tile wears one palette, or none. Palettes are only for looking here: saving always writes the GB greens.";
 
   return (
     <div className="gbp-shell" onDragOver={(event) => event.preventDefault()} onDrop={(event) => void onDrop(event)}>
@@ -1736,26 +1477,7 @@ export default function PaintApp() {
         )}
         <ToolColumn tool={tool} onTool={setTool} seamless={seamless} onSeamless={setSeamless} linked={linked} onLinked={setLinked} mirror={mirror} onMirror={setMirror} pattern={pattern} onPattern={cyclePattern} cellBrush={cellBrush} onCellBrush={setCellBrush} brush={brush} onBrush={setBrush} />
         <div className="gbp-scroller" ref={scrollerRef}>
-          {doc && frames.length > 0 && (
-            <div className="gbp-frames" role="group" aria-label="Frames">
-              {animations.length > 1 && (
-                <select aria-label="Animation" value={frame.animation} onChange={(event) => setFrame({ animation: Number(event.target.value), index: 0 })}>
-                  {animations.map((item, index) => <option key={index} value={index}>{item.name} · {item.frames.length}</option>)}
-                </select>
-              )}
-              <button className="icon-button small" aria-label={playing ? "Pause" : "Play"} title={playing ? "Pause" : animSpeed == null ? "Play the animation (8 frames a second)" : animSpeed === 255 ? "Play the frames (GB Studio's speed is None: it doesn't animate this sheet; 8 a second here)" : `Play the animation at GB Studio's speed ${[127, 63, 31, 15, 7, 3, 1, 0].indexOf(animSpeed) + 1 || "?"} (${Math.round(fps * 100) / 100} frames a second)`} disabled={frames.length < 2} onClick={() => setPlaying(!playing)}>{playing ? <Pause size={12} /> : <Play size={12} />}</button>
-              <div className="gbp-frames-list">
-                {frames.map((_, index) => (
-                  <button key={index} className={`gbp-frame ${index === frame.index ? "selected" : ""}`} title={`Frame ${index + 1}`} onClick={() => { setFrame({ ...frame, index }); setPlaying(false); }}>
-                    <canvas ref={(element) => { frameCanvases.current[index] = element; }} />
-                    <small>{index + 1}</small>
-                  </button>
-                ))}
-              </div>
-              <span className="gbp-frames-label">{animations.length > 1 ? animation.name : "frame"} {frame.index + 1} of {frames.length}</span>
-              {project && project.assets.some((asset) => asset.kind === "backgrounds") && <button className="quiet-button" title="See this animation on one of the project's backgrounds, to check contrast and palette clashes" onClick={() => setOnBackground(composeFrames())}>On a background…</button>}
-            </div>
-          )}
+          {doc && frames.length > 0 && <FramesStrip animations={animations} frame={frame} onFrame={setFrame} playing={playing} onPlaying={setPlaying} animSpeed={animSpeed} fps={fps} canvases={frameCanvases} onBackground={project?.assets.some((asset) => asset.kind === "backgrounds") ? () => setOnBackground(composeFrames()) : undefined} />}
           {doc?.changedOnDisk && !doc.changedOnDisk.kept && (
             <div className="gbp-disk-bar" role="alert">
               <span><b>{doc.name}</b> changed on disk (GB Studio or another app saved it) while you have unsaved changes here.</span>
@@ -1837,58 +1559,10 @@ export default function PaintApp() {
             <button role="tab" aria-selected={sideTab === "picture"} className={sideTab === "picture" ? "selected" : ""} onClick={() => setSideTab("picture")}>Picture</button>
           </div>
           {sideTab === "palettes" ? (
-            <div className="gbp-side-pane">
-              {sceneSlots.length > 0 && (
-                <div className="gbp-slots" role="group" aria-label={doc?.asset?.kind === "sprites" ? "Sprite palette slots" : "The scene's palette slots"}>
-                  {slotPalettes.map((paletteIndex, slot) => {
-                    const palette = paletteIndex >= 0 ? docPalettes[paletteIndex] : null;
-                    return (
-                      <button key={slot} className={`gbp-slot-button ${palette && activePalette === paletteIndex + 1 ? "selected" : ""}`} disabled={!palette} title={palette ? `Slot ${slot + 1} · ${palette.name}` : `Slot ${slot + 1}: no palette`} onClick={() => palette && pickPalette(paletteIndex + 1)} onContextMenu={(event) => openSlotMenu(event, paletteIndex + 1)}>
-                        <b>{slot + 1}</b>
-                        <span className="gbp-chips">{(palette?.colors ?? ["#222", "#222", "#222", "#222"]).map((color, at) => <i key={at} style={{ background: color }} />)}</span>
-                        <span className="gbp-slot-name">{palette?.name ?? "—"}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-              {sceneSlots.length > 0 && (
-                <label className="gbp-check" title="Palettes named like DWC-2-Computer D (a D / N / S variant) save as their base palette's slot, or the number in the name (WIN-1-Snow saves as slot 1)">
-                  <input type="checkbox" checked={namedSlots} onChange={(event) => { setNamedSlots(event.target.checked); store(NAMED_SLOTS_KEY, event.target.checked); }} />
-                  Named slots: variants save as their base's
-                </label>
-              )}
-              <div className="gbp-side-row">
-                <input type="search" className="gbp-filter" placeholder="Filter palettes" aria-label="Filter palettes by name" value={paletteFilter} onChange={(event) => setPaletteFilter(event.target.value)} />
-                <HelpTip label="About the palette brush">{paletteHelp}</HelpTip>
-              </div>
-              <div className="gbp-palettes" role="listbox" aria-label="Palettes">
-                {shownPalettes.map(({ palette, index, slot, named }) => (
-                  <button key={`${index}-${palette.name}`} role="option" aria-selected={activePalette === index} className={activePalette === index ? "selected" : ""} title={index && sceneSlots.length ? "Right-click: put in a slot" : undefined} onClick={() => pickPalette(index)} onContextMenu={(event) => openSlotMenu(event, index)}>
-                    <span className="gbp-chips">{palette.colors.map((color, at) => <i key={at} style={{ background: color }} />)}</span>
-                    <span>{palette.name}</span>
-                    {slot >= 0 && <small className="gbp-slot" title={doc?.asset?.kind === "sprites" ? `Sprite palette slot ${slot + 1}` : `Palette slot ${slot + 1} of this background's scene`}>{slot + 1}</small>}
-                    {named >= 0 && <small className="gbp-slot named" title={`Saves as slot ${named + 1} (named slots)`}>{named + 1}</small>}
-                  </button>
-                ))}
-              </div>
-              {doc && picked && (
-                <div className="gbp-palette-edit">
-                  <h2>{picked.name} in this picture</h2>
-                  <div className="gbp-palette-colors">
-                    {picked.colors.map((color, index) => <input key={index} type="color" aria-label={`${picked.name} color ${index + 1}`} title={`Color ${index + 1}: ${color}`} value={color} onChange={(event) => recolorPalette(picked.colors.map((old, at) => at === index ? event.target.value : old))} />)}
-                  </div>
-                  {closeShades(picked.colors, Boolean(doc.keyGreen)).map(({ a, b, delta }) => <p key={`${a}-${b}`} className="gbp-note gbp-pm-warn">Colors {a + 1} and {b + 1} are hard to tell apart (difference {delta}; aim for 12 or more).</p>)}
-                  <div className="gbp-palette-actions">
-                    {picked.id && project && <button className="quiet-button primary" disabled={!libraryColors || libraryColors.join() === picked.colors.join()} title={`Rewrite ${picked.name} in the GB Studio project with these colors (Save does this too)`} onClick={() => void (async () => { if (await okToWriteProjectJson() && await writeProjectPalette({ id: picked.id, name: picked.name, colors: [...picked.colors] })) say(`${picked.name} written to the project`); })()}>Save to project</button>}
-                    {sceneSlots.length > 0 && <button className="quiet-button" title={`Put ${picked.name} in one of ${slotWhere}`} onClick={(event) => { const r = event.currentTarget.getBoundingClientRect(); setSlotMenu({ x: r.left, y: r.bottom + 4, palette: activePalette }); }}>Slot…</button>}
-                    <button className="quiet-button" disabled={!libraryColors || libraryColors.join() === picked.colors.join()} title="Back to the colors the project has" onClick={() => libraryColors && recolorPalette(libraryColors)}>Revert</button>
-                    <button className="quiet-button" title="Copy these four colors, to paste onto a palette here or in another tab" onClick={() => { setCopiedColors([...picked.colors]); say(`Copied the colors of ${picked.name}`); }}>Copy values</button>
-                    <button className="quiet-button" disabled={!copiedColors} title="Replace these four colors with the copied ones" onClick={() => copiedColors && recolorPalette(copiedColors)}>Paste values</button>
-                  </div>
-                </div>
-              )}
-            </div>
+            <PalettesPane doc={doc} palettes={docPalettes} sceneSlots={sceneSlots} slotPalettes={slotPalettes} slotWhere={slotWhere} activePalette={activePalette} onPick={pickPalette}
+              namedSlots={namedSlots} onNamedSlots={(on) => { setNamedSlots(on); store(NAMED_SLOTS_KEY, on); }} filter={paletteFilter} onFilter={setPaletteFilter} onSlotMenu={(x, y, palette) => setSlotMenu({ x, y, palette })}
+              libraryColors={libraryColors} onSaveToProject={project && picked?.id ? () => void (async () => { if (await okToWriteProjectJson() && await writeProjectPalette({ id: picked.id!, name: picked.name, colors: [...picked.colors] })) say(`${picked.name} written to the project`); })() : undefined}
+              onRecolor={recolorPalette} copiedColors={copiedColors} onCopy={(colors) => { setCopiedColors(colors); say(`Copied the colors of ${picked?.name}`); }} />
           ) : (
             <PicturePane doc={doc} tileCount={tileCount} budget={budget} onBudget={setBudgetId} look={look} onLook={(next) => { setLook(next); store(LOOK_KEY, next); }}
               tint={tint} onTint={setTint} paletteNames={palettes.map(({ name }) => name)} customTint={customTint} onCustomTint={setCustomTint} font={font} onFont={(next) => { setFont(next); applyFont(next); }}
