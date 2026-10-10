@@ -17,7 +17,7 @@ const ICON = join(ROOT, "build", "icon.png");
 const DIST = join(ROOT, "dist");
 const DEV_URL = process.argv.includes("--dev") ? "http://127.0.0.1:5173/" : null;
 const APP_NAME = "GB Cartographer";
-const TYPES: Record<string, string> = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".png": "image/png", ".svg": "image/svg+xml", ".ico": "image/x-icon", ".ttf": "font/ttf", ".woff2": "font/woff2" };
+const TYPES: Record<string, string> = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".png": "image/png", ".svg": "image/svg+xml", ".ico": "image/x-icon", ".ttf": "font/ttf", ".woff": "font/woff", ".woff2": "font/woff2", ".txt": "text/plain" };
 
 const settingsFile = () => join(app.getPath("userData"), "settings.json");
 const serverOptions = () => ({ root: ROOT, backupDir: join(app.getPath("userData"), "backups"), settingsFile: settingsFile() });

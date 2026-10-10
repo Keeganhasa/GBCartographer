@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import type { Plugin } from "vite";
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
@@ -21,6 +22,7 @@ function cartographerEndpoints(): Plugin {
 
 export default defineConfig({
   base: "./",
+  define: { __APP_VERSION__: JSON.stringify((JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8")) as { version: string }).version) },
   plugins: [react(), cartographerEndpoints()],
   test: { environment: "node" },
 });

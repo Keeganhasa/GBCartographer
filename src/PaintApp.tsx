@@ -4,194 +4,25 @@
  * A tint only changes how the plain tiles look while painting. Saving writes one flat PNG, and for a project
  * picture also its tile palettes (see server/endpoints.ts).
  */
-import { BoxSelect, ChevronDown, Circle, CircleHelp, Download, DropletOff, Eraser, FlipHorizontal2, FolderOpen, FolderTree, Ghost, Grid3x3, Hand, Image, LayoutGrid, Magnet, Minus, Move, PaintBucket, Palette as PaletteIcon, Pause, Pencil, Pipette, Play, Plus, RectangleHorizontal, Redo2, Save, Slash, SprayCan, Square, Star, Type, Undo2, X } from "lucide-react";
-import { useEffect, useLayoutEffect, useReducer, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
+import { ChevronDown, CircleHelp, Download, FlipHorizontal2, FolderOpen, FolderTree, Grid3x3, Magnet, Minus, Palette as PaletteIcon, Pause, Play, Plus, Redo2, Save, Undo2, X } from "lucide-react";
+import { useEffect, useLayoutEffect, useReducer, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { flushSync } from "react-dom";
 import { LogoMark } from "./ui/LogoMark";
 import { FONTS, applyFont, loadFont, type FontChoice } from "./ui/theme";
 import PaletteManager from "./PaletteManager";
 import BackupsWindow from "./BackupsWindow";
 import { attachMiddlePan, attachWheelZoom, nextStep } from "./ui/wheelZoom";
-import { CELL, CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, cellsWide, clipRect, colorize, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, lift, linePoints, mirrorPoints, namedSlot, quantize, rectFrom, shadeLut, snapRect, spray, toRgba, type Floating, type Mirror, type Palette, type Rect } from "./paint";
-
-type ToolId = "pencil" | "eraser" | "spray" | "line" | "rect" | "rectFill" | "ellipse" | "fill" | "fillErase" | "eyedropper" | "palette" | "select" | "move" | "hand";
-
-/** id, label, icon, key, one-clause hint (status bar), the longer explanation (the ? help). */
-const TOOLS = [
-  ["pencil", "Pencil", Pencil, "B", "drag to paint · Shift-click line · right-click picks a shade", "Drag to paint with the active shade. Shift-click draws a straight line from the last point. Right-click picks the shade under the pointer."],
-  ["eraser", "Eraser", Eraser, "E", "drag to erase", "Drag to erase to the lightest shade, or to see-through in a picture that has see-through pixels."],
-  ["spray", "Spray can", SprayCan, "S", "drag to scatter pixels", "Drag to scatter pixels of the active shade inside the brush."],
-  ["line", "Line", Slash, "L", "drag from one end to the other", "Drag from one end of the line to the other."],
-  ["rect", "Rectangle", Square, "R", "drag a box", "Drag a box to outline it in the active shade."],
-  ["rectFill", "Filled rectangle", RectangleHorizontal, "Shift+R", "drag a box to fill", "Drag a box to fill it with the active shade."],
-  ["ellipse", "Ellipse", Circle, "O", "drag a box; the ellipse fills it", "Drag a box; the ellipse fills it."],
-  ["fill", "Flood fill", PaintBucket, "G", "click an area to fill", "Click an area to fill it with the active shade."],
-  ["fillErase", "Flood erase", DropletOff, "Shift+G", "click an area to erase", "Click an area to erase it."],
-  ["eyedropper", "Pick", Pipette, "I", "click to pick a shade, or a tile's palette", "Click a pixel to paint with its shade. Reached from the palette brush, it picks the tile's palette instead and goes back to the brush."],
-  ["palette", "Palette brush", PaletteIcon, "P", "drag over tiles · Shift-click line · [ ] size · right-click picks", "Pick a palette on the right, then drag over tiles to give it to them. Shift-click draws a straight line of tiles. [ and ] set the brush to 1, 2 × 2 or 3 × 3 tiles. Right-click picks a tile's palette. On a project background or sprite sheet, Save writes each tile's palette into GB Studio as its slot; None leaves a tile's slot as it is."],
-  ["select", "Select", BoxSelect, "M", "drag a box · drag inside to move · Alt copies", "Drag a box to select. Drag inside it to move the selection (Alt copies). Arrow keys nudge, Delete clears, Esc drops it."],
-  ["move", "Move", Move, "V", "drag the selection or the whole picture", "Drag the selection, or the whole picture when nothing is selected (Alt copies)."],
-  ["hand", "Pan", Hand, "H", "drag to pan · Space or middle button with any tool", "Drag to pan. Space or the middle mouse button pans with any tool."],
-] as const;
-const KIND_ICONS = { backgrounds: Image, sprites: Ghost, tilesets: LayoutGrid, fonts: Type } as const;
-
-const MIRRORS: Mirror[] = ["off", "x", "y", "xy"];
-const MIRROR_LABEL = { off: "Mirror off", x: "Mirror ↔", y: "Mirror ↕", xy: "Mirror ↔↕" } as const;
-const ZOOMS = [0.5, 1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48] as const;
-const BUILT_IN_TINTS: Palette[] = [
-  { name: "GB greens", colors: [...GB_SHADES] },
-  { name: "Gray", colors: ["#FFFFFF", "#AAAAAA", "#555555", "#000000"] },
-  { name: "Pocket", colors: ["#C4CFA1", "#8B956D", "#4D533C", "#1F1F1F"] },
-];
-const TINT_KEY = "gb-cartographer.tint";
-const GRID_KEY = "gb-cartographer.grid";
-const BUDGET_KEY = "gb-cartographer.tile-budget";
-/** GB Studio's background tile budgets (gb/limits.ts): Color Only scenes also merge flipped tiles. */
-const BUDGETS = [{ id: "colorOnly", label: "Color Only · 384", limit: 384, flips: true }, { id: "monochrome", label: "GB / Color + Mono · 192", limit: 192, flips: false }] as const;
-const CUSTOM_TINT_KEY = "gb-cartographer.custom-tint";
-const PROJECT_PANEL_KEY = "gb-cartographer.project-panel";
-const PROJECT_KIND_KEY = "gb-cartographer.project-kind";
-const NAMED_SLOTS_KEY = "gb-cartographer.named-slots";
-/** GB Studio draws dialogue boxes and menus with the eighth background palette. */
-const UI_SLOT = 7;
-/** A backup version's time from its name (2026-10-09T23-12-05-123Z.png). */
-const versionTime = (id: string) => Date.parse(id.replace(/^(\d{4}-\d\d-\d\dT\d\d)-(\d\d)-(\d\d)-(\d{3})Z.*$/, "$1:$2:$3.$4Z"));
-/** The dev server and the desktop app serve the open GB Studio project (server/endpoints.ts). */
-const PROJECT_URL = "./__cartographer/gbstudio-assets";
-const ASSET_URL = "./__cartographer/gbstudio-asset";
-/** What the system file manager is called here. */
-const FILE_MANAGER_LABEL = /Mac/i.test(navigator.userAgent) ? "Show in Finder" : /Win/i.test(navigator.userAgent) ? "Show in Explorer" : "Show in folder";
-/** Bumped when the server's previews change, so cached thumbnails are fetched again (2: sprites show their first frame). */
-const PREVIEW_VERSION = 2;
-const ASSET_KINDS = [["backgrounds", "Backgrounds"], ["sprites", "Sprites"], ["tilesets", "Tilesets"], ["fonts", "Fonts"]] as const;
-type AssetKind = typeof ASSET_KINDS[number][0];
-/** Backgrounds and sprite sheets carry palette slots GB Studio reads; tilesets and fonts are plain pictures. */
-const hasSlots = (kind: AssetKind) => kind === "backgrounds" || kind === "sprites" || kind === "tilesets";
-const UNDO_LIMIT = 60;
-const UNDO_BYTES = 96 * 1024 * 1024;
-
-/** The parts of the File System Access API used here (Chromium and the desktop app; other browsers download). */
-interface FileHandle { name: string; getFile(): Promise<File>; createWritable(): Promise<{ write(data: Blob): Promise<void>; close(): Promise<void> }> }
-type PickerWindow = Window & {
-  showOpenFilePicker?: (options: object) => Promise<FileHandle[]>;
-  showSaveFilePicker?: (options: object) => Promise<FileHandle>;
-  __gbcFlushSession?: () => Promise<boolean>;
-  /** The desktop app's bridge (electron/preload.ts): a native folder dialog. */
-  gbc?: { platform: string; chooseProject(): Promise<string | null> };
-};
-const PNG_TYPES = [{ description: "PNG image", accept: { "image/png": [".png"] } }];
-
-/** One PNG under the GB Studio project's assets folder. */
-interface Asset { kind: AssetKind; file: string; name: string; width: number; height: number; mtime: number }
-/** A project palette also carries its file's modification time, sent back with a rewrite (changed-on-disk check). */
-interface Project { name: string; path: string; assets: Asset[]; palettes: (Palette & { mtime?: number })[] }
-/** A sprite sheet's frames: 8 × 16 slices placed at frame-local x, y (see server/assets.ts). */
-interface SpriteFrame { tiles: { x: number; y: number; sliceX: number; sliceY: number; flipX: boolean; flipY: boolean }[] }
-interface SpriteAnimation { name: string; frames: SpriteFrame[] }
-/** What the server knows about an asset besides its pixels (see assetInfo in server/assets.ts). */
-interface AssetInfo { mtime: number; tileColors: number[]; slots: string[]; slotScene?: string | null; /** GB Studio's Automatic color: it reads the colors from the PNG, so a save in greens loses them. */ autoColor?: boolean; metaMtime: number | null; animations?: SpriteAnimation[] }
-/** A picture to open: a file (with a handle to save back to), or a project asset with its info. */
-/** A file to open; `replace` names an open picture (by id) that it reloads in place (same tab, same zoom). */
-interface Opening { file: File; handle?: FileHandle; asset?: Asset; info?: AssetInfo; replace?: number }
-
-interface Snapshot { pixels: Uint8Array; cells: Uint8Array }
-interface Doc extends Snapshot {
-  id: number;
-  name: string;
-  width: number;
-  height: number;
-  hasAlpha: boolean;
-  /** This picture's own copy of the library palettes: their colors can be edited per picture. */
-  palettes: Palette[];
-  undo: Snapshot[];
-  redo: Snapshot[];
-  dirty: boolean;
-  handle?: FileHandle;
-  /**
-   * The GB Studio asset this picture was opened from (Save writes it back; `mtime` is the file's time when read).
-   * A background or sprite sheet also carries its eight palette slot ids and its sidecar's time: Save writes each
-   * tile's palette into the sidecar (a background's tileColors, a sprite's slices' paletteIndex) as a slot.
-   */
-  asset?: { kind: AssetKind; file: string; name: string; mtime: number; slots?: string[]; /** The scene whose palette list the slots are; null: the project's default palettes. */ slotScene?: string | null; metaMtime?: number | null; /** Each cell's slot when the picture was opened (-1 unknown): only cells moved off it are written back. */ opened?: number[]; /** A sprite sheet's animations, for the frames strip. */ animations?: SpriteAnimation[]; /** The project folder it came from: Save refuses to write it into another project. */ project?: string; /** GB Studio's Automatic color is on (Save asks first). */ autoColor?: boolean };
-  /** A sprite sheet: see-through pixels are GB Studio's key green in the file. */
-  keyGreen?: boolean;
-  zoom: number;
-  sel: Rect | null;
-  float: Floating | null;
-}
-type Point = { x: number; y: number };
-type Drag =
-  | { kind: "stroke" | "spray" | "cells"; last: Point }
-  | { kind: "shape"; start: Point; base: Uint8Array }
-  | { kind: "marquee"; start: Point }
-  | { kind: "move"; start: Point; ox: number; oy: number }
-  | { kind: "pan"; x: number; y: number; left: number; top: number };
-
-function readStored<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) as T : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function store(key: string, value: unknown) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // Per-browser convenience only.
-  }
-}
-
-/** The open pictures are kept in IndexedDB between launches (typed arrays and file handles store as they are). */
-/**
- * The open pictures are kept in IndexedDB between launches. The database has its own name: the archived editor used
- * "gb-cartographer" (with an "autosave" store) on the same desktop address, and opening that one failed silently, so
- * the desktop app never kept its session (2026-10-09). Any failure is reported once in the console and resolves null.
- */
-const SESSION_DB = "gb-cartographer-session";
-let sessionWarned = false;
-function sessionStore<T>(mode: IDBTransactionMode, run: (objects: IDBObjectStore) => IDBRequest<T>): Promise<T | null> {
-  const fail = (resolve: (value: null) => void, error: unknown) => {
-    if (!sessionWarned) { sessionWarned = true; console.error("GB Cartographer could not keep its session:", error); }
-    resolve(null);
-  };
-  return new Promise((resolve) => {
-    try {
-      const open = indexedDB.open(SESSION_DB, 1);
-      open.onupgradeneeded = () => { if (!open.result.objectStoreNames.contains("session")) open.result.createObjectStore("session"); };
-      open.onerror = () => fail(resolve, open.error);
-      open.onsuccess = () => {
-        try {
-          const db = open.result;
-          const transaction = db.transaction("session", mode);
-          const request = run(transaction.objectStore("session"));
-          request.onsuccess = () => resolve(request.result);
-          request.onerror = () => fail(resolve, request.error);
-          transaction.oncomplete = () => db.close();
-        } catch (error) {
-          fail(resolve, error);
-        }
-      };
-    } catch (error) {
-      fail(resolve, error);
-    }
-  });
-}
+import { CELL, CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, cellsWide, clipRect, colorize, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, lift, linePoints, mirrorPoints, namedSlot, quantize, rectFrom, shadeLut, snapRect, spray, toRgba, type Floating, type Mirror, type Palette } from "./paint";
+import { ASSET_KINDS, ASSET_URL, BUDGETS, BUDGET_KEY, BUILT_IN_TINTS, CUSTOM_TINT_KEY, FILE_MANAGER_LABEL, GRID_KEY, MIRRORS, MIRROR_LABEL, NAMED_SLOTS_KEY, PNG_TYPES, PREVIEW_VERSION, PROJECT_KIND_KEY, PROJECT_PANEL_KEY, PROJECT_URL, TINT_KEY, UI_SLOT, UNDO_BYTES, UNDO_LIMIT, ZOOMS, hasSlots, versionTime, type Asset, type AssetInfo, type AssetKind, type Doc, type Drag, type FileHandle, type Opening, type PickerWindow, type Point, type Project, type ToolId } from "./app/model";
+import { KIND_ICONS, TOOLS } from "./app/tools";
+import { readStored, sessionStore, store } from "./app/storage";
+import { HelpTip } from "./app/HelpTip";
+import { HelpWindow } from "./app/HelpWindow";
+import { AboutWindow } from "./app/AboutWindow";
+import { Menu } from "./app/Menu";
+import { StartScreen } from "./app/StartScreen";
 
 let nextDocId = 1;
-
-/** A small "?" that shows its explanation when clicked (the text stays out of the way otherwise). */
-function HelpTip({ label, children }: { label: string; children: ReactNode }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <button type="button" className={`gbp-help-button ${open ? "open" : ""}`} aria-label={label} aria-expanded={open} title={label} onClick={() => setOpen(!open)}>?</button>
-      {open && <p className="gbp-note gbp-help-text">{children}</p>}
-    </>
-  );
-}
 
 export default function PaintApp() {
   const docs = useRef<Doc[]>([]);
@@ -218,6 +49,7 @@ export default function PaintApp() {
   const [served, setServed] = useState(false);
   const [showPalettes, setShowPalettes] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
   /** Whether the user was warned this session that GB Studio is open (it may overwrite project JSON when it saves). */
   const gbStudioWarned = useRef(false);
   /** Projects whose GB Studio version note was shown this session. */
@@ -1403,24 +1235,7 @@ export default function PaintApp() {
               </div>
             </div>
           ) : served && !project ? (
-            <div className="gbp-start">
-              <img className="gbp-start-icon" src={`${import.meta.env.BASE_URL}app-icon.png`} alt="" width={96} height={96} />
-              <h1>GB Cartographer</h1>
-              <p className="gbp-start-sub">A pixel painter for GB Studio projects <span className="gbp-alpha">Alpha</span></p>
-              <p className="gbp-start-alpha">This is an alpha release: expect bugs. Save writes into your GB Studio project, so keep it backed up and close GB Studio while you work.</p>
-              <div className="gbp-start-cards">
-                <button className="gbp-start-card primary" onClick={() => void chooseProject()}><span className="gbp-start-ic"><FolderTree size={18} /></span><b>Open a GB Studio project</b><span>The folder with the .gbsproj file. Backgrounds, sprites, tilesets and fonts open here and save back.</span></button>
-                <button className="gbp-start-card" onClick={() => void chooseProject(true)}><span className="gbp-start-ic"><Star size={18} /></span><b>Try the demo</b><span>A small project with CC0 and MIT art, credited inside. Opens a copy you can paint in.</span></button>
-                <button className="gbp-start-card" onClick={() => void pickFiles()}><span className="gbp-start-ic"><FolderOpen size={18} /></span><b>Open PNG files</b><span>Any Game Boy picture on its own. Drop files anywhere, or paste from the clipboard.</span><kbd>Ctrl+O</kbd></button>
-              </div>
-              {recent.length > 0 && (
-                <div className="gbp-start-recent">
-                  <span className="eyebrow">Recent</span>
-                  {recent.map((item) => <button key={item.path} className="gbp-start-row" title={item.path} onClick={() => void openProjectPath(item.path)}><b>{item.name}</b><small>{item.path}</small></button>)}
-                </div>
-              )}
-              <p className="gbp-start-foot">Save writes only the PNG, a background's tile palettes, a sprite's slice palettes and palette files into your project. The old file is kept in the backups folder.</p>
-            </div>
+            <StartScreen recent={recent} onChooseProject={() => void chooseProject()} onDemo={() => void chooseProject(true)} onOpenFiles={() => void pickFiles()} onOpenRecent={(path) => void openProjectPath(path)} />
           ) : (
             <div className="gbp-empty">
               <LogoMark size={56} />
@@ -1538,8 +1353,7 @@ export default function PaintApp() {
       </footer>
       {toast && <div className="gbp-toast" role="status">{toast}</div>}
       {projectMenu && (
-        <div className="gbp-menu-backdrop" onMouseDown={() => setProjectMenu(null)} onContextMenu={(event) => { event.preventDefault(); setProjectMenu(null); }}>
-          <div className="gbp-menu" role="menu" style={{ left: Math.min(projectMenu.x, window.innerWidth - 260), top: Math.max(8, Math.min(projectMenu.y, window.innerHeight - 260)) }} onMouseDown={(event) => event.stopPropagation()}>
+        <Menu x={projectMenu.x} y={projectMenu.y} width={260} height={300} onClose={() => setProjectMenu(null)}>
             <button role="menuitem" onClick={() => { setProjectMenu(null); void chooseProject(); }}>Open another project…</button>
             <button role="menuitem" onClick={() => { setProjectMenu(null); void chooseProject(true); }}>Open the demo project</button>
             {recent.filter((item) => item.path !== project?.path).length > 0 && <><hr /><span className="gbp-menu-label">Recent</span></>}
@@ -1552,12 +1366,12 @@ export default function PaintApp() {
               <hr />
               <button role="menuitem" onClick={() => { setProjectMenu(null); void closeProject(); }}>Close project</button>
             </>}
-          </div>
-        </div>
+            <hr />
+            <button role="menuitem" onClick={() => { setProjectMenu(null); setShowAbout(true); }}>About GB Cartographer</button>
+        </Menu>
       )}
       {slotMenu && doc && docPalettes[slotMenu.palette - 1] && (
-        <div className="gbp-menu-backdrop" onMouseDown={() => setSlotMenu(null)} onContextMenu={(event) => { event.preventDefault(); setSlotMenu(null); }}>
-          <div className="gbp-menu gbp-slot-menu" role="menu" style={{ left: Math.min(slotMenu.x, window.innerWidth - 300), top: Math.max(8, Math.min(slotMenu.y, window.innerHeight - 450)) }} onMouseDown={(event) => event.stopPropagation()}>
+        <Menu x={slotMenu.x} y={slotMenu.y} width={300} height={450} className="gbp-slot-menu" onClose={() => setSlotMenu(null)}>
             <span className="gbp-menu-label">Put {docPalettes[slotMenu.palette - 1].name} in slot</span>
             {slotPalettes.map((index, slot) => {
               const holder = index >= 0 ? docPalettes[index] : null;
@@ -1572,40 +1386,20 @@ export default function PaintApp() {
             })}
             <hr />
             <p className="gbp-menu-note">{docPalettes[slotMenu.palette - 1].id ? `Writes ${slotWhere} in GB Studio right away. Tiles wearing the palette moved out show the new one there.` : "Add this palette to the project first (palette manager)."}</p>
-          </div>
-        </div>
+        </Menu>
       )}
       {assetMenu && (
-        <div className="gbp-menu-backdrop" onMouseDown={() => setAssetMenu(null)} onContextMenu={(event) => { event.preventDefault(); setAssetMenu(null); }}>
-          <div className="gbp-menu" role="menu" style={{ left: Math.min(assetMenu.x, window.innerWidth - 220), top: Math.min(assetMenu.y, window.innerHeight - 130) }} onMouseDown={(event) => event.stopPropagation()}>
+        <Menu x={assetMenu.x} y={assetMenu.y} width={220} height={200} onClose={() => setAssetMenu(null)}>
             <button role="menuitem" onClick={() => { void openAsset(assetMenu.asset); setAssetMenu(null); }}>Open</button>
             <button role="menuitem" onClick={() => { void fetch(`./__cartographer/reveal?${assetQuery(assetMenu.asset)}`, { method: "POST" }); setAssetMenu(null); }}>{FILE_MANAGER_LABEL}</button>
             <button role="menuitem" onClick={() => { void navigator.clipboard?.writeText(`${project?.path ?? ""}/assets/${assetMenu.asset.kind}/${assetMenu.asset.file}`).then(() => say("Copied the file path")); setAssetMenu(null); }}>Copy file path</button>
             <button role="menuitem" onClick={() => { setBackups({ file: `assets/${assetMenu.asset.kind}/${assetMenu.asset.file}` }); setAssetMenu(null); }}>Earlier versions…</button>
             <hr />
             <button role="menuitem" onClick={() => { void fetch("./__cartographer/reveal", { method: "POST" }); setAssetMenu(null); }}>Show project folder</button>
-          </div>
-        </div>
+        </Menu>
       )}
-      {showHelp && (
-        <div className="gbp-modal-backdrop" onClick={() => setShowHelp(false)}>
-          <div className="gbp-modal gbp-help" role="dialog" aria-label="Help" onClick={(event) => event.stopPropagation()}>
-            <header className="gbp-modal-head"><h2>Tools and keys</h2><span className="gbp-spacer" /><button className="icon-button small" aria-label="Close" onClick={() => setShowHelp(false)}><X size={14} /></button></header>
-            <div className="gbp-help-body">
-              <table>
-                <tbody>
-                  {TOOLS.map(([id, label, Icon, keys, , long]) => <tr key={id}><td><Icon size={14} /></td><td><b>{label}</b></td><td><kbd>{keys}</kbd></td><td>{long}</td></tr>)}
-                  <tr><td /><td><b>Mirror</b></td><td><kbd>Shift+M</kbd></td><td>Paint both halves at once: off, left-right, top-bottom, both.</td></tr>
-                  <tr><td /><td><b>Shades</b></td><td><kbd>1–4</kbd> <kbd>0</kbd></td><td>Pick a shade; 0 is see-through in a picture that has it.</td></tr>
-                  <tr><td /><td><b>Brush</b></td><td><kbd>[</kbd> <kbd>]</kbd></td><td>Smaller or bigger: pixels, or tiles with the palette brush.</td></tr>
-                  <tr><td /><td><b>Files</b></td><td><kbd>Ctrl+O</kbd> <kbd>Ctrl+S</kbd> <kbd>Ctrl+E</kbd></td><td>Open PNGs, save, export a copy. Ctrl+Z / Ctrl+Shift+Z undo and redo; Ctrl+C / X / V and Ctrl+A work on the selection; Ctrl+= / Ctrl+- zoom; Esc drops the selection.</td></tr>
-                </tbody>
-              </table>
-              <p className="gbp-note">What Save writes into a GB Studio project: the PNG (same size), a background's tile palettes (<code>tileColors</code>), a sprite sheet's slice palettes (<code>paletteIndex</code>), palette files from the palette manager, and when you put a palette in a slot, the scene's palette list or the project's default palettes. Nothing else. The old file is copied to the backups folder first.</p>
-            </div>
-          </div>
-        </div>
-      )}
+      {showHelp && <HelpWindow onClose={() => setShowHelp(false)} onAbout={() => { setShowHelp(false); setShowAbout(true); }} />}
+      {showAbout && <AboutWindow onClose={() => setShowAbout(false)} />}
       {backups && project && (
         <BackupsWindow projectName={project.name} initialFile={backups.file} onClose={() => setBackups(null)} onRestore={restoreFromBackup} />
       )}

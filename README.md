@@ -100,7 +100,23 @@ npm run dev            # or the page on a local dev server, http://127.0.0.1:517
 
 In the desktop app, **Open project…** shows a file dialog: pick the project's `.gbsproj` file (or its folder). On the dev server it asks for the folder's path; you
 can also set `GBC_PROJECT=/path/to/project` or write `{ "project": "/path/to/project" }` to
-`cartographer.local.json` (not committed). Backups go to the app's data folder (desktop) or `backups/` (dev server).
+`cartographer.local.json` (not committed).
+
+### Where GB Cartographer keeps its things
+
+The desktop app keeps its settings (`settings.json`: the open project and recent ones), the demo project's copy
+(`demo-project/`) and the backups (`backups/<project>-<id>/…`, the last 10 versions of every file it overwrote) in
+its data folder:
+
+| System | Data folder |
+| --- | --- |
+| macOS | `~/Library/Application Support/GB Cartographer` |
+| Windows | `%APPDATA%\GB Cartographer` |
+| Linux | `~/.config/GB Cartographer` |
+
+**Show backups folder** in the project menu opens this project's backups. On the dev server they go to `backups/` in
+the checkout instead, next to `cartographer.local.json`. Open pictures and per-window choices (font, tint, panels)
+live in the app's own browser storage.
 
 `npm run install-mac-app` puts a GB Cartographer app in /Applications that runs this checkout; `npm run install-shortcut`
 does the same on Windows.
@@ -122,7 +138,7 @@ npm run build
 ## Credits and license
 
 Code: MIT (see LICENSE). The logo is the author's pixel art, CC0. [Public Pixel](https://ggbot.itch.io/public-pixel-font)
-by GGBotNet (CC0, shipped in `public/fonts/`) is an optional UI font. Inter by Rasmus Andersson and JetBrains Mono are loaded from Google Fonts (SIL Open Font License 1.1).
+by GGBotNet (CC0, shipped in `public/fonts/`) is an optional UI font. Inter by Rasmus Andersson and the Inter Project Authors, and JetBrains Mono by JetBrains, ship with the app (SIL Open Font License 1.1, licences in `public/fonts/`).
 The demo project's art is credited in [demo/CREDITS.md](demo/CREDITS.md). The main screenshot and the font and wide-background screenshots show GB
 Studio's sample project (`appData/templates/gbs2` in the [GB Studio repository](https://github.com/chrismaltby/gb-studio)),
 Copyright (c) 2019-2026 Chris Maltby, used under the MIT license. GB Studio is by Chris Maltby and

@@ -488,3 +488,9 @@
 /* The palette manager's preview fills its box (the bigger modal has room for it). */
 .gbp-pm-preview, .gbp-pm .gbp-pm-preview { min-height: 0; }
 .gbp-pm-preview canvas { flex: 1 1 0; min-height: 0; width: 100%; height: 100%; max-height: none; object-fit: contain; background: none; box-shadow: none; }
+
+/* About. */
+.gbp-about-title { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+.gbp-about-title h1 { margin: 0 0 2px; font-size: var(--fs-xl); }
+.gbp-about a { color: var(--acc-text); }
+.gbp-about td:first-child { white-space: nowrap; color: var(--ink); }
