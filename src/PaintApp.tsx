@@ -323,7 +323,7 @@ export default function PaintApp() {
         if (old < 0) last = id;
         // Backgrounds and tilesets: each tile's priority flag (bit 7: draws over sprites).
         const flags = asset && info && (asset.kind === "backgrounds" || asset.kind === "tilesets") ? Array.from({ length: picture.cells.length }, (_, cell) => (info.tileColors[cell] ?? 0) >= 0 && (info.tileColors[cell] ?? 0) & 0x80 ? 1 : 0) : null;
-        const opened: Doc = { id, name: asset?.name ?? file.name, width: bitmap.width, height: bitmap.height, pixels: picture.pixels, cells: picture.cells, ...(flags ? { priority: Uint8Array.from(flags) } : {}), hasAlpha: picture.hasAlpha || keyGreen, palettes: picture.palettes, undo: [], redo: [], dirty: false, handle, asset: asset && info ? { kind: asset.kind, file: asset.file, name: asset.name, mtime: info.mtime, ...(hasSlots(asset.kind) ? { slots: info.slots, slotScene: info.slotScene ?? null, metaMtime: info.metaMtime, opened: info.tileColors.map((value) => value < 0 ? -1 : value & 7), ...(flags ? { openedPriority: flags } : {}) } : {}), ...(asset.kind === "sprites" && info.animations?.length ? { animations: info.animations, animSpeed: info.animSpeed ?? null } : {}), project: projectRef.current?.path, ...(info.autoColor ? { autoColor: true } : {}) } : undefined, keyGreen: keyGreen || undefined, ...(keyMagenta ? { keyMagenta: true } : {}), zoom: old >= 0 ? docs.current[old].zoom : fitZoom(bitmap.width, bitmap.height), sel: null, float: null };
+        const opened: Doc = { id, ...(handle && !asset ? { fileTime: file.lastModified } : {}), name: asset?.name ?? file.name, width: bitmap.width, height: bitmap.height, pixels: picture.pixels, cells: picture.cells, ...(flags ? { priority: Uint8Array.from(flags) } : {}), hasAlpha: picture.hasAlpha || keyGreen, palettes: picture.palettes, undo: [], redo: [], dirty: false, handle, asset: asset && info ? { kind: asset.kind, file: asset.file, name: asset.name, mtime: info.mtime, ...(hasSlots(asset.kind) ? { slots: info.slots, slotScene: info.slotScene ?? null, metaMtime: info.metaMtime, opened: info.tileColors.map((value) => value < 0 ? -1 : value & 7), ...(flags ? { openedPriority: flags } : {}) } : {}), ...(asset.kind === "sprites" && info.animations?.length ? { animations: info.animations, animSpeed: info.animSpeed ?? null } : {}), project: projectRef.current?.path, ...(info.autoColor ? { autoColor: true } : {}) } : undefined, keyGreen: keyGreen || undefined, ...(keyMagenta ? { keyMagenta: true } : {}), zoom: old >= 0 ? docs.current[old].zoom : fitZoom(bitmap.width, bitmap.height), sel: null, float: null };
         if (old >= 0) docs.current[old] = opened;
         else docs.current.push(opened);
         if (old >= 0) continue;
@@ -819,7 +819,11 @@ export default function PaintApp() {
         const writable = await handle.createWritable();
         await writable.write(blob);
         await writable.close();
-        if (!copy || !target.handle) Object.assign(target, { handle, name: handle.name, dirty: false });
+        if (!copy || !target.handle) {
+          Object.assign(target, { handle, name: handle.name, dirty: false, changedOnDisk: undefined });
+          // Our own save is not someone else's change: remember the file's new time.
+          target.fileTime = await handle.getFile().then((file) => file.lastModified).catch(() => Date.now());
+        }
         return handle.name;
       }
       const link = document.createElement("a");
@@ -974,6 +978,7 @@ export default function PaintApp() {
    * a picture without unsaved changes reloads; one with unsaved changes gets a bar to reload or keep it.
    */
   async function checkDisk() {
+    await checkFiles();
     const path = projectRef.current?.path;
     if (!path || saving.current) return;
     const open = docs.current.filter((item) => item.asset && (!item.asset.project || item.asset.project === path));
@@ -1008,6 +1013,24 @@ export default function PaintApp() {
     doc.sel = { x: doc.float.x, y: doc.float.y, w: doc.float.w, h: doc.float.h };
     setToolState("select");
     touch(doc);
+  }
+
+  /**
+   * PNGs opened from disk with a handle (not project pictures) are watched too, so a picture another app saves
+   * (Aseprite exporting on every save, say) reloads here: in place when it has no unsaved changes, else the bar asks.
+   */
+  async function checkFiles() {
+    if (saving.current) return;
+    const reloaded: string[] = [];
+    for (const item of docs.current.filter((doc) => doc.handle && !doc.asset && doc.fileTime !== undefined)) {
+      let file: File;
+      try { file = await item.handle!.getFile(); } catch { continue; }
+      if (file.lastModified === item.fileTime || file.lastModified === item.changedOnDisk?.mtime) continue;
+      if (item.dirty) { item.changedOnDisk = { mtime: file.lastModified, metaMtime: null }; continue; }
+      await openFiles([{ file, handle: item.handle, replace: item.id }]);
+      reloaded.push(item.name);
+    }
+    if (reloaded.length) say(`${reloaded.join(", ")} changed on disk and ${reloaded.length === 1 ? "was" : "were"} reloaded.`);
   }
 
   /** Shows the next (1) or previous (-1) open picture, wrapping around. */
@@ -1497,12 +1520,11 @@ export default function PaintApp() {
   useEffect(() => { void rereadSlots(); }, [project]);
   // Watch the open pictures' files: every 4 seconds while the window is visible, and when it comes back to front.
   useEffect(() => {
-    if (!project) return;
     const check = () => { if (document.visibilityState === "visible") void latest.current.checkDisk(); };
     const timer = window.setInterval(check, 4000);
     window.addEventListener("focus", check);
     return () => { window.clearInterval(timer); window.removeEventListener("focus", check); };
-  }, [project]);
+  }, []);
   // Frames play at the sheet's GB Studio speed (60 / (animSpeed + 1) frames a second), else 8 a second.
   const animSpeed = doc?.asset?.animSpeed;
   const fps = animSpeed == null || animSpeed === 255 ? 8 : 60 / (animSpeed + 1);
@@ -1746,7 +1768,7 @@ export default function PaintApp() {
             <div className="gbp-disk-bar" role="alert">
               <span><b>{doc.name}</b> changed on disk (GB Studio or another app saved it) while you have unsaved changes here.</span>
               <span className="gbp-spacer" />
-              <button className="quiet-button primary" onClick={() => { if (window.confirm(`Reload ${doc.name} from disk? Your unsaved changes here are lost.`)) { const target = doc; target.changedOnDisk = undefined; void reloadAsset(target); } }}>Reload from disk</button>
+              <button className="quiet-button primary" onClick={() => { if (window.confirm(`Reload ${doc.name} from disk? Your unsaved changes here are lost.`)) { const target = doc; target.changedOnDisk = undefined; if (target.asset) void reloadAsset(target); else if (target.handle) void target.handle.getFile().then((file) => openFiles([{ file, handle: target.handle, replace: target.id }])); } }}>Reload from disk</button>
               <button className="quiet-button" title="Keep painting; Save will ask before replacing the file on disk" onClick={() => { doc.changedOnDisk = { ...doc.changedOnDisk!, kept: true }; bump(); }}>Keep mine</button>
             </div>
           )}
