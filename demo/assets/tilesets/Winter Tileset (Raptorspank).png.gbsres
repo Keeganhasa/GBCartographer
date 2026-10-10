@@ -7,5 +7,6 @@
   "height": 10,
   "imageWidth": 80,
   "imageHeight": 80,
-  "filename": "Winter Tileset (Raptorspank).png"
+  "filename": "Winter Tileset (Raptorspank).png",
+  "tileColors": "0028+042+072+048+072+0420+002+048+002+04!00!"
 }

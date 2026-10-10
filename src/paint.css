@@ -442,3 +442,7 @@
 
 /* Unsaved pictures: italic, with a * after the name (tabs and cards). */
 .gbp-unsaved { font-style: italic; }
+
+/* Alpha release badge (brand and start screen) and the start screen's note. */
+.gbp-alpha { display: inline-block; padding: 1px 6px; color: var(--on-acc); background: var(--acc); border-radius: 999px; font: 700 10px var(--ui); letter-spacing: .06em; text-transform: uppercase; vertical-align: middle; }
+.gbp-start-alpha { width: 714px; margin: -2px 0 6px; padding: 8px 12px; color: var(--ink); background: rgba(var(--acc-rgb), .1); border: 1px solid rgba(var(--acc-rgb), .35); border-radius: 10px; font-size: var(--fs-sm); line-height: 1.5; text-align: center; }

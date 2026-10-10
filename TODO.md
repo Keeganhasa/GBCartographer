@@ -27,7 +27,12 @@ into PROGRESS.md when they deserve a note.
 - [x] The demo's credited files carry their author in the file name and in GB Studio's name, e.g. `Winter Tileset (Raptorspank)`.
 - [x] The desktop app now keeps its session (its database name clashed with the archived editor's, so nothing was
       kept and the author's tileset coloring was lost on quit).
-- [ ] Bake the author's tileset colors into the demo once they are recolored and saved from the app.
+- [x] The author's tile colors baked into the demo (both tilesets, cabin, forest); every tile's palette, including
+      those outside the eight slots, is kept in `docs/demo-tile-palettes.json`.
+- [x] Alpha release notice: README banner, an Alpha badge by the name, a note on the start screen, version 0.1.0-alpha.1.
+- [ ] Palette slots: right-click a palette → Put in slot 1–8 (scene palettes for backgrounds, project defaults for
+      tilesets and sprites), and an option to treat Chorbi-style variants (D / N / S) as their base palette's slot.
+      Then apply `docs/demo-tile-palettes.json` to the demo's 44 Winter Tileset tiles that wear palettes outside the eight.
 - [x] Project menu on the GB Cartographer name at the top left (it works on the start screen too): open another project, the demo,
       a recent one, Show in Finder, Close project. Unsaved pictures are offered a save first; the old project's tabs
       close; a picture never saves into a project it didn't come from.

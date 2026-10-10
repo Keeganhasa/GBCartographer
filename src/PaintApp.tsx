@@ -1146,7 +1146,7 @@ export default function PaintApp() {
   return (
     <div className="gbp-shell" onDragOver={(event) => event.preventDefault()} onDrop={(event) => void onDrop(event)}>
       <header className="gbp-bar">
-        <button className="gbp-brand" aria-haspopup="menu" title={served ? "Projects: open, switch or close" : "GB Cartographer"} onClick={(event) => { if (!served) return; const r = event.currentTarget.getBoundingClientRect(); setProjectMenu({ x: r.left, y: r.bottom + 6 }); }}><LogoMark size={22} /><b>GB Cartographer</b>{served && <ChevronDown size={14} />}</button>
+        <button className="gbp-brand" aria-haspopup="menu" title={served ? "Projects: open, switch or close" : "GB Cartographer"} onClick={(event) => { if (!served) return; const r = event.currentTarget.getBoundingClientRect(); setProjectMenu({ x: r.left, y: r.bottom + 6 }); }}><LogoMark size={22} /><b>GB Cartographer</b><span className="gbp-alpha" title="Alpha release: expect bugs, and keep your GB Studio project backed up">Alpha</span>{served && <ChevronDown size={14} />}</button>
         <span className="gbp-seg" role="group" aria-label="File">
           <button className="quiet-button" title="Open PNG files · Ctrl+O (or drop them on the window)" onClick={() => void pickFiles()}><FolderOpen size={14} />Open</button>
           <button className="quiet-button" disabled={!doc} title={`Save every changed picture · Ctrl+S${doc?.asset ? ` (this one over ${doc.asset.file} in the project; old files go to the backups folder)` : doc?.handle ? ` (this one over ${doc.name})` : " (this one asks where)"}`} onClick={() => void save(false)}><Save size={14} />Save</button>
@@ -1266,7 +1266,8 @@ export default function PaintApp() {
             <div className="gbp-start">
               <img className="gbp-start-icon" src={`${import.meta.env.BASE_URL}app-icon.png`} alt="" width={96} height={96} />
               <h1>GB Cartographer</h1>
-              <p className="gbp-start-sub">A pixel painter for GB Studio projects</p>
+              <p className="gbp-start-sub">A pixel painter for GB Studio projects <span className="gbp-alpha">Alpha</span></p>
+              <p className="gbp-start-alpha">This is an alpha release: expect bugs. Save writes into your GB Studio project, so keep it backed up and close GB Studio while you work.</p>
               <div className="gbp-start-cards">
                 <button className="gbp-start-card primary" onClick={() => void chooseProject()}><span className="gbp-start-ic"><FolderTree size={18} /></span><b>Open a GB Studio project</b><span>The folder with the .gbsproj file. Backgrounds, sprites, tilesets and fonts open here and save back.</span></button>
                 <button className="gbp-start-card" onClick={() => void chooseProject(true)}><span className="gbp-start-ic"><Star size={18} /></span><b>Try the demo</b><span>A small project with CC0 and MIT art, credited inside. Opens a copy you can paint in.</span></button>

@@ -1,5 +1,9 @@
 # GB Cartographer
 
+> **Alpha release.** GB Cartographer is early software: features and file handling are still changing, and there
+> will be bugs. It writes into your GB Studio project when you save, so keep the project backed up or in version
+> control, and close GB Studio while you work. Please report problems in the repository's issues.
+
 A small pixel painter for [GB Studio](https://www.gbstudio.dev) projects. Open your project folder and paint its
 backgrounds, sprite sheets, tilesets and fonts in the four Game Boy shades, give tiles their palettes, and save straight
 back into the project. It also opens any Game Boy PNG on its own.

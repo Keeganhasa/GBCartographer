@@ -1,6 +1,6 @@
 {
   "name": "gb-cartographer",
-  "version": "0.1.0",
+  "version": "0.1.0-alpha.1",
   "description": "A small pixel painter for GB Studio projects: backgrounds, sprite sheets and tilesets in the four Game Boy shades, with per-tile palettes written back to the project.",
   "license": "MIT",
   "type": "module",
