@@ -2,6 +2,15 @@ import { describe, expect, it } from "vitest";
 import { CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, clipRect, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, hexRgb, closeShades, colorDistance, paletteVariant, inPattern, linkGroups, syncLinked, mergeNearTiles, tileUsage, gbStudioShade, gbcCorrect, dropCells, flipFloat, lift, liftCells, linePoints, onTiles, replaceShade, rotateFloat, mirrorPoints, namedSlot, quantize, snapRect, toRgba } from "./paint";
 
 describe("GB Cartographer pixels", () => {
+  it("keeps a variable-width font's magenta columns: see-through here, magenta in the file", () => {
+    const rgba = new Uint8ClampedArray([7, 24, 33, 255, 255, 0, 255, 255]);
+    const font = quantize(rgba, 2, 1, [], false, true);
+    expect([...font.pixels]).toEqual([3, CLEAR]);
+    expect([...toRgba(font.pixels, font.cells, 2, [], "#FF00FF")]).toEqual([...rgba]);
+    // Read as a plain picture, magenta is just a dark color (GB Studio's background rule).
+    expect([...quantize(rgba, 2, 1).pixels]).toEqual([3, 3]);
+  });
+
   it("makes D, N and S variants of a palette: lilac, dark and blue, warm", () => {
     const base = ["#EFBD7B", "#C5844A", "#732121", "#211029"];
     const light = (hex: string) => hexRgb(hex).reduce((sum, value) => sum + value, 0);

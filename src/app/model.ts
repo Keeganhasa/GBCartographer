@@ -95,6 +95,8 @@ export interface Doc extends Snapshot {
   priority?: Uint8Array;
   /** Resized since it was opened or saved: Save writes the new size (a project asset's size is otherwise fixed). */
   resized?: boolean;
+  /** A font sheet: see-through pixels are magenta in the file (a variable-width glyph's unused columns). */
+  keyMagenta?: boolean;
   /** A sprite sheet: see-through pixels are GB Studio's key green in the file. */
   keyGreen?: boolean;
   zoom: number;

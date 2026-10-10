@@ -532,7 +532,7 @@ function drawPreview(project: string, kind: AssetKind, path: string): { rgba: Ui
   const info = assetInfo(project, kind, path);
   const palettes = listPalettes(project).map(({ id, name, colors }) => ({ id, name, colors }));
   const sprite = kind === "sprites", keyed = KEYED_KINDS.includes(kind);
-  const picture = quantize(image.pixels, image.width, image.height, palettes, keyed);
+  const picture = quantize(image.pixels, image.width, image.height, palettes, keyed, kind === "fonts");
   if (info.tileColors.length) assignSlots(picture.cells, info.tileColors, info.slots, picture.palettes);
   const shown = picture.palettes.map((palette) => ({ ...palette, colors: sprite ? spriteShades(palette.colors) : palette.colors }));
   const rgba = toRgba(picture.pixels, picture.cells, image.width, shown, sprite && !picture.hasAlpha ? KEY_GREEN : undefined);

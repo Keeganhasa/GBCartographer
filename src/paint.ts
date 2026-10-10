@@ -60,11 +60,14 @@ export function gbStudioSpriteClear(r: number, g: number, b: number, a: number):
  * (sprites: GB Studio's rule, including its key green). Colors within NEAR_SHADE_TOLERANCE of a GB green leave a
  * tile plain green (`near` counts them); they still shade by GB Studio's rule.
  */
-export function quantize(rgba: Uint8ClampedArray, width: number, height: number, library: readonly Palette[] = [], keyGreen = false): Picture {
+export function quantize(rgba: Uint8ClampedArray, width: number, height: number, library: readonly Palette[] = [], keyGreen = false, keyMagenta = false): Picture {
   const rgbKey = ([r, g, b]: [number, number, number]) => (r << 16) | (g << 8) | b;
+  // Sprites: GB Studio's sprite rule. Fonts: its magenta (red and blue above 249, green below 250) is see-through.
   const clear = keyGreen
     ? (p: number) => gbStudioSpriteClear(rgba[p], rgba[p + 1], rgba[p + 2], rgba[p + 3])
-    : (p: number) => rgba[p + 3] < 128;
+    : keyMagenta
+      ? (p: number) => rgba[p + 3] < 128 || (rgba[p] > 249 && rgba[p + 2] > 249 && rgba[p + 1] < 250)
+      : (p: number) => rgba[p + 3] < 128;
   const shades = GB_SHADES.map(hexRgb);
   const gb = new Map<number, number>(shades.map((shade, index) => [rgbKey(shade), index]));
   const shadeOf = (key: number) => gb.get(key) ?? gbStudioShade((key >> 8) & 255);
@@ -152,6 +155,8 @@ export function spriteShades(colors: readonly string[]): string[] {
 
 /** GB Studio's key green: the see-through color of sprite sheets. */
 export const KEY_GREEN = "#65FF00";
+/** The magenta GB Studio's fonts use for a variable-width glyph's unused columns (read as see-through). */
+export const KEY_MAGENTA = "#FF00FF";
 
 /** One 32-bit pixel per shade (CLEAR is see-through, or `clear` when given), in the byte order ImageData uses. */
 export function shadeLut(colors: readonly string[], clear?: string): Uint32Array {

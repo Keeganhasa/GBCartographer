@@ -12,7 +12,7 @@ import { FONTS, applyFont, loadFont, type FontChoice } from "./ui/theme";
 import PaletteManager from "./PaletteManager";
 import BackupsWindow from "./BackupsWindow";
 import { attachMiddlePan, attachWheelZoom, nextStep } from "./ui/wheelZoom";
-import { CELL, CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, cellsWide, clipRect, colorize, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, closeShades, PATTERNS, type Pattern, linkGroups, syncLinked, mergeNearTiles, tileUsage, type TileUsage, dropCells, flipFloat, gbcCorrect, LOOK_SHADES, type Look, lift, liftCells, linePoints, mirrorPoints, onTiles, replaceShade, rotateFloat, namedSlot, quantize, rectFrom, shadeLut, snapRect, spray, toRgba, type Floating, type Mirror, type Palette } from "./paint";
+import { CELL, CLEAR, GB_SHADES, KEY_GREEN, KEY_MAGENTA, assignSlots, spriteShades, cellsWide, clipRect, colorize, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, closeShades, PATTERNS, type Pattern, linkGroups, syncLinked, mergeNearTiles, tileUsage, type TileUsage, dropCells, flipFloat, gbcCorrect, LOOK_SHADES, type Look, lift, liftCells, linePoints, mirrorPoints, onTiles, replaceShade, rotateFloat, namedSlot, quantize, rectFrom, shadeLut, snapRect, spray, toRgba, type Floating, type Mirror, type Palette } from "./paint";
 import { ASSET_URL, BUDGETS, BUDGET_KEY, BUILT_IN_TINTS, CUSTOM_TINT_KEY, FILE_MANAGER_LABEL, GRID_KEY, MIRRORS, MIRROR_LABEL, NAMED_SLOTS_KEY, SCREENS_KEY, LOOK_KEY, PATTERN_KEY, PNG_TYPES, PROJECT_KIND_KEY, PROJECT_PANEL_KEY, PROJECT_URL, TINT_KEY, UI_SLOT, UNDO_BYTES, UNDO_LIMIT, ZOOMS, hasSlots, isKeyed, versionTime, type Asset, type AssetInfo, type AssetKind, type Doc, type Drag, type FileHandle, type Opening, type PickerWindow, type Point, type Project, type ToolId } from "./app/model";
 import { TOOLS } from "./app/tools";
 import { readStored, sessionStore, store } from "./app/storage";
@@ -172,10 +172,11 @@ export default function PaintApp() {
     window.clearTimeout(sessionTimer.current);
     const value = {
       active: docs.current.findIndex((item) => item.id === activeId),
-      docs: docs.current.map(({ name, width, height, pixels, cells, hasAlpha, palettes, dirty, handle, asset, keyGreen, zoom, float }) => {
-        const flat = pixels.slice();
-        if (float) drop(flat, width, height, float);
-        return { name, width, height, pixels: flat, cells, hasAlpha, palettes, dirty, handle, asset, keyGreen, zoom };
+      docs: docs.current.map(({ name, width, height, pixels, cells, priority, hasAlpha, palettes, dirty, handle, asset, keyGreen, keyMagenta, resized, zoom, float }) => {
+        // A floating piece is kept dropped in place, with its tile palettes.
+        const flat = pixels.slice(), flatCells = cells.slice();
+        if (float) { drop(flat, width, height, float); dropCells(flatCells, width, height, float); }
+        return { name, width, height, pixels: flat, cells: flatCells, priority, hasAlpha, palettes, dirty, handle, asset, keyGreen, keyMagenta, resized, zoom };
       }),
     };
     return sessionStore("readwrite", (objects) => objects.put(value, "open")).then(() => true);
@@ -306,7 +307,9 @@ export default function PaintApp() {
         const context = canvas.getContext("2d", { willReadFrequently: true })!;
         context.drawImage(bitmap, 0, 0);
         const keyGreen = asset ? isKeyed(asset.kind) : false;
-        const picture = quantize(context.getImageData(0, 0, bitmap.width, bitmap.height).data, bitmap.width, bitmap.height, palettesRef.current, keyGreen);
+        // Fonts: magenta marks a variable-width glyph's unused columns (GB Studio reads it as see-through); it stays magenta.
+        const keyMagenta = asset?.kind === "fonts";
+        const picture = quantize(context.getImageData(0, 0, bitmap.width, bitmap.height).data, bitmap.width, bitmap.height, palettesRef.current, keyGreen, keyMagenta);
         // A background's tile colors (GB Studio's per-tile palettes) dress the cells when the scene's palettes are known.
         const dressed = info?.tileColors.length ? assignSlots(picture.cells, info.tileColors, info.slots, picture.palettes) : 0;
         const old = replace !== undefined ? docs.current.findIndex((item) => item.id === replace) : -1;
@@ -314,7 +317,7 @@ export default function PaintApp() {
         if (old < 0) last = id;
         // Backgrounds and tilesets: each tile's priority flag (bit 7: draws over sprites).
         const flags = asset && info && (asset.kind === "backgrounds" || asset.kind === "tilesets") ? Array.from({ length: picture.cells.length }, (_, cell) => (info.tileColors[cell] ?? 0) >= 0 && (info.tileColors[cell] ?? 0) & 0x80 ? 1 : 0) : null;
-        const opened: Doc = { id, name: asset?.name ?? file.name, width: bitmap.width, height: bitmap.height, pixels: picture.pixels, cells: picture.cells, ...(flags ? { priority: Uint8Array.from(flags) } : {}), hasAlpha: picture.hasAlpha || keyGreen, palettes: picture.palettes, undo: [], redo: [], dirty: false, handle, asset: asset && info ? { kind: asset.kind, file: asset.file, name: asset.name, mtime: info.mtime, ...(hasSlots(asset.kind) ? { slots: info.slots, slotScene: info.slotScene ?? null, metaMtime: info.metaMtime, opened: info.tileColors.map((value) => value < 0 ? -1 : value & 7), ...(flags ? { openedPriority: flags } : {}) } : {}), ...(asset.kind === "sprites" && info.animations?.length ? { animations: info.animations, animSpeed: info.animSpeed ?? null } : {}), project: projectRef.current?.path, ...(info.autoColor ? { autoColor: true } : {}) } : undefined, keyGreen: keyGreen || undefined, zoom: old >= 0 ? docs.current[old].zoom : fitZoom(bitmap.width, bitmap.height), sel: null, float: null };
+        const opened: Doc = { id, name: asset?.name ?? file.name, width: bitmap.width, height: bitmap.height, pixels: picture.pixels, cells: picture.cells, ...(flags ? { priority: Uint8Array.from(flags) } : {}), hasAlpha: picture.hasAlpha || keyGreen, palettes: picture.palettes, undo: [], redo: [], dirty: false, handle, asset: asset && info ? { kind: asset.kind, file: asset.file, name: asset.name, mtime: info.mtime, ...(hasSlots(asset.kind) ? { slots: info.slots, slotScene: info.slotScene ?? null, metaMtime: info.metaMtime, opened: info.tileColors.map((value) => value < 0 ? -1 : value & 7), ...(flags ? { openedPriority: flags } : {}) } : {}), ...(asset.kind === "sprites" && info.animations?.length ? { animations: info.animations, animSpeed: info.animSpeed ?? null } : {}), project: projectRef.current?.path, ...(info.autoColor ? { autoColor: true } : {}) } : undefined, keyGreen: keyGreen || undefined, ...(keyMagenta ? { keyMagenta: true } : {}), zoom: old >= 0 ? docs.current[old].zoom : fitZoom(bitmap.width, bitmap.height), sel: null, float: null };
         if (old >= 0) docs.current[old] = opened;
         else docs.current.push(opened);
         if (old >= 0) continue;
@@ -789,7 +792,7 @@ export default function PaintApp() {
     const canvas = document.createElement("canvas");
     canvas.width = target.width;
     canvas.height = target.height;
-    canvas.getContext("2d")!.putImageData(new ImageData(toRgba(target.pixels, target.cells, target.width, [], target.keyGreen ? KEY_GREEN : undefined), target.width, target.height), 0, 0);
+    canvas.getContext("2d")!.putImageData(new ImageData(toRgba(target.pixels, target.cells, target.width, [], target.keyGreen ? KEY_GREEN : target.keyMagenta ? KEY_MAGENTA : undefined), target.width, target.height), 0, 0);
     return new Promise((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("No PNG")), "image/png"));
   }
 
@@ -1524,25 +1527,6 @@ export default function PaintApp() {
   });
 
   const isFont = doc?.asset?.kind === "fonts" || (doc?.width === 128 && doc?.height === 112 && !doc.asset);
-  // The font sample: each character's 8 × 8 glyph copied from the drawn sheet, wrapped at the strip's width.
-  useLayoutEffect(() => {
-    const sheet = canvasRef.current, canvas = sampleCanvas.current;
-    if (!sheet || !canvas || !doc || !isFont) return;
-    const columns = Math.max(1, Math.floor(doc.width / 8)), perLine = 40;
-    const lines = sampleText.match(new RegExp(`.{1,${perLine}}(\\s|$)|.{1,${perLine}}`, "g")) ?? [""];
-    canvas.width = perLine * 8;
-    canvas.height = Math.max(1, lines.length) * 8;
-    const context = canvas.getContext("2d")!;
-    context.clearRect(0, 0, canvas.width, canvas.height);
-    lines.forEach((line, row) => {
-      [...line.trimEnd()].forEach((char, column) => {
-        const index = char.charCodeAt(0) - 32;
-        if (index < 0 || index >= columns * Math.floor(doc.height / 8)) return;
-        context.drawImage(sheet, (index % columns) * 8, Math.floor(index / columns) * 8, 8, 8, column * 8, row * 8, 8, 8);
-      });
-    });
-  });
-
   // The picture is redrawn after every render: the pixels change in place, and `bump` is what announces it.
   useLayoutEffect(() => {
     const canvas = canvasRef.current;
@@ -1565,6 +1549,34 @@ export default function PaintApp() {
     if (look === "gbc") gbcCorrect(image.data);
     canvas.getContext("2d")!.putImageData(image, 0, 0);
   });
+  // The font sample: each character's glyph copied from the sheet as just drawn, wrapped at the strip's width. In a
+  // variable-width font (see-through columns at a glyph's right, magenta in the file) each glyph advances by its width.
+  useLayoutEffect(() => {
+    const sheet = canvasRef.current, canvas = sampleCanvas.current;
+    if (!sheet || !canvas || !doc || !isFont) return;
+    const columns = Math.max(1, Math.floor(doc.width / 8)), perLine = 40;
+    const lines = sampleText.match(new RegExp(`.{1,${perLine}}(\\s|$)|.{1,${perLine}}`, "g")) ?? [""];
+    const widthOf = (sx: number, sy: number) => {
+      let width = 8;
+      while (width > 1 && Array.from({ length: 8 }, (_, y) => doc.pixels[(sy + y) * doc.width + sx + width - 1] === CLEAR).every(Boolean)) width -= 1;
+      return doc.keyMagenta ? width : 8;
+    };
+    canvas.width = perLine * 8;
+    canvas.height = Math.max(1, lines.length) * 8;
+    const context = canvas.getContext("2d")!;
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    lines.forEach((line, row) => {
+      let pen = 0;
+      for (const char of line.trimEnd()) {
+        const index = char.charCodeAt(0) - 32;
+        if (index < 0 || index >= columns * Math.floor(doc.height / 8)) continue;
+        const sx = (index % columns) * 8, sy = Math.floor(index / columns) * 8, width = widthOf(sx, sy);
+        context.drawImage(sheet, sx, sy, width, 8, pen, row * 8, width, 8);
+        pen += width;
+      }
+    });
+  });
+
   // The seamless view copies the picture as just drawn, so it runs after the drawing above.
   useLayoutEffect(() => {
     const target = seamlessCanvas.current, sheet = canvasRef.current;
