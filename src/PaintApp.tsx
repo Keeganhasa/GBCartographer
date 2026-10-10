@@ -4,16 +4,16 @@
  * A tint only changes how the plain tiles look while painting. Saving writes one flat PNG, and for a project
  * picture also its tile palettes (see server/endpoints.ts).
  */
-import { ChevronDown, CircleHelp, Download, FilePlus, FlipHorizontal2, FolderOpen, FolderTree, Grid2x2, Grid3x3, Link2, Magnet, Map as MapIcon, Minus, Palette as PaletteIcon, Pause, Play, Plus, Redo2, Save, ScanSearch, Tv, Undo2, Video, X } from "lucide-react";
+import { ChevronDown, CircleHelp, Download, FilePlus, FolderOpen, FolderTree, Grid3x3, Magnet, Map as MapIcon, Minus, Palette as PaletteIcon, Pause, Play, Plus, Redo2, Save, ScanSearch, Tv, Undo2, Video, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useReducer, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { flushSync } from "react-dom";
 import { LogoMark } from "./ui/LogoMark";
-import { FONTS, applyFont, loadFont, type FontChoice } from "./ui/theme";
+import { applyFont, loadFont, type FontChoice } from "./ui/theme";
 import PaletteManager from "./PaletteManager";
 import BackupsWindow from "./BackupsWindow";
 import { attachMiddlePan, attachWheelZoom, nextStep } from "./ui/wheelZoom";
 import { CELL, CLEAR, GB_SHADES, KEY_GREEN, KEY_MAGENTA, assignSlots, spriteShades, cellsWide, clipRect, colorize, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, closeShades, PATTERNS, type Pattern, linkGroups, syncLinked, mergeNearTiles, tileUsage, type TileUsage, dropCells, flipFloat, gbcCorrect, LOOK_SHADES, type Look, lift, liftCells, linePoints, mirrorPoints, onTiles, replaceShade, rotateFloat, namedSlot, quantize, rectFrom, shadeLut, snapRect, spray, toRgba, type Floating, type Mirror, type Palette } from "./paint";
-import { ASSET_URL, BUDGETS, BUDGET_KEY, BUILT_IN_TINTS, CUSTOM_TINT_KEY, FILE_MANAGER_LABEL, GRID_KEY, MIRRORS, MIRROR_LABEL, NAMED_SLOTS_KEY, SCREENS_KEY, LOOK_KEY, PATTERN_KEY, PNG_TYPES, PROJECT_KIND_KEY, PROJECT_PANEL_KEY, PROJECT_URL, TINT_KEY, UI_SLOT, UNDO_BYTES, UNDO_LIMIT, ZOOMS, hasSlots, isKeyed, versionTime, type Asset, type AssetInfo, type AssetKind, type Doc, type Drag, type FileHandle, type Opening, type PickerWindow, type Point, type Project, type ToolId } from "./app/model";
+import { ASSET_URL, BUDGETS, BUDGET_KEY, BUILT_IN_TINTS, CUSTOM_TINT_KEY, FILE_MANAGER_LABEL, GRID_KEY, MIRRORS, NAMED_SLOTS_KEY, SCREENS_KEY, LOOK_KEY, PATTERN_KEY, PNG_TYPES, PROJECT_KIND_KEY, PROJECT_PANEL_KEY, PROJECT_URL, TINT_KEY, UI_SLOT, UNDO_BYTES, UNDO_LIMIT, ZOOMS, hasSlots, isKeyed, versionTime, type Asset, type AssetInfo, type AssetKind, type Doc, type Drag, type FileHandle, type Opening, type PickerWindow, type Point, type Project, type ToolId } from "./app/model";
 import { TOOLS } from "./app/tools";
 import { readStored, sessionStore, store } from "./app/storage";
 import { HelpTip } from "./app/HelpTip";
@@ -29,6 +29,9 @@ import { Menu } from "./app/Menu";
 import { StartScreen } from "./app/StartScreen";
 import { ProjectPanel } from "./app/ProjectPanel";
 import { encodeGif } from "./gb/gif";
+import { framesOf, saveFile } from "./app/files";
+import { ToolColumn } from "./app/ToolColumn";
+import { PicturePane } from "./app/PicturePane";
 
 /** A new picture's id: one above every open one (a counter would restart when the module reloads in development). */
 const newDocId = (docs: readonly { id: number }[]) => docs.reduce((top, item) => Math.max(top, item.id), 0) + 1;
@@ -871,53 +874,15 @@ export default function PaintApp() {
     if (await saveBlob(blob, name, PNG_TYPES)) say(`Exported ${name} (${big.width} × ${big.height})`);
   }
 
-  /** Lets the user keep a file: a save dialog where the browser has one, else a download. Resolves true when kept. */
-  async function saveBlob(blob: Blob, name: string, types: object[]): Promise<boolean> {
-    try {
-      const picker = (window as PickerWindow).showSaveFilePicker;
-      if (picker) {
-        const handle = await picker.call(window, { suggestedName: name, types });
-        const writable = await handle.createWritable();
-        await writable.write(blob);
-        await writable.close();
-      } else {
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.download = name;
-        link.click();
-        window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-      }
-      return true;
-    } catch (error) {
-      if ((error as Error).name !== "AbortError") say(`Could not export ${name}: ${(error as Error).message}`);
-      return false;
-    }
-  }
+  /** Lets the user keep a file (see app/files.ts); failures other than a cancel are said. */
+  const saveBlob = (blob: Blob, name: string, types: object[]) => saveFile(blob, name, types, say);
 
   /**
    * The sprite sheet's current animation as a looping GIF, frames put together from their slices as shown here
    * (palettes, screen look), at GB Studio's speed, enlarged `scale` times with hard pixel edges.
    */
-  /** The current animation's frames put together from their slices as shown here, all on one size of canvas. */
-  function composeFrames(): HTMLCanvasElement[] {
-    const sheet = canvasRef.current;
-    if (!sheet || !frames.length) return [];
-    const left = Math.min(0, ...frames.flatMap((item) => item.tiles.map((tile) => tile.x))), top = Math.min(0, ...frames.flatMap((item) => item.tiles.map((tile) => tile.y)));
-    const width = Math.max(16, ...frames.flatMap((item) => item.tiles.map((tile) => tile.x + 8))) - left, height = Math.max(16, ...frames.flatMap((item) => item.tiles.map((tile) => tile.y + 16))) - top;
-    return frames.map((item) => {
-      const canvas = document.createElement("canvas");
-      Object.assign(canvas, { width, height });
-      const context = canvas.getContext("2d", { willReadFrequently: true })!;
-      for (const tile of item.tiles) {
-        context.save();
-        context.translate(tile.x - left + (tile.flipX ? 8 : 0), tile.y - top + (tile.flipY ? 16 : 0));
-        context.scale(tile.flipX ? -1 : 1, tile.flipY ? -1 : 1);
-        context.drawImage(sheet, tile.sliceX, tile.sliceY, 8, 16, 0, 0, 8, 16);
-        context.restore();
-      }
-      return canvas;
-    });
-  }
+  /** The current animation's frames put together from their slices as shown here (app/files.ts). */
+  const composeFrames = () => canvasRef.current ? framesOf(canvasRef.current, frames) : [];
 
   async function exportGif(scale: number) {
     const composed = composeFrames();
@@ -1769,30 +1734,7 @@ export default function PaintApp() {
             onMenu={(asset, x, y) => setAssetMenu({ x, y, asset })}
           />
         )}
-        <aside className="gbp-tools pixel-toolbar vertical" role="toolbar" aria-label="Paint tools">
-          {TOOLS.map(([id, label, Icon, keys]) => <button key={id} className={`tool-button ${tool === id ? "active" : ""}`} aria-label={label} aria-pressed={tool === id} title={`${label} · ${keys}`} onClick={() => setTool(id)}><Icon size={17} /></button>)}
-          <button className={`tool-button ${seamless ? "active" : ""}`} aria-label="Seamless view" aria-pressed={seamless} title="Seamless view: the tile under the pointer (or the selection) repeated 3 × 3 above the picture, to check it tiles cleanly" onClick={() => setSeamless(!seamless)}><Grid2x2 size={17} /></button>
-          <button className={`tool-button ${linked ? "active" : ""}`} aria-label="Linked tiles" aria-pressed={linked} title="Linked tiles: painting a tile paints every identical copy of it too (one-color tiles are not linked) · K" onClick={() => setLinked(!linked)}><Link2 size={17} /></button>
-          <button className={`tool-button ${mirror !== "off" ? "active" : ""}`} aria-label={MIRROR_LABEL[mirror]} title={`${MIRROR_LABEL[mirror]}: paint both halves at once · Shift+M`} onClick={() => setMirror(MIRRORS[(MIRRORS.indexOf(mirror) + 1) % MIRRORS.length])}><FlipHorizontal2 size={17} /></button>
-          {(tool === "fill" || tool === "rectFill") && (
-            <button className={`tool-button gbp-pattern ${pattern !== "solid" ? "active" : ""}`} aria-label={`Fill pattern: ${PATTERNS.find((item) => item.id === pattern)?.label}`} title={`Fill pattern: ${PATTERNS.find((item) => item.id === pattern)?.label} · D for the next`} onClick={cyclePattern}>
-              <span className={`gbp-pattern-swatch ${pattern}`} />
-            </button>
-          )}
-          {tool === "palette" || tool === "priority" ? (
-            <span className="gbp-brush" role="group" aria-label="Palette brush size" title="Palette brush: 1, 2 × 2 or 3 × 3 tiles · [ smaller, ] bigger">
-              <button className="tool-button" aria-label="Smaller palette brush" disabled={cellBrush <= 1} onClick={() => setCellBrush(cellBrush - 1)}><Minus size={12} /></button>
-              <b>{cellBrush}×{cellBrush}</b>
-              <button className="tool-button" aria-label="Bigger palette brush" disabled={cellBrush >= 3} onClick={() => setCellBrush(cellBrush + 1)}><Plus size={12} /></button>
-            </span>
-          ) : (
-            <span className="gbp-brush" role="group" aria-label="Brush size" title="Brush size · [ smaller, ] bigger">
-              <button className="tool-button" aria-label="Smaller brush" disabled={brush <= 1} onClick={() => setBrush(brush - 1)}><Minus size={12} /></button>
-              <b>{brush}</b>
-              <button className="tool-button" aria-label="Bigger brush" disabled={brush >= 16} onClick={() => setBrush(brush + 1)}><Plus size={12} /></button>
-            </span>
-          )}
-        </aside>
+        <ToolColumn tool={tool} onTool={setTool} seamless={seamless} onSeamless={setSeamless} linked={linked} onLinked={setLinked} mirror={mirror} onMirror={setMirror} pattern={pattern} onPattern={cyclePattern} cellBrush={cellBrush} onCellBrush={setCellBrush} brush={brush} onBrush={setBrush} />
         <div className="gbp-scroller" ref={scrollerRef}>
           {doc && frames.length > 0 && (
             <div className="gbp-frames" role="group" aria-label="Frames">
@@ -1948,54 +1890,10 @@ export default function PaintApp() {
               )}
             </div>
           ) : (
-            <div className="gbp-side-pane gbp-picture">
-              {doc ? (
-                <>
-                <dl>
-                  <dt>Picture</dt><dd>{doc.name}</dd>
-                  <dt>Size</dt><dd>{doc.width} × {doc.height} px · {Math.ceil(doc.width / CELL)} × {Math.ceil(doc.height / CELL)} tiles</dd>
-                  {doc.asset && <><dt>File</dt><dd>assets/{doc.asset.kind}/{doc.asset.file}</dd></>}
-                  <dt>Unique tiles</dt><dd>{tileCount} of {budget.limit}</dd>
-                </dl>
-                <button className="quiet-button" title="A new size in whole tiles" onClick={() => setShowResize(true)}>Resize…</button>
-                {!doc.keyGreen && <button className="quiet-button" title="Fit the picture's colors to GB Studio's limits: four colors a tile, at most eight palettes; see what changes first" onClick={() => { const flat = doc.pixels.slice(); if (doc.float) drop(flat, doc.width, doc.height, doc.float); setFitting(toRgba(flat, doc.cells, doc.width, doc.palettes)); }}>Fit to 8 palettes…</button>}
-                <div className="gbp-budget">
-                  <span className="eyebrow">Where the tiles go</span>
-                  {shownUsage ? <p className="gbp-note">{tileCount} different tiles; {usedOnce} used only once{nearCount ? `, ${nearCount} of them within 3 pixels of another tile` : ""}.</p> : <p className="gbp-note">Counting…</p>}
-                  <span className="gbp-budget-actions">
-                    <button className={`quiet-button ${budgetView ? "active-tool" : ""}`} onClick={() => setBudgetView(!budgetView)}>{budgetView ? "Hide" : "Show"} on the picture</button>
-                    <button className="quiet-button" disabled={!nearCount} title="Each tile within 3 pixels of another becomes a copy of it (undoable)" onClick={mergeNear}>Merge {nearCount || ""} near matches</button>
-                  </span>
-                </div>
-                </>
-              ) : <p className="gbp-note">No picture open.</p>}
-              <label className="gbp-field">Tile budget
-                <select aria-label="Tile budget" value={budget.id} onChange={(event) => setBudgetId(event.target.value)}>
-                  {BUDGETS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-                </select>
-              </label>
-              <label className="gbp-field" title="How the picture shows while you paint, like a real Game Boy screen. Never saved.">Screen
-                <select aria-label="Screen" value={look} onChange={(event) => { const next = event.target.value as Look; setLook(next); store(LOOK_KEY, next); }}>
-                  <option value="plain">Plain (as the file and palettes say)</option>
-                  <option value="dmg">Game Boy (green LCD, shades only)</option>
-                  <option value="pocket">Game Boy Pocket (grey, shades only)</option>
-                  <option value="gbc">Game Boy Color (its screen's colors)</option>
-                </select>
-              </label>
-              <label className="gbp-field" title="Preview colors for tiles without a palette. Saving always writes the GB greens.">Tint
-                <select value={tint} onChange={(event) => setTint(event.target.value)}>
-                  {BUILT_IN_TINTS.map(({ name }) => <option key={name}>{name}</option>)}
-                  {palettes.length > 0 && <optgroup label="Palettes">{palettes.map(({ name }) => <option key={name}>{name}</option>)}</optgroup>}
-                  <option>Custom</option>
-                </select>
-              </label>
-              {tint === "Custom" && <div className="gbp-palette-colors">{customTint.map((color, index) => <input key={index} type="color" aria-label={`Tint shade ${index + 1}`} value={color} onChange={(event) => setCustomTint(customTint.map((old, at) => at === index ? event.target.value.toUpperCase() : old))} />)}</div>}
-              <label className="gbp-field">Font
-                <select value={font} onChange={(event) => { const next = event.target.value as FontChoice; setFont(next); applyFont(next); }}>
-                  {FONTS.map((item) => <option key={item.id} value={item.id} title={item.title}>{item.label}</option>)}
-                </select>
-              </label>
-            </div>
+            <PicturePane doc={doc} tileCount={tileCount} budget={budget} onBudget={setBudgetId} look={look} onLook={(next) => { setLook(next); store(LOOK_KEY, next); }}
+              tint={tint} onTint={setTint} paletteNames={palettes.map(({ name }) => name)} customTint={customTint} onCustomTint={setCustomTint} font={font} onFont={(next) => { setFont(next); applyFont(next); }}
+              onResize={() => setShowResize(true)} onFit={() => { if (!doc) return; const flat = doc.pixels.slice(); if (doc.float) drop(flat, doc.width, doc.height, doc.float); setFitting(toRgba(flat, doc.cells, doc.width, doc.palettes)); }}
+              usage={shownUsage ? { usedOnce, nearCount } : null} budgetView={budgetView} onBudgetView={setBudgetView} onMerge={mergeNear} />
           )}
         </aside>
       </div>
