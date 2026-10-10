@@ -19,6 +19,7 @@ import { readStored, sessionStore, store } from "./app/storage";
 import { HelpTip } from "./app/HelpTip";
 import { HelpWindow } from "./app/HelpWindow";
 import { AboutWindow } from "./app/AboutWindow";
+import { HealthWindow } from "./app/HealthWindow";
 import { NewPictureWindow, ResizeWindow, type NewPicture } from "./app/NewPictureWindow";
 import { Menu } from "./app/Menu";
 import { StartScreen } from "./app/StartScreen";
@@ -66,6 +67,7 @@ export default function PaintApp() {
   const [showPalettes, setShowPalettes] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
+  const [showHealth, setShowHealth] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showResize, setShowResize] = useState(false);
   /** Whether the user was warned this session that GB Studio is open (it may overwrite project JSON when it saves). */
@@ -1728,6 +1730,7 @@ export default function PaintApp() {
             {project && <>
               <hr />
               <button role="menuitem" onClick={() => { setProjectMenu(null); void fetch("./__cartographer/reveal", { method: "POST" }); }}>{FILE_MANAGER_LABEL}</button>
+              <button role="menuitem" onClick={() => { setProjectMenu(null); setShowHealth(true); }}>Project health…</button>
               <button role="menuitem" onClick={() => { setProjectMenu(null); setBackups({}); }}>Backups…</button>
               <button role="menuitem" onClick={() => { setProjectMenu(null); void fetch("./__cartographer/reveal?backups=1", { method: "POST" }); }}>Show backups folder</button>
               <hr />
@@ -1781,6 +1784,7 @@ export default function PaintApp() {
       )}
       {showHelp && <HelpWindow onClose={() => setShowHelp(false)} onAbout={() => { setShowHelp(false); setShowAbout(true); }} />}
       {showAbout && <AboutWindow onClose={() => setShowAbout(false)} />}
+      {showHealth && project && <HealthWindow projectName={project.name} onClose={() => setShowHealth(false)} onOpen={(kind, file) => { const asset = project.assets.find((item) => item.kind === kind && item.file === file); if (asset) { setProjectKind(kind); void openAsset(asset); } }} />}
       {showNew && <NewPictureWindow projectName={project?.name ?? null} initialKind={projectKind} onClose={() => setShowNew(false)} onCreate={createPicture} />}
       {showResize && doc && <ResizeWindow width={doc.width} height={doc.height} sprite={doc.asset?.kind === "sprites"} inProject={Boolean(doc.asset)} onClose={() => setShowResize(false)} onResize={resizePicture} />}
       {backups && project && (

@@ -12,7 +12,7 @@ import { deflateSync, inflateSync } from "node:zlib";
 import { backupFile } from "./backups";
 import { decodeTileColors, encodeTileColors, resolveScenePaletteIds } from "../src/gb/gbstudio";
 import { decodePng, encodePng } from "../src/gb/png";
-import { KEY_GREEN, assignSlots, quantize, spriteShades, toRgba } from "../src/paint";
+import { KEY_GREEN, assignSlots, closeShades, countUniqueTiles, quantize, spriteShades, toRgba } from "../src/paint";
 
 /** The picture folders under assets/. Emotes are read like sprites (key green see-through); avatars and the UI
  * frame and cursor (assets/ui, no sidecars) like background tiles. Only backgrounds, sprites and tilesets carry palettes. */
@@ -636,4 +636,75 @@ export function writeAsset(path: string, bytes: Buffer, backup: Backup, expected
     writeFileSync(path, bytes);
   }
   return { mtime: statSync(path).mtimeMs, backup: copy };
+}
+
+export interface HealthIssue { level: "problem" | "warning" | "note"; kind: AssetKind | "palettes" | "project"; file?: string; title: string; detail: string }
+
+/** Unique tile counts by file time (decoding every background is the slow part of a health check). */
+const tileCountCache = new Map<string, number>();
+
+/**
+ * A project health check: what GB Studio will complain about or quietly do differently. Backgrounds over the tile
+ * budget of the project's color mode, pictures that are not whole tiles (or the size GB Studio expects), tiles in
+ * slot 8 (the UI palette), pictures GB Studio hasn't read yet (no sidecar), and palettes that are unused, twins or
+ * low in contrast. Read only.
+ */
+export function projectHealth(project: string): { colorMode: string; issues: HealthIssue[] } {
+  const settings = readJson(join(project, "project/settings.gbsres")) ?? {};
+  const colorMode = typeof settings.colorMode === "string" ? settings.colorMode : "mono";
+  const spriteMode = settings.spriteMode === "8x8" ? "8x8" : "8x16";
+  const colorOnly = colorMode === "color", limit = colorOnly ? 384 : 192;
+  const issues: HealthIssue[] = [];
+  const palettes = listPalettes(project);
+  if (colorMode === "mono" && palettes.length) issues.push({ level: "warning", kind: "project", title: "Color mode is off", detail: `The project is monochrome${typeof settings.colorMode === "string" ? "" : " (settings.gbsres has no colorMode, so GB Studio uses mono)"}: GB Studio shows the greens and none of the ${palettes.length} palettes. Turn on color in GB Studio's settings (Color only or GB + Color).` });
+  const assets = listAssets(project);
+  for (const asset of assets) {
+    const path = join(project, "assets", asset.kind, asset.file);
+    const where = { kind: asset.kind, file: asset.file };
+    if (asset.kind !== "ui" && !existsSync(`${path}.gbsres`)) issues.push({ level: "note", ...where, title: "Not read by GB Studio yet", detail: "There is no .gbsres beside it: GB Studio adds one when it next opens the project." });
+    const tall = asset.kind === "sprites" && spriteMode === "8x16" ? 16 : 8;
+    if (asset.width % 8 || asset.height % tall) issues.push({ level: "problem", ...where, title: "Not whole tiles", detail: `${asset.width} × ${asset.height} px is not a whole number of 8 × ${tall} tiles; GB Studio cuts or pads the edge.` });
+    if ((asset.kind === "emotes" || asset.kind === "avatars") && (asset.width !== 16 || asset.height !== 16)) issues.push({ level: "problem", ...where, title: "Should be 16 × 16", detail: `GB Studio expects ${asset.kind === "emotes" ? "emotes" : "avatars"} of 16 × 16 px; this one is ${asset.width} × ${asset.height}.` });
+    if (asset.kind === "ui") {
+      const want = asset.file === "frame.png" ? [24, 24] : asset.file === "cursor.png" ? [8, 8] : null;
+      if (want && (asset.width !== want[0] || asset.height !== want[1])) issues.push({ level: "problem", ...where, title: `Should be ${want[0]} × ${want[1]}`, detail: `GB Studio reads ${asset.file} as ${want[0]} × ${want[1]} px; this one is ${asset.width} × ${asset.height}.` });
+    }
+    if (asset.kind !== "backgrounds") continue;
+    if (asset.width < 160 || asset.height < 144) issues.push({ level: "warning", ...where, title: "Smaller than the screen", detail: `${asset.width} × ${asset.height} px is smaller than one 160 × 144 screen; GB Studio fills the rest of the scene.` });
+    const key = `${path}|${asset.mtime}|${colorOnly}`;
+    let tiles = tileCountCache.get(key);
+    if (tiles === undefined) {
+      try {
+        const image = decodePng(readFileSync(path), (bytes) => inflateSync(bytes));
+        tiles = countUniqueTiles(quantize(image.pixels, image.width, image.height).pixels, image.width, image.height, colorOnly);
+        tileCountCache.set(key, tiles);
+      } catch {
+        tiles = -1;
+      }
+    }
+    if (tiles > limit) issues.push({ level: "problem", ...where, title: `${tiles} tiles, over ${limit}`, detail: `GB Studio allows ${limit} different tiles per background in ${colorOnly ? "Color only" : colorMode === "mixed" ? "GB + Color" : "monochrome"} mode; this one has ${tiles - limit} too many.` });
+    else if (tiles > limit * 0.9) issues.push({ level: "note", ...where, title: `${tiles} of ${limit} tiles`, detail: "Close to the tile budget." });
+    const sidecar = readJson(`${path}.gbsres`);
+    if (colorMode !== "mono" && typeof sidecar?.tileColors === "string" && sidecar.tileColors) {
+      let ui = 0;
+      try { ui = decodeTileColors(sidecar.tileColors).filter((value) => value >= 0 && (value & 7) === 7).length; } catch { ui = 0; }
+      if (ui) issues.push({ level: "warning", ...where, title: `${ui} tile${ui === 1 ? "" : "s"} in slot 8`, detail: "Slot 8 is the UI palette (dialogue and menus); tiles there change when it does." });
+    }
+  }
+  const usage = paletteUsage(project);
+  const byId = new Map(palettes.map((palette) => [palette.id, palette]));
+  for (const entry of usage) {
+    const palette = byId.get(entry.id);
+    if (!palette) continue;
+    if (!entry.uses.length) issues.push({ level: "note", kind: "palettes", file: palette.name, title: "Unused palette", detail: "No scene or default uses it (an event may still switch to it)." });
+    const twin = entry.sameColors.map((id) => byId.get(id)?.name).filter(Boolean);
+    if (twin.length && palette.name.localeCompare(String(twin[0])) < 0) issues.push({ level: "note", kind: "palettes", file: palette.name, title: "Same colors as another", detail: `The same four colors as ${twin.join(", ")}.` });
+    // A palette used only for sprites shows colors 1–3 (color 0 is see-through), so only those are compared.
+    const spriteOnly = entry.uses.length > 0 && entry.uses.every((use) => use.kind === "sprite");
+    const close = closeShades(palette.colors, spriteOnly);
+    if (close.length) issues.push({ level: "warning", kind: "palettes", file: palette.name, title: "Low contrast", detail: close.map(({ a, b, delta }) => delta === 0 ? `colors ${a + 1} and ${b + 1} are the same color` : `colors ${a + 1} and ${b + 1} differ by ${delta}`).join("; ") + " (aim for a difference of 12 or more)." });
+  }
+  const order = { problem: 0, warning: 1, note: 2 };
+  issues.sort((a, b) => order[a.level] - order[b.level]);
+  return { colorMode, issues };
 }

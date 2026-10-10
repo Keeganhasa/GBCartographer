@@ -324,6 +324,20 @@ describe("palette usage", () => {
   });
 });
 
+describe("project health", () => {
+  it("reports color mode, sizes, tile budgets, missing sidecars and palette trouble", async () => {
+    writeFileSync(join(project, "assets/sprites/odd.png"), encodePng(new Uint8ClampedArray(12 * 16 * 4).fill(255), 12, 16, deflateSync));
+    const report = await json<{ colorMode: string; issues: { level: string; kind: string; file?: string; title: string }[] }>(await fetch(`${base}/project-health`));
+    expect(report.colorMode).toBe("mono");
+    const titles = report.issues.map((issue) => `${issue.kind}:${issue.file ?? ""}:${issue.title}`);
+    expect(titles).toContain("project::Color mode is off");
+    expect(titles).toContain("sprites:odd.png:Not whole tiles");
+    expect(titles).toContain("sprites:odd.png:Not read by GB Studio yet");
+    expect(report.issues[0].level).toBe("problem");
+    rmSync(join(project, "assets/sprites/odd.png"));
+  });
+});
+
 describe("removing a palette", () => {
   it("removes only a palette nothing mentions, keeping it in the backups", async () => {
     const remove = (id: string) => fetch(`${base}/gbstudio-palette-remove`, { method: "POST", body: JSON.stringify({ id }) });

@@ -538,3 +538,14 @@
 .gbp-budget { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
 .gbp-budget .gbp-note { margin: 0; }
 .gbp-budget-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* Project health. */
+.gbp-health-group { display: flex; flex-direction: column; gap: 4px; margin-top: 14px; }
+.gbp-health-row { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: baseline; padding: 8px 10px; color: var(--ink); background: transparent; border: 1px solid var(--b-edge, var(--line)); border-left-width: 3px; border-radius: 8px; font: var(--fs-sm) var(--ui); text-align: left; cursor: pointer; }
+.gbp-health-row:disabled { cursor: default; }
+.gbp-health-row:not(:disabled):hover { background: var(--hover-fill); color: var(--hover-ink); }
+.gbp-health-row small { color: var(--muted); }
+.gbp-health-row span { grid-column: 1 / -1; color: var(--muted); line-height: 1.4; }
+.gbp-health-group.problem .gbp-health-row { border-left-color: #e05050; }
+.gbp-health-group.warning .gbp-health-row { border-left-color: #e0b040; }
+.gbp-health-group.note .gbp-health-row { border-left-color: var(--acc); }

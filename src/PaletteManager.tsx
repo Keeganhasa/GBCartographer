@@ -375,7 +375,7 @@ export default function PaletteManager({ projectName, projectPalettes, sceneSlot
                 <span className="gbp-pm-note">{note || (collection === "project" ? "Rewrites this palette's file in the project · the old file goes to the backups folder" : projectName ? `Adds project/palettes/${fileNameFor(name.trim() || picked.name)}` : "")}</span>
               </div>
               {picture?.sprite && <p className="gbp-note">Sprite sheet: color 0 is see-through in GB Studio; colors 1–3 dress the shades.</p>}
-              {valid && closeShades(colors.map((color) => normalize(color)!), picture?.sprite).map(({ a, b, delta }) => <p key={`${a}-${b}`} className="gbp-note gbp-pm-warn">Colors {a + 1} and {b + 1} are hard to tell apart (difference {delta}; aim for 12 or more), especially on a real Game Boy screen.</p>)}
+              {valid && closeShades(colors.map((color) => normalize(color)!), picture?.sprite).map(({ a, b, delta }) => <p key={`${a}-${b}`} className="gbp-note gbp-pm-warn">{delta === 0 ? `Colors ${a + 1} and ${b + 1} are the same color.` : `Colors ${a + 1} and ${b + 1} are hard to tell apart (difference ${delta}; aim for 12 or more), especially on a real Game Boy screen.`}</p>)}
               {collection === "project" && picked.id && usage && <UsedBy usage={usage.get(picked.id)} names={new Map(projectPalettes.map((palette) => [palette.id ?? "", palette.name]))} />}
             </>
           ) : <p className="gbp-note">Pick a palette on the left.</p>}

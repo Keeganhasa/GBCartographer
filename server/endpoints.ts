@@ -21,6 +21,7 @@
  *   GET  /__cartographer/gbstudio-preview-sheet ?kind= every thumbnail of a kind on one sheet: { stamp, cells } here,
  *                                             the image at gbstudio-preview-sheet.png?kind=&stamp= (cached by stamp)
  *   POST /__cartographer/gbstudio-palette-remove { id } takes an unused palette out (to the backups folder; 409 when used)
+ *   GET  /__cartographer/project-health       { colorMode, issues: [{ level, kind, file?, title, detail }] } (read only)
  *   GET  /__cartographer/palette-usage        which scenes (and defaults) use each palette, and same-colored palettes
  *   POST /__cartographer/asset-times          { assets: [{ kind, file }] } their PNG and sidecar times (null: gone)
  *   GET  /__cartographer/backups              this project's backed-up files and their versions (?file= one file)
@@ -33,7 +34,7 @@ import { execFileSync, spawn } from "node:child_process";
 import { dirname, resolve, sep } from "node:path";
 import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { AssetWriteError, ASSET_KINDS, createAsset, paletteUsage, previewSheet, removePalette, assetInfo, assetPath, listAssets, listPalettes, projectName, renderPreview, writeAsset, writePalette, writePaletteSlot, writeSpritePalettes, writeTileColors, type AssetKind } from "./assets";
+import { AssetWriteError, ASSET_KINDS, createAsset, paletteUsage, previewSheet, projectHealth, removePalette, assetInfo, assetPath, listAssets, listPalettes, projectName, renderPreview, writeAsset, writePalette, writePaletteSlot, writeSpritePalettes, writeTileColors, type AssetKind } from "./assets";
 import { backupPath, listBackups, projectBackupDir, restoreBackup } from "./backups";
 import { demoProjectCopy, projectFolder, projectFolderFor, projectProblem, projectVersion, recentProjects, saveProjectFolder, setProjectFolder, versionNote } from "./project";
 
@@ -223,6 +224,10 @@ export async function handleCartographerRequest(req: IncomingMessage, res: Serve
         if (error instanceof AssetWriteError) reply(res, error.status, { error: error.message });
         else throw error;
       }
+      return true;
+    }
+    if (url.pathname === "/__cartographer/project-health") {
+      reply(res, 200, { ok: true, ...projectHealth(project) });
       return true;
     }
     if (url.pathname === "/__cartographer/palette-usage") {
