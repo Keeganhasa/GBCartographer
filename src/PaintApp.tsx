@@ -4,7 +4,7 @@
  * A tint only changes how the plain tiles look while painting. Saving writes one flat PNG, and for a project
  * picture also its tile palettes (see server/endpoints.ts).
  */
-import { ChevronDown, CircleHelp, Clock, Copy, FolderArchive, FolderSearch, FolderX, Gamepad2, HeartPulse, History, Info, MessageSquare, RotateCcw, Download, FilePlus, FolderOpen, FolderTree, Grid3x3, Magnet, Map as MapIcon, Minus, SwatchBook, Plus, Redo2, Save, Stamp, Gauge, Undo2, X } from "lucide-react";
+import { ChevronDown, Clock, Copy, FolderArchive, FolderSearch, FolderX, Gamepad2, History, Info, MessageSquare, RotateCcw, FilePlus, FolderOpen, FolderTree, Grid3x3, Magnet, Map as MapIcon, Minus, SwatchBook, Plus, Redo2, Rocket, Save, Undo2, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { LogoMark } from "./ui/LogoMark";
@@ -32,7 +32,7 @@ import { framesOf, saveFile } from "./app/files";
 import { ToolColumn } from "./app/ToolColumn";
 import { PicturePane } from "./app/PicturePane";
 import { usePainting } from "./app/usePainting";
-import { PxGamepad } from "./ui/setIcons";
+import { PhPiggyBank, PhSticker, PxGamepad, PxHeart, PxLightbulb, PxSnake } from "./ui/setIcons";
 import { PalettesPane } from "./app/PalettesPane";
 import { FramesStrip } from "./app/FramesStrip";
 import { StampsStrip } from "./app/StampsStrip";
@@ -1509,7 +1509,7 @@ export default function PaintApp() {
           <button className="quiet-button" title={project ? `A new blank picture: in ${project.name} (a new PNG in its assets) or just here` : "A new blank picture"} onClick={() => setShowNew(true)}><FilePlus size={14} />New</button>
           <button className="quiet-button" title="Open PNG files · Ctrl+O (or drop them on the window)" onClick={() => void pickFiles()}><FolderOpen size={14} />Open</button>
           <button className="quiet-button" disabled={!doc} title={`Save every changed picture · Ctrl+S${doc?.asset ? ` (this one over ${doc.asset.file} in the project; old files go to the backups folder)` : doc?.handle ? ` (this one over ${doc.name})` : " (this one asks where)"}`} onClick={() => void save(false)}><Save size={14} />Save</button>
-          <button className="quiet-button" disabled={!doc} aria-haspopup="menu" title="Export a copy in the GB greens (Ctrl+E), or an image to share: as shown, scaled up" onClick={(event) => { const r = event.currentTarget.getBoundingClientRect(); setExportMenu({ x: r.left, y: r.bottom + 6 }); }}><Download size={14} />Export</button>
+          <button className="quiet-button" disabled={!doc} aria-haspopup="menu" title="Export a copy in the GB greens (Ctrl+E), or an image to share: as shown, scaled up" onClick={(event) => { const r = event.currentTarget.getBoundingClientRect(); setExportMenu({ x: r.left, y: r.bottom + 6 }); }}><Rocket size={14} />Export</button>
         </span>
         <span className="gbp-seg" role="group" aria-label="Maps and palettes">
           {served && !project && <button className="quiet-button" title="Open a GB Studio project folder: its backgrounds, sprites, tilesets and fonts open here and save back into it" onClick={() => void chooseProject()}><FolderTree size={14} />Open project…</button>}
@@ -1525,10 +1525,10 @@ export default function PaintApp() {
           <button className="icon-button small" aria-label="Zoom in" disabled={!doc} onClick={() => zoomBy(1)}><Plus size={12} /></button>
         </span>
         <button className={`icon-button ${grid ? "active-tool" : ""}`} aria-label="Tile grid" title={`Tile grid: ${grid ? `${grid} px` : "off"} (click for off / 8 px / 16 px)`} onClick={() => setGrid(grid === 0 ? 8 : grid === 8 ? 16 : 0)}><Grid3x3 size={15} />{grid > 0 && <small>{grid}</small>}</button>
-        <button className={`icon-button ${budgetView ? "active-tool" : ""}`} aria-label="Tile budget view" aria-pressed={budgetView} title="Tile budget view: red tiles are used only once; amber ones nearly match another tile (Picture tab can merge them)" onClick={() => setBudgetView(!budgetView)}><Gauge size={15} /></button>
+        <button className={`icon-button ${budgetView ? "active-tool" : ""}`} aria-label="Tile budget view" aria-pressed={budgetView} title="Tile budget view: red tiles are used only once; amber ones nearly match another tile (Picture tab can merge them)" onClick={() => setBudgetView(!budgetView)}><PhPiggyBank size={15} /></button>
         <button className={`icon-button ${screens ? "active-tool" : ""}`} aria-label="Game Boy screens" aria-pressed={screens} title="Game Boy screens: outline every 160 × 144 area (one screen) on the picture" onClick={() => { setScreens(!screens); store(SCREENS_KEY, !screens); }}><PxGamepad size={15} /></button>
         <button className={`icon-button ${snap ? "active-tool" : ""}`} aria-label="Snap selections to tiles" aria-pressed={snap} title="Snap selections and moves to 8 px tiles" onClick={() => setSnap(!snap)}><Magnet size={15} /></button>
-        <button className={`icon-button ${showHelp ? "active-tool" : ""}`} aria-label="Help" title="Tools, keys and what Save writes · ?" onClick={() => setShowHelp(!showHelp)}><CircleHelp size={15} /></button>
+        <button className={`icon-button ${showHelp ? "active-tool" : ""}`} aria-label="Help" title="Tools, keys and what Save writes · ?" onClick={() => setShowHelp(!showHelp)}><PxLightbulb size={15} /></button>
       </header>
       <div className="map-tabs" role="tablist" aria-label="Open pictures">
         {docs.current.map((item) => (
@@ -1591,12 +1591,12 @@ export default function PaintApp() {
             </div>
           ) : project ? (
             <div className="gbp-empty">
-              <LogoMark size={56} />
+              <span className="gbp-mascot" title="Nothing open yet"><PxSnake size={48} /></span>
               <p>Pick a picture of {project.name} on the left.</p>
             </div>
           ) : (
             <div className="gbp-empty">
-              <LogoMark size={56} />
+              <span className="gbp-mascot" title="Nothing open yet"><PxSnake size={48} /></span>
               <p>Drop PNG files here, or</p>
               <button className="quiet-button" onClick={() => void pickFiles()}><FolderOpen size={14} />Open PNG files</button>
             </div>
@@ -1657,7 +1657,7 @@ export default function PaintApp() {
             {project && <>
               <hr />
               <button role="menuitem" onClick={() => { setProjectMenu(null); setShowMapRoom(true); }}><MapIcon size={14} />Map Room…</button>
-              <button role="menuitem" onClick={() => { setProjectMenu(null); setShowHealth(true); }}><HeartPulse size={14} />Project health…</button>
+              <button role="menuitem" onClick={() => { setProjectMenu(null); setShowHealth(true); }}><PxHeart size={14} />Project health…</button>
               <button role="menuitem" onClick={() => { setProjectMenu(null); setShowDialogue(true); }}><MessageSquare size={14} />Dialogue box…</button>
               <button role="menuitem" onClick={() => { setProjectMenu(null); setBackups({}); }}><History size={14} />Backups…</button>
               <hr />
@@ -1705,7 +1705,7 @@ export default function PaintApp() {
       {selectionMenu && doc?.sel && (
         <Menu x={selectionMenu.x} y={selectionMenu.y} width={240} height={200} className="gbp-icon-menu" onClose={() => setSelectionMenu(null)}>
           <span className="gbp-menu-label">Selection · {doc.sel.w} × {doc.sel.h}</span>
-          <button role="menuitem" onClick={() => { setSelectionMenu(null); setTool("stamp"); }}><Stamp size={14} />Use as stamp</button>
+          <button role="menuitem" onClick={() => { setSelectionMenu(null); setTool("stamp"); }}><PhSticker size={14} />Use as stamp</button>
           <button role="menuitem" disabled={!project} title={project ? `Saves a PNG in ${project.name}/Cartographer/stamps (tile palettes too, on whole tiles)` : "Open a GB Studio project to save stamps in it"} onClick={() => { setSelectionMenu(null); void saveAsStamp(); }}><Save size={14} />Save as stamp…</button>
           <hr />
           <button role="menuitem" onClick={() => { setSelectionMenu(null); if (copySelection()) say("Copied the selection"); }}><Copy size={14} />Copy</button>

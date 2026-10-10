@@ -1,7 +1,7 @@
 /** The paint tools (with their icons and help) and the asset kinds' icons. */
-import { Circle, DropletOff, Eraser, Ghost, Layers2, Move, Stamp, PaintBucket, Palette as PaletteIcon, Pencil, Pipette, SprayCan, Square, Type } from "lucide-react";
+import { Circle, DropletOff, Eraser, Ghost, Layers2, Move, PaintBucket, Palette as PaletteIcon, Pencil, Pipette, SprayCan, Square, Type } from "lucide-react";
 import { FilledSquare, LineEnds } from "../ui/icons";
-import { PhSelection, PxAvatar, PxGrid, PxHand, PxImage, PxMessage, PxSmile } from "../ui/setIcons";
+import { PhPuzzlePiece, PhSelection, PhSticker, PxAvatar, PxHand, PxImage, PxMessageReply, PxSmile } from "../ui/setIcons";
 
 /** id, label, icon, key, one-clause hint (status bar), the longer explanation (the ? help). */
 export const TOOLS = [
@@ -19,7 +19,7 @@ export const TOOLS = [
   ["select", "Select", PhSelection, "M", "drag a box · drag inside to move · Alt copies · F flip · T turn", "Drag a box to select. Drag inside it to move the selection (Alt copies). Arrow keys nudge, Delete clears, Esc drops it. F flips it left-right, Shift+F top-bottom, T turns it clockwise. A selection on tile edges (Snap helps) takes its tiles' palettes along, also when copied into another picture."],
   ["move", "Move", Move, "V", "drag the selection or the whole picture", "Drag the selection, or the whole picture when nothing is selected (Alt copies)."],
   ["hand", "Pan", PxHand, "H", "drag to pan · Space or middle button with any tool", "Drag to pan. Space or the middle mouse button pans with any tool."],
-  ["stamp", "Stamp", Stamp, "C", "right-click picks a tile · drag stamps it on the grid", "Right-click a tile to pick it up as the stamp (or select a block first, then pick the stamp tool), then click or drag to stamp copies on the 8 px grid. Tile palettes come along when the stamp is whole tiles."],
+  ["stamp", "Stamp", PhSticker, "C", "right-click picks a tile · drag stamps it on the grid", "Right-click a tile to pick it up as the stamp (or select a block first, then pick the stamp tool), then click or drag to stamp copies on the 8 px grid. Tile palettes come along when the stamp is whole tiles."],
   ["priority", "Priority brush", Layers2, "U", "drag over tiles to draw them over sprites · Alt or right-drag clears", "On a background or tileset, drag over tiles to mark them as drawn over sprites (GB Studio's priority flag; marked tiles show hatched). Alt-drag or right-drag clears the mark. Save writes the flag into the tile colors."],
 ] as const;
-export const KIND_ICONS = { backgrounds: PxImage, sprites: Ghost, tilesets: PxGrid, fonts: Type, emotes: PxSmile, avatars: PxAvatar, ui: PxMessage, stamps: Stamp } as const;
+export const KIND_ICONS = { backgrounds: PxImage, sprites: Ghost, tilesets: PhPuzzlePiece, fonts: Type, emotes: PxSmile, avatars: PxAvatar, ui: PxMessageReply, stamps: PhSticker } as const;
