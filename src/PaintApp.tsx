@@ -12,7 +12,7 @@ import { FONTS, applyFont, loadFont, type FontChoice } from "./ui/theme";
 import PaletteManager from "./PaletteManager";
 import BackupsWindow from "./BackupsWindow";
 import { attachMiddlePan, attachWheelZoom, nextStep } from "./ui/wheelZoom";
-import { CELL, CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, cellsWide, clipRect, colorize, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, dropCells, flipFloat, gbcCorrect, LOOK_SHADES, type Look, lift, liftCells, linePoints, mirrorPoints, onTiles, replaceShade, rotateFloat, namedSlot, quantize, rectFrom, shadeLut, snapRect, spray, toRgba, type Floating, type Mirror, type Palette } from "./paint";
+import { CELL, CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, cellsWide, clipRect, colorize, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, closeShades, dropCells, flipFloat, gbcCorrect, LOOK_SHADES, type Look, lift, liftCells, linePoints, mirrorPoints, onTiles, replaceShade, rotateFloat, namedSlot, quantize, rectFrom, shadeLut, snapRect, spray, toRgba, type Floating, type Mirror, type Palette } from "./paint";
 import { ASSET_URL, BUDGETS, BUDGET_KEY, BUILT_IN_TINTS, CUSTOM_TINT_KEY, FILE_MANAGER_LABEL, GRID_KEY, MIRRORS, MIRROR_LABEL, NAMED_SLOTS_KEY, SCREENS_KEY, LOOK_KEY, PNG_TYPES, PROJECT_KIND_KEY, PROJECT_PANEL_KEY, PROJECT_URL, TINT_KEY, UI_SLOT, UNDO_BYTES, UNDO_LIMIT, ZOOMS, hasSlots, isKeyed, versionTime, type Asset, type AssetInfo, type AssetKind, type Doc, type Drag, type FileHandle, type Opening, type PickerWindow, type Point, type Project, type ToolId } from "./app/model";
 import { TOOLS } from "./app/tools";
 import { readStored, sessionStore, store } from "./app/storage";
@@ -1538,6 +1538,7 @@ export default function PaintApp() {
                   <div className="gbp-palette-colors">
                     {picked.colors.map((color, index) => <input key={index} type="color" aria-label={`${picked.name} color ${index + 1}`} title={`Color ${index + 1}: ${color}`} value={color} onChange={(event) => recolorPalette(picked.colors.map((old, at) => at === index ? event.target.value : old))} />)}
                   </div>
+                  {closeShades(picked.colors, Boolean(doc.keyGreen)).map(({ a, b, delta }) => <p key={`${a}-${b}`} className="gbp-note gbp-pm-warn">Colors {a + 1} and {b + 1} are hard to tell apart (difference {delta}; aim for 12 or more).</p>)}
                   <div className="gbp-palette-actions">
                     {picked.id && project && <button className="quiet-button primary" disabled={!libraryColors || libraryColors.join() === picked.colors.join()} title={`Rewrite ${picked.name} in the GB Studio project with these colors (Save does this too)`} onClick={() => void (async () => { if (await okToWriteProjectJson() && await writeProjectPalette({ id: picked.id, name: picked.name, colors: [...picked.colors] })) say(`${picked.name} written to the project`); })()}>Save to project</button>}
                     {sceneSlots.length > 0 && <button className="quiet-button" title={`Put ${picked.name} in one of ${slotWhere}`} onClick={(event) => { const r = event.currentTarget.getBoundingClientRect(); setSlotMenu({ x: r.left, y: r.bottom + 4, palette: activePalette }); }}>Slot…</button>}

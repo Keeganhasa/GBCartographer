@@ -452,3 +452,31 @@ export function gbcCorrect(rgba: Uint8ClampedArray): Uint8ClampedArray {
   }
   return rgba;
 }
+
+/** CIE L*a*b* of an sRGB "#RRGGBB" (D65). */
+function lab(hex: string): [number, number, number] {
+  const linear = hexRgb(hex).map((value) => { const c = value / 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; });
+  const [x, y, z] = [
+    (linear[0] * 0.4124 + linear[1] * 0.3576 + linear[2] * 0.1805) / 0.95047,
+    linear[0] * 0.2126 + linear[1] * 0.7152 + linear[2] * 0.0722,
+    (linear[0] * 0.0193 + linear[1] * 0.1192 + linear[2] * 0.9505) / 1.08883,
+  ].map((value) => value > 216 / 24389 ? Math.cbrt(value) : (24389 / 27 * value + 16) / 116);
+  return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
+}
+
+/** How different two colors look (CIE76 ΔE: about 2 is barely visible, under ~12 is hard to tell apart on a small screen). */
+export function colorDistance(a: string, b: string): number {
+  const [l1, a1, b1] = lab(a), [l2, a2, b2] = lab(b);
+  return Math.hypot(l1 - l2, a1 - a2, b1 - b2);
+}
+
+/** A palette's neighbouring shades that are hard to tell apart (positions, from 0), for sprites only colors 1–3. */
+export const LOW_CONTRAST = 12;
+export function closeShades(colors: readonly string[], sprite = false): { a: number; b: number; delta: number }[] {
+  const found: { a: number; b: number; delta: number }[] = [];
+  for (let at = sprite ? 1 : 0; at < colors.length - 1; at += 1) {
+    const delta = colorDistance(colors[at], colors[at + 1]);
+    if (delta < LOW_CONTRAST) found.push({ a: at, b: at + 1, delta: Math.round(delta * 10) / 10 });
+  }
+  return found;
+}

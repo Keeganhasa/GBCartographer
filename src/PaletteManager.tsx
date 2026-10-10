@@ -7,7 +7,7 @@
 import { ArrowDown, ArrowUp, Download, FolderTree, Gamepad2, Layers, Plus, Star, Trash2, Upload, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import library from "./palettes/library.json";
-import { colorize, shadeLut, spriteShades, type Palette } from "./paint";
+import { closeShades, colorize, shadeLut, spriteShades, type Palette } from "./paint";
 
 type Collection = "project" | "mine" | string;
 interface Picture { pixels: Uint8Array; width: number; height: number; sprite: boolean }
@@ -331,6 +331,7 @@ export default function PaletteManager({ projectName, projectPalettes, sceneSlot
                   <button key={`${palette.id ?? ""}-${index}`} role="option" aria-selected={selected === index} className={selected === index ? "selected" : ""} onClick={() => choose(current.id, index)} title={collection === "project" && palette.id && onSlotMenu && sceneSlots.length ? "Right-click: put in a slot" : undefined} onContextMenu={(event) => { if (collection !== "project" || !palette.id || !onSlotMenu || !sceneSlots.length) return; event.preventDefault(); choose(current.id, index); onSlotMenu(palette.id, event.clientX, event.clientY); }}>
                     <span className="gbp-chips">{palette.colors.map((color, at) => <i key={at} style={{ background: color }} />)}</span>
                     <span>{palette.name}</span>
+                    {closeShades(palette.colors, picture?.sprite).length > 0 && <small className="gbp-pm-tag warn" title="Two neighbouring shades are hard to tell apart">low contrast</small>}
                     {collection === "project" && unused(palette) && <small className="gbp-pm-tag" title="No scene uses it (not a default either); events may still pick it">unused</small>}
                     {collection === "project" && twin(palette) && <small className="gbp-pm-tag" title="Another project palette has the same four colors">same colors</small>}
                     {slotOf(palette) >= 0 && collection === "project" && <small className="gbp-slot">{slotOf(palette) + 1}</small>}
@@ -374,6 +375,7 @@ export default function PaletteManager({ projectName, projectPalettes, sceneSlot
                 <span className="gbp-pm-note">{note || (collection === "project" ? "Rewrites this palette's file in the project · the old file goes to the backups folder" : projectName ? `Adds project/palettes/${fileNameFor(name.trim() || picked.name)}` : "")}</span>
               </div>
               {picture?.sprite && <p className="gbp-note">Sprite sheet: color 0 is see-through in GB Studio; colors 1–3 dress the shades.</p>}
+              {valid && closeShades(colors.map((color) => normalize(color)!), picture?.sprite).map(({ a, b, delta }) => <p key={`${a}-${b}`} className="gbp-note gbp-pm-warn">Colors {a + 1} and {b + 1} are hard to tell apart (difference {delta}; aim for 12 or more), especially on a real Game Boy screen.</p>)}
               {collection === "project" && picked.id && usage && <UsedBy usage={usage.get(picked.id)} names={new Map(projectPalettes.map((palette) => [palette.id ?? "", palette.name]))} />}
             </>
           ) : <p className="gbp-note">Pick a palette on the left.</p>}

@@ -530,3 +530,5 @@
 :root .gbp-asset canvas.gbp-asset-thumb { display: block; }
 .gbp-backup-files .gbp-backup-older { order: 99; margin-top: 8px; border: 1px dashed var(--b-edge, var(--line)); }
 .gbp-look-tag { padding: 1px 8px; color: var(--on-acc); background: var(--acc); border: 0; border-radius: 999px; font: 600 var(--fs-xs) var(--ui); cursor: pointer; }
+.gbp-pm-tag.warn { color: #f0c060; border-color: #8a7420; }
+.gbp-pm-warn { color: #f0c060; }

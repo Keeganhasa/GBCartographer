@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, clipRect, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, hexRgb, gbStudioShade, gbcCorrect, dropCells, flipFloat, lift, liftCells, linePoints, onTiles, replaceShade, rotateFloat, mirrorPoints, namedSlot, quantize, snapRect, toRgba } from "./paint";
+import { CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, clipRect, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, hexRgb, closeShades, colorDistance, gbStudioShade, gbcCorrect, dropCells, flipFloat, lift, liftCells, linePoints, onTiles, replaceShade, rotateFloat, mirrorPoints, namedSlot, quantize, snapRect, toRgba } from "./paint";
 
 describe("GB Cartographer pixels", () => {
+  it("flags neighbouring shades that are hard to tell apart", () => {
+    expect(colorDistance("#000000", "#FFFFFF")).toBeCloseTo(100, 0);
+    expect(closeShades(["#E0F8CF", "#86C06C", "#306850", "#071821"])).toEqual([]);
+    const close = closeShades(["#FFFFFF", "#F4F4F4", "#555555", "#000000"]);
+    expect(close.map(({ a, b }) => [a, b])).toEqual([[0, 1]]);
+    // For a sprite palette, color 0 is see-through: only 1–3 count.
+    expect(closeShades(["#FFFFFF", "#FAFAFA", "#555555", "#000000"], true)).toEqual([]);
+  });
+
   it("shows colors as a Game Boy Color screen would (dimmer, mixed), keeping alpha", () => {
     const rgba = new Uint8ClampedArray([255, 255, 255, 255, 255, 0, 0, 128, 0, 0, 0, 0]);
     expect([...gbcCorrect(rgba)]).toEqual([240, 240, 240, 255, 201, 0, 46, 128, 0, 0, 0, 0]);
