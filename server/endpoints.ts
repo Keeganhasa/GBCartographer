@@ -13,15 +13,20 @@
  *   POST /__cartographer/gbstudio-palette-slot { slot, paletteId } puts a palette in an asset's slot (?kind=&file=): the
  *                                             scene's palette list, or the project's default palettes
  *   GET  /__cartographer/gbstudio-running     whether a GB Studio process is running (it may overwrite project JSON when it saves)
- *   POST /__cartographer/reveal               ?kind=&file= shows that asset in Finder / Explorer (no kind: the project folder)
+ *   POST /__cartographer/reveal               ?kind=&file= shows that asset in Finder / Explorer (no kind: the project folder;
+ *                                             ?backups=1: this project's backups folder)
+ *   GET  /__cartographer/backups              this project's backed-up files and their versions (?file= one file)
+ *   GET  /__cartographer/backup               one version's bytes (?file=&version=; version=current: the file now)
+ *   POST /__cartographer/backup-restore       { file, version } puts that version back (the current file is backed up first)
  * GB Cartographer writes asset PNGs, a background's or tileset's tileColors, a sprite's paletteIndex, palette files,
  * a scene's palette lists and the project's default palettes; nothing else.
  */
 import { execFileSync, spawn } from "node:child_process";
-import { dirname } from "node:path";
-import { readFileSync, statSync } from "node:fs";
+import { dirname, resolve, sep } from "node:path";
+import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { AssetWriteError, assetInfo, assetPath, listAssets, listPalettes, projectName, renderPreview, writeAsset, writePalette, writePaletteSlot, writeSpritePalettes, writeTileColors, type AssetKind } from "./assets";
+import { backupPath, listBackups, projectBackupDir, restoreBackup } from "./backups";
 import { demoProjectCopy, isProjectFolder, projectFolder, projectFolderFor, recentProjects, saveProjectFolder, setProjectFolder } from "./project";
 
 export interface ServerOptions {
@@ -69,6 +74,13 @@ function gbStudioRunning(): boolean {
   }
 }
 
+/** Whether the request names this machine (127.0.0.1, localhost or [::1]) on the port it arrived at. */
+function localHost(req: IncomingMessage): boolean {
+  const host = req.headers.host ?? "";
+  const match = /^(127\.0\.0\.1|localhost|\[::1\]):(\d+)$/i.exec(host);
+  return Boolean(match) && Number(match![2]) === req.socket.localPort;
+}
+
 function reply(res: ServerResponse, status: number, body: object) {
   res.statusCode = status;
   res.setHeader("Content-Type", "application/json");
@@ -79,6 +91,12 @@ function reply(res: ServerResponse, status: number, body: object) {
 export async function handleCartographerRequest(req: IncomingMessage, res: ServerResponse, options: ServerOptions): Promise<boolean> {
   const url = new URL(req.url ?? "/", "http://localhost");
   if (!url.pathname.startsWith("/__cartographer/")) return false;
+  // Only this machine's own address: a page that rebinds its DNS name to 127.0.0.1 still sends its own Host, so it
+  // is refused here (the Origin check alone would pass it, since Origin and Host would match).
+  if (!localHost(req)) {
+    reply(res, 403, { error: "GB Cartographer only answers on this machine's own address" });
+    return true;
+  }
   const origin = req.headers.origin;
   if (origin && origin !== `http://${req.headers.host}`) {
     reply(res, 403, { error: "Cross-origin requests are not allowed" });
@@ -120,6 +138,34 @@ export async function handleCartographerRequest(req: IncomingMessage, res: Serve
       reply(res, 404, { error: "No GB Studio project is open." });
       return true;
     }
+    const backup = { dir: options.backupDir, project };
+    if (url.pathname === "/__cartographer/backups") {
+      reply(res, 200, { ok: true, folder: projectBackupDir(options.backupDir, project), files: listBackups(options.backupDir, project, url.searchParams.get("file") ?? undefined) });
+      return true;
+    }
+    if (url.pathname === "/__cartographer/backup") {
+      // version=current: the file as it is in the project now, for a file that has backups (to compare with one).
+      const file = url.searchParams.get("file") ?? "", version = url.searchParams.get("version") ?? "";
+      const current = version === "current" && listBackups(options.backupDir, project, file).length ? resolve(project, ...file.split("/")) : null;
+      const path = current ? (current.startsWith(resolve(project) + sep) && existsSync(current) ? current : null) : backupPath(options.backupDir, project, file, version);
+      if (!path) {
+        reply(res, 404, { error: "No such backup" });
+        return true;
+      }
+      res.setHeader("Content-Type", path.endsWith(".png") ? "image/png" : "application/json");
+      res.setHeader("Cache-Control", current ? "no-cache" : "private, max-age=31536000");
+      res.end(readFileSync(path));
+      return true;
+    }
+    if (url.pathname === "/__cartographer/backup-restore" && req.method === "POST") {
+      const body = JSON.parse((await readBody(req)).toString("utf8")) as { file?: unknown; version?: unknown };
+      try {
+        reply(res, 200, { ok: true, mtime: restoreBackup(options.backupDir, project, String(body.file ?? ""), String(body.version ?? "")) });
+      } catch (error) {
+        reply(res, 404, { error: (error as Error).message });
+      }
+      return true;
+    }
     if (url.pathname === "/__cartographer/gbstudio-assets") {
       reply(res, 200, { ok: true, name: projectName(project), path: project, assets: listAssets(project), palettes: listPalettes(project) });
       return true;
@@ -155,7 +201,7 @@ export async function handleCartographerRequest(req: IncomingMessage, res: Serve
       if (req.method === "POST") {
         const expected = url.searchParams.get("mtime");
         try {
-          const written = writeAsset(path, kind as AssetKind, await readBody(req), options.backupDir, expected === null ? null : Number(expected), url.searchParams.get("force") === "1");
+          const written = writeAsset(path, await readBody(req), backup, expected === null ? null : Number(expected), url.searchParams.get("force") === "1");
           reply(res, 200, { ok: true, ...written });
         } catch (error) {
           if (error instanceof AssetWriteError) reply(res, error.status, { error: error.message, mtime: error.mtime });
@@ -166,6 +212,13 @@ export async function handleCartographerRequest(req: IncomingMessage, res: Serve
     }
     if (url.pathname === "/__cartographer/reveal" && req.method === "POST") {
       const kind = url.searchParams.get("kind");
+      if (url.searchParams.get("backups") === "1") {
+        const folder = projectBackupDir(options.backupDir, project);
+        mkdirSync(folder, { recursive: true });
+        revealInFileManager(folder, false);
+        reply(res, 200, { ok: true });
+        return true;
+      }
       const path = kind ? assetPath(project, kind, url.searchParams.get("file") ?? "") : project;
       if (!path) {
         reply(res, 404, { error: "No such asset" });
@@ -190,7 +243,7 @@ export async function handleCartographerRequest(req: IncomingMessage, res: Serve
       const expected = url.searchParams.get("metaMtime");
       try {
         const slots = body.slots as (number | null)[], expectedMtime = expected === null ? null : Number(expected), force = url.searchParams.get("force") === "1";
-        const written = kind === "sprites" ? writeSpritePalettes(path, slots, options.backupDir, expectedMtime, force) : writeTileColors(path, slots, options.backupDir, expectedMtime, force, kind as "backgrounds" | "tilesets");
+        const written = kind === "sprites" ? writeSpritePalettes(path, slots, backup, expectedMtime, force) : writeTileColors(path, slots, backup, expectedMtime, force, kind as "backgrounds" | "tilesets");
         reply(res, 200, { ok: true, ...written });
       } catch (error) {
         if (error instanceof AssetWriteError) reply(res, error.status, { error: error.message, mtime: error.mtime });
@@ -205,22 +258,22 @@ export async function handleCartographerRequest(req: IncomingMessage, res: Serve
         reply(res, 404, { error: "No such background, tileset or sprite sheet" });
         return true;
       }
-      const body = JSON.parse((await readBody(req)).toString("utf8")) as { slot?: unknown; paletteId?: unknown };
+      const body = JSON.parse((await readBody(req)).toString("utf8")) as { slot?: unknown; paletteId?: unknown; expected?: unknown };
       try {
-        reply(res, 200, { ok: true, ...writePaletteSlot(project, kind as AssetKind, path, Number(body.slot), String(body.paletteId ?? ""), options.backupDir) });
+        reply(res, 200, { ok: true, ...writePaletteSlot(project, kind as AssetKind, path, Number(body.slot), String(body.paletteId ?? ""), backup, typeof body.expected === "string" ? body.expected : undefined) });
       } catch (error) {
-        if (error instanceof AssetWriteError) reply(res, error.status, { error: error.message });
+        if (error instanceof AssetWriteError) reply(res, error.status, { error: error.message, current: error.current });
         else throw error;
       }
       return true;
     }
     if (url.pathname === "/__cartographer/gbstudio-palette" && req.method === "POST") {
-      const body = JSON.parse((await readBody(req)).toString("utf8")) as { id?: unknown; name?: unknown; colors?: unknown };
+      const body = JSON.parse((await readBody(req)).toString("utf8")) as { id?: unknown; name?: unknown; colors?: unknown; mtime?: unknown; force?: unknown };
       try {
-        const written = writePalette(project, { id: typeof body.id === "string" ? body.id : undefined, name: String(body.name ?? ""), colors: Array.isArray(body.colors) ? body.colors.map(String) : [] }, options.backupDir);
+        const written = writePalette(project, { id: typeof body.id === "string" ? body.id : undefined, name: String(body.name ?? ""), colors: Array.isArray(body.colors) ? body.colors.map(String) : [] }, backup, typeof body.mtime === "number" ? body.mtime : null, body.force === true);
         reply(res, 200, { ok: true, ...written });
       } catch (error) {
-        if (error instanceof AssetWriteError) reply(res, error.status, { error: error.message });
+        if (error instanceof AssetWriteError) reply(res, error.status, { error: error.message, mtime: error.mtime });
         else throw error;
       }
       return true;

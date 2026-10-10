@@ -114,6 +114,15 @@ export default function PaletteManager({ projectName, projectPalettes, sceneSlot
     canvas.height = picture.height;
     const image = new ImageData(picture.width, picture.height);
     colorize(picture.pixels, new Uint8Array(Math.ceil(picture.width / 8) * Math.ceil(picture.height / 8)), picture.width, [lut], new Uint32Array(image.data.buffer));
+    // See-through pixels get a checkerboard drawn in (4 px squares), so the preview can scale to fit its box.
+    for (let y = 0; y < picture.height; y += 1) {
+      for (let x = 0; x < picture.width; x += 1) {
+        const at = (y * picture.width + x) * 4;
+        if (image.data[at + 3]) continue;
+        const light = ((x >> 2) ^ (y >> 2)) & 1 ? 0x8a : 0x74;
+        image.data.set([light, light + 5, light + 14, 255], at);
+      }
+    }
     canvas.getContext("2d")!.putImageData(image, 0, 0);
   }, [picture, lut]);
 

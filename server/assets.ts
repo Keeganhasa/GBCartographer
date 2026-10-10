@@ -1,12 +1,15 @@
 /**
- * GB Cartographer's window into a GB Studio project: the PNGs under assets/ (backgrounds, sprites, tilesets), the
- * project's palettes, and the one write the tool is allowed: overwriting an existing asset PNG with one of the
- * same size, after copying the old file to the backup folder. Project JSON (.gbsres, .gbsproj) is only ever read.
+ * GB Cartographer's window into a GB Studio project: the PNGs under assets/ (backgrounds, sprites, tilesets,
+ * fonts), the project's palettes and palette slots, and the writes the tool is allowed: an existing asset PNG (same
+ * size), a background's or tileset's `tileColors`, a sprite sheet's slice `paletteIndex`, palette files, and one
+ * slot of a scene's palette list or of the project's default palettes. Each write backs up the old file first
+ * (backups.ts) and goes through a temporary file. Everything else is only ever read.
  */
 import { closeSync, copyFileSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { basename, dirname, join, resolve } from "node:path";
 import { deflateSync, inflateSync } from "node:zlib";
+import { backupFile } from "./backups";
 import { decodeTileColors, encodeTileColors, resolveScenePaletteIds } from "../src/gb/gbstudio";
 import { decodePng, encodePng } from "../src/gb/png";
 import { KEY_GREEN, assignSlots, quantize, spriteShades, toRgba } from "../src/paint";
@@ -14,8 +17,11 @@ import { KEY_GREEN, assignSlots, quantize, spriteShades, toRgba } from "../src/p
 export const ASSET_KINDS = ["backgrounds", "sprites", "tilesets", "fonts"] as const;
 export type AssetKind = typeof ASSET_KINDS[number];
 
+/** Where backups go: the backups folder and the project the written file belongs to (see backups.ts). */
+export interface Backup { dir: string; project: string }
+
 export interface AssetEntry { kind: AssetKind; file: string; name: string; width: number; height: number; mtime: number }
-export interface ProjectPalette { id: string; name: string; colors: string[] }
+export interface ProjectPalette { id: string; name: string; colors: string[]; /** The palette file's modification time (for the changed-on-disk check). */ mtime: number }
 /**
  * What GB Cartographer needs besides the pixels. `tileColors`: one attribute per 8 × 8 cell whose low three bits are the
  * palette slot (a background's sidecar `tileColors`; for a sprite sheet, each 8 × 16 slice's `paletteIndex` on
@@ -154,7 +160,7 @@ export function listPalettes(project: string): ProjectPalette[] {
     const palette = readJson(join(folder, file));
     const colors = Array.isArray(palette?.colors) ? palette.colors.filter((color): color is string => typeof color === "string") : [];
     if (typeof palette?.id !== "string" || colors.length !== 4) continue;
-    palettes.push({ id: palette.id, name: typeof palette.name === "string" ? palette.name : file.replace(/\.gbsres$/, ""), colors: colors.map((color) => `#${color.replace(/^#/, "").toUpperCase()}`) });
+    palettes.push({ id: palette.id, name: typeof palette.name === "string" ? palette.name : file.replace(/\.gbsres$/, ""), colors: colors.map((color) => `#${color.replace(/^#/, "").toUpperCase()}`), mtime: statSync(join(folder, file)).mtimeMs });
   }
   return palettes.sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -239,9 +245,8 @@ function openSidecar(path: string, what: string, expectedMtime: number | null, f
 }
 
 /** Writes a sidecar back as GB Studio writes it (two-space JSON, no trailing newline), after copying the old one to the backup folder. */
-function writeSidecar(sidecar: string, kind: string, meta: Record<string, unknown>, backupDir: string, backupName = basename(sidecar)): number {
-  mkdirSync(join(backupDir, "gbstudio", kind), { recursive: true });
-  copyFileSync(sidecar, join(backupDir, "gbstudio", kind, backupName));
+function writeSidecar(sidecar: string, meta: Record<string, unknown>, backup: Backup): number {
+  backupFile(backup.dir, backup.project, sidecar);
   const text = JSON.stringify(meta, null, 2);
   const temp = `${sidecar}.saving`;
   try {
@@ -259,7 +264,7 @@ function writeSidecar(sidecar: string, kind: string, meta: Record<string, unknow
  * that, bottom cell) has a slot gets that `paletteIndex`; other tiles and every other field are kept. Returns
  * whether anything changed and how many tiles did.
  */
-export function writeSpritePalettes(path: string, slots: readonly (number | null)[], backupDir: string, expectedMtime: number | null, force: boolean): { mtime: number; changed: boolean; cells: number } {
+export function writeSpritePalettes(path: string, slots: readonly (number | null)[], backup: Backup, expectedMtime: number | null, force: boolean): { mtime: number; changed: boolean; cells: number } {
   const { sidecar, meta, mtime } = openSidecar(path, "sprite sheet", expectedMtime, force);
   const size = pngSizeOfFile(path) ?? { width: 0, height: 0 };
   const cw = Math.ceil(size.width / 8), ch = Math.ceil(size.height / 8);
@@ -273,7 +278,7 @@ export function writeSpritePalettes(path: string, slots: readonly (number | null
     cells += 1;
   }
   if (!cells) return { mtime, changed: false, cells: 0 };
-  return { mtime: writeSidecar(sidecar, "sprites", meta, backupDir), changed: true, cells };
+  return { mtime: writeSidecar(sidecar, meta, backup), changed: true, cells };
 }
 
 /**
@@ -282,17 +287,20 @@ export function writeSpritePalettes(path: string, slots: readonly (number | null
  * settings.gbsres. Every other field is kept; the old file is copied to the backup folder first. Returns the
  * asset's new slots and the scene written (null: the defaults).
  */
-export function writePaletteSlot(project: string, kind: AssetKind, path: string, slot: number, paletteId: string, backupDir: string): { slots: string[]; scene: string | null } {
+export function writePaletteSlot(project: string, kind: AssetKind, path: string, slot: number, paletteId: string, backup: Backup, expected?: string): { slots: string[]; scene: string | null } {
   if (kind === "fonts") throw new AssetWriteError("Fonts have no palette slots.", 400);
   if (!Number.isInteger(slot) || slot < 0 || slot > 7) throw new AssetWriteError("slot must be 0–7", 400);
   if (!listPalettes(project).some((palette) => palette.id === paletteId)) throw new AssetWriteError("No palette with that id in the project.", 404);
   const source = slotSource(project, kind, assetId(path));
   const meta = readJson(source.file);
   if (!meta) throw new AssetWriteError(source.scene ? `The scene file of ${source.scene} could not be read.` : "The project's settings.gbsres could not be read.", 400);
+  // `expected` is the palette the user saw in that slot: if GB Studio (or another window) changed it since, ask first.
+  const shown = resolveScenePaletteIds(source.ids, source.defaults)[slot];
+  if (expected !== undefined && expected !== shown) throw new AssetWriteError(`Slot ${slot + 1} changed on disk since it was shown.`, 409, undefined, shown);
   const ids = Array.from({ length: 8 }, (_, at) => source.ids[at] ?? (source.scene ? "" : source.defaults[at] ?? ""));
   if (ids[slot] !== paletteId) {
     ids[slot] = paletteId;
-    writeSidecar(source.file, source.scene ? "scenes" : "settings", { ...meta, [source.field]: ids }, backupDir, source.scene ? `${basename(dirname(source.file))}.scene.gbsres` : "settings.gbsres");
+    writeSidecar(source.file, { ...meta, [source.field]: ids }, backup);
   }
   const after = slotSource(project, kind, assetId(path));
   return { slots: resolveScenePaletteIds(after.ids, after.defaults), scene: after.scene };
@@ -309,7 +317,7 @@ export function paletteFileName(name: string): string {
  * name is taken), or, with `id`, rewrites that palette's name and colors in place (other fields kept, the old
  * file copied to the backup folder first). Colors are four "#RRGGBB" strings, lightest first.
  */
-export function writePalette(project: string, palette: { id?: string; name: string; colors: string[] }, backupDir: string): { id: string; file: string } {
+export function writePalette(project: string, palette: { id?: string; name: string; colors: string[] }, backup: Backup, expectedMtime: number | null = null, force = false): { id: string; file: string; mtime: number } {
   const folder = join(project, "project", "palettes");
   const colors = palette.colors.map((color) => color.replace(/^#/, "").toLowerCase());
   if (colors.length !== 4 || colors.some((color) => !/^[0-9a-f]{6}$/.test(color))) throw new AssetWriteError("A palette needs four #RRGGBB colors.", 400);
@@ -320,10 +328,9 @@ export function writePalette(project: string, palette: { id?: string; name: stri
     for (const file of readdirSync(folder).filter((entry) => entry.endsWith(".gbsres"))) {
       const meta = readJson(join(folder, file));
       if (meta?.id !== palette.id) continue;
-      mkdirSync(join(backupDir, "gbstudio", "palettes"), { recursive: true });
-      copyFileSync(join(folder, file), join(backupDir, "gbstudio", "palettes", file));
-      writeFileSync(join(folder, file), JSON.stringify({ ...meta, name, colors }, null, 2));
-      return { id: palette.id, file };
+      const mtime = statSync(join(folder, file)).mtimeMs;
+      if (!force && expectedMtime !== null && Math.abs(mtime - expectedMtime) > 1) throw new AssetWriteError(`${typeof meta.name === "string" ? meta.name : "The palette"} changed on disk since the project was read.`, 409, mtime);
+      return { id: palette.id, file, mtime: writeSidecar(join(folder, file), { ...meta, name, colors }, backup) };
     }
     throw new AssetWriteError("No palette with that id in the project.", 404);
   }
@@ -331,8 +338,8 @@ export function writePalette(project: string, palette: { id?: string; name: stri
   let file = `${base}.gbsres`;
   for (let n = 2; existsSync(join(folder, file)); n += 1) file = `${base}_${n}.gbsres`;
   const id = randomUUID();
-  writeFileSync(join(folder, file), JSON.stringify({ _resourceType: "palette", id, name, colors }, null, 2));
-  return { id, file };
+  writeFileSync(join(folder, file), JSON.stringify({ _resourceType: "palette", id, name, colors }, null, 2), { flag: "wx" });
+  return { id, file, mtime: statSync(join(folder, file)).mtimeMs };
 }
 
 /**
@@ -373,7 +380,7 @@ export function renderPreview(project: string, kind: AssetKind, path: string): U
 }
 
 export class AssetWriteError extends Error {
-  constructor(message: string, public status: number, public mtime?: number) {
+  constructor(message: string, public status: number, public mtime?: number, public current?: string) {
     super(message);
   }
 }
@@ -384,7 +391,7 @@ export class AssetWriteError extends Error {
  * every other field of the sidecar are kept; the file is written back as GB Studio writes it (two-space JSON, no
  * trailing newline). The old sidecar is copied to the backup folder first. Returns whether anything changed.
  */
-export function writeTileColors(path: string, slots: readonly (number | null)[], backupDir: string, expectedMtime: number | null, force: boolean, kind: "backgrounds" | "tilesets" = "backgrounds"): { mtime: number; changed: boolean; cells: number } {
+export function writeTileColors(path: string, slots: readonly (number | null)[], backup: Backup, expectedMtime: number | null, force: boolean, kind: "backgrounds" | "tilesets" = "backgrounds"): { mtime: number; changed: boolean; cells: number } {
   const { sidecar, meta, mtime } = openSidecar(path, kind === "tilesets" ? "tileset" : "background", expectedMtime, force);
   const size = pngSizeOfFile(path) ?? { width: 0, height: 0 };
   const count = Math.ceil(size.width / 8) * Math.ceil(size.height / 8);
@@ -399,24 +406,22 @@ export function writeTileColors(path: string, slots: readonly (number | null)[],
   });
   const encoded = encodeTileColors(values);
   if (encoded === (typeof meta.tileColors === "string" ? meta.tileColors : "")) return { mtime, changed: false, cells: 0 };
-  return { mtime: writeSidecar(sidecar, kind, { ...meta, tileColors: encoded }, backupDir), changed: true, cells };
+  return { mtime: writeSidecar(sidecar, { ...meta, tileColors: encoded }, backup), changed: true, cells };
 }
 
 /**
  * Overwrites an asset PNG with `bytes`: same size as the file it replaces (sprite frames and scene sizes are
- * indexed by position), unchanged on disk since `expectedMtime` unless `force`, and the old file copied to
- * `backupDir/gbstudio/<kind>/<file>` first. Returns the new modification time.
+ * indexed by position), unchanged on disk since `expectedMtime` unless `force`, and the old file backed up first
+ * (backups.ts). Returns the new modification time and the backup's path.
  */
-export function writeAsset(path: string, kind: AssetKind, bytes: Buffer, backupDir: string, expectedMtime: number | null, force: boolean): { mtime: number; backup: string } {
+export function writeAsset(path: string, bytes: Buffer, backup: Backup, expectedMtime: number | null, force: boolean): { mtime: number; backup: string | null } {
   const size = pngSize(bytes);
   if (!size) throw new AssetWriteError("Not a PNG", 400);
   const current = pngSizeOfFile(path);
   if (current && (current.width !== size.width || current.height !== size.height)) throw new AssetWriteError(`The file on disk is ${current.width} × ${current.height} px; a GB Studio asset keeps its size (this picture is ${size.width} × ${size.height}).`, 400);
   const mtime = statSync(path).mtimeMs;
   if (!force && expectedMtime !== null && Math.abs(mtime - expectedMtime) > 1) throw new AssetWriteError("The file changed on disk since it was opened.", 409, mtime);
-  const backup = join(backupDir, "gbstudio", kind, basename(path));
-  mkdirSync(join(backupDir, "gbstudio", kind), { recursive: true });
-  copyFileSync(path, backup);
+  const copy = backupFile(backup.dir, backup.project, path);
   const temp = `${path}.saving`;
   try {
     writeFileSync(temp, bytes);
@@ -425,5 +430,5 @@ export function writeAsset(path: string, kind: AssetKind, bytes: Buffer, backupD
     try { if (existsSync(temp)) unlinkSync(temp); } catch { /* nothing more to do */ }
     writeFileSync(path, bytes);
   }
-  return { mtime: statSync(path).mtimeMs, backup };
+  return { mtime: statSync(path).mtimeMs, backup: copy };
 }

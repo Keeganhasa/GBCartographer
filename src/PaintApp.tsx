@@ -10,6 +10,7 @@ import { flushSync } from "react-dom";
 import { LogoMark } from "./ui/LogoMark";
 import { FONTS, applyFont, loadFont, type FontChoice } from "./ui/theme";
 import PaletteManager from "./PaletteManager";
+import BackupsWindow from "./BackupsWindow";
 import { attachMiddlePan, attachWheelZoom, nextStep } from "./ui/wheelZoom";
 import { CELL, CLEAR, GB_SHADES, KEY_GREEN, assignSlots, spriteShades, cellsWide, clipRect, colorize, countUniqueTiles, dot, drop, ellipsePoints, fillRect, floodFill, lift, linePoints, mirrorPoints, namedSlot, quantize, rectFrom, shadeLut, snapRect, spray, toRgba, type Floating, type Mirror, type Palette, type Rect } from "./paint";
 
@@ -51,6 +52,10 @@ const CUSTOM_TINT_KEY = "gb-cartographer.custom-tint";
 const PROJECT_PANEL_KEY = "gb-cartographer.project-panel";
 const PROJECT_KIND_KEY = "gb-cartographer.project-kind";
 const NAMED_SLOTS_KEY = "gb-cartographer.named-slots";
+/** GB Studio draws dialogue boxes and menus with the eighth background palette. */
+const UI_SLOT = 7;
+/** A backup version's time from its name (2026-10-09T23-12-05-123Z.png). */
+const versionTime = (id: string) => Date.parse(id.replace(/^(\d{4}-\d\d-\d\dT\d\d)-(\d\d)-(\d\d)-(\d{3})Z.*$/, "$1:$2:$3.$4Z"));
 /** The dev server and the desktop app serve the open GB Studio project (server/endpoints.ts). */
 const PROJECT_URL = "./__cartographer/gbstudio-assets";
 const ASSET_URL = "./__cartographer/gbstudio-asset";
@@ -78,14 +83,16 @@ const PNG_TYPES = [{ description: "PNG image", accept: { "image/png": [".png"] }
 
 /** One PNG under the GB Studio project's assets folder. */
 interface Asset { kind: AssetKind; file: string; name: string; width: number; height: number; mtime: number }
-interface Project { name: string; path: string; assets: Asset[]; palettes: Palette[] }
+/** A project palette also carries its file's modification time, sent back with a rewrite (changed-on-disk check). */
+interface Project { name: string; path: string; assets: Asset[]; palettes: (Palette & { mtime?: number })[] }
 /** A sprite sheet's frames: 8 × 16 slices placed at frame-local x, y (see server/assets.ts). */
 interface SpriteFrame { tiles: { x: number; y: number; sliceX: number; sliceY: number; flipX: boolean; flipY: boolean }[] }
 interface SpriteAnimation { name: string; frames: SpriteFrame[] }
 /** What the server knows about an asset besides its pixels (see assetInfo in server/assets.ts). */
 interface AssetInfo { mtime: number; tileColors: number[]; slots: string[]; slotScene?: string | null; metaMtime: number | null; animations?: SpriteAnimation[] }
 /** A picture to open: a file (with a handle to save back to), or a project asset with its info. */
-interface Opening { file: File; handle?: FileHandle; asset?: Asset; info?: AssetInfo }
+/** A file to open; `replace` names an open picture (by id) that it reloads in place (same tab, same zoom). */
+interface Opening { file: File; handle?: FileHandle; asset?: Asset; info?: AssetInfo; replace?: number }
 
 interface Snapshot { pixels: Uint8Array; cells: Uint8Array }
 interface Doc extends Snapshot {
@@ -220,6 +227,8 @@ export default function PaintApp() {
   /** The project menu (open another, the demo, recent, close), anchored under the button that opened it. */
   const [projectMenu, setProjectMenu] = useState<{ x: number; y: number } | null>(null);
   /** The "Put in slot" menu for a palette of the open picture (its index in the picture's palettes, from 1). */
+  /** The Backups window, open on a file (a path inside the project) or on the newest backup. */
+  const [backups, setBackups] = useState<{ file?: string } | null>(null);
   const [slotMenu, setSlotMenu] = useState<{ x: number; y: number; palette: number } | null>(null);
   /** Palettes named like DWC-2-Computer D save as their base palette's slot (or the number in the name). */
   const [namedSlots, setNamedSlots] = useState<boolean>(() => readStored(NAMED_SLOTS_KEY, false));
@@ -393,7 +402,7 @@ export default function PaintApp() {
   async function openFiles(files: Opening[]) {
     await palettesReady.current;
     let last = 0;
-    for (const { file, handle, asset, info } of files) {
+    for (const { file, handle, asset, info, replace } of files) {
       try {
         const bitmap = await createImageBitmap(file, { colorSpaceConversion: "none", premultiplyAlpha: "none" });
         const canvas = document.createElement("canvas");
@@ -405,8 +414,13 @@ export default function PaintApp() {
         const picture = quantize(context.getImageData(0, 0, bitmap.width, bitmap.height).data, bitmap.width, bitmap.height, palettesRef.current, keyGreen);
         // A background's tile colors (GB Studio's per-tile palettes) dress the cells when the scene's palettes are known.
         const dressed = info?.tileColors.length ? assignSlots(picture.cells, info.tileColors, info.slots, picture.palettes) : 0;
-        last = nextDocId++;
-        docs.current.push({ id: last, name: asset?.name ?? file.name, width: bitmap.width, height: bitmap.height, pixels: picture.pixels, cells: picture.cells, hasAlpha: picture.hasAlpha || keyGreen, palettes: picture.palettes, undo: [], redo: [], dirty: false, handle, asset: asset && info ? { kind: asset.kind, file: asset.file, name: asset.name, mtime: info.mtime, ...(hasSlots(asset.kind) ? { slots: info.slots, slotScene: info.slotScene ?? null, metaMtime: info.metaMtime, opened: info.tileColors.map((value) => value < 0 ? -1 : value & 7) } : {}), ...(asset.kind === "sprites" && info.animations?.length ? { animations: info.animations } : {}), project: projectRef.current?.path } : undefined, keyGreen: keyGreen || undefined, zoom: fitZoom(bitmap.width, bitmap.height), sel: null, float: null });
+        const old = replace !== undefined ? docs.current.findIndex((item) => item.id === replace) : -1;
+        const id = old >= 0 ? replace! : nextDocId++;
+        if (old < 0) last = id;
+        const opened: Doc = { id, name: asset?.name ?? file.name, width: bitmap.width, height: bitmap.height, pixels: picture.pixels, cells: picture.cells, hasAlpha: picture.hasAlpha || keyGreen, palettes: picture.palettes, undo: [], redo: [], dirty: false, handle, asset: asset && info ? { kind: asset.kind, file: asset.file, name: asset.name, mtime: info.mtime, ...(hasSlots(asset.kind) ? { slots: info.slots, slotScene: info.slotScene ?? null, metaMtime: info.metaMtime, opened: info.tileColors.map((value) => value < 0 ? -1 : value & 7) } : {}), ...(asset.kind === "sprites" && info.animations?.length ? { animations: info.animations } : {}), project: projectRef.current?.path } : undefined, keyGreen: keyGreen || undefined, zoom: old >= 0 ? docs.current[old].zoom : fitZoom(bitmap.width, bitmap.height), sel: null, float: null };
+        if (old >= 0) docs.current[old] = opened;
+        else docs.current.push(opened);
+        if (old >= 0) continue;
         const made = picture.palettes.length - palettesRef.current.length;
         if (picture.snapped) say(`${file.name}: ${picture.snapped} color${picture.snapped === 1 ? "" : "s"} in tiles of more than four colors became the nearest shade.`);
         else if (made) say(`${file.name}: tiles in colors outside the library keep them as ${made} palette${made === 1 ? "" : "s"} of the file.${asset ? " Save writes them as GB greens in order of brightness, which may differ from how GB Studio reads the colors." : ""}`);
@@ -575,7 +589,13 @@ export default function PaintApp() {
    */
   async function writeProjectPalette(palette: { id?: string; name: string; colors: string[] }): Promise<string | null> {
     try {
-      const response = await fetch("./__cartographer/gbstudio-palette", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(palette) });
+      const mtime = palette.id ? projectRef.current?.palettes.find((item) => item.id === palette.id)?.mtime : undefined;
+      const post = (force: boolean) => fetch("./__cartographer/gbstudio-palette", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...palette, ...(mtime !== undefined ? { mtime } : {}), force }) });
+      let response = await post(false);
+      if (response.status === 409) {
+        if (!window.confirm(`${palette.name} changed on disk since the project was read (GB Studio or another app saved it). Replace it with these colors?`)) return null;
+        response = await post(true);
+      }
       const result = await response.json() as { ok?: boolean; error?: string; id?: string };
       if (!response.ok || !result.ok || !result.id) {
         say(`Could not write the palette: ${result.error ?? response.statusText}`);
@@ -612,6 +632,49 @@ export default function PaintApp() {
       await openFiles([{ file: new File([png], asset.file, { type: "image/png" }), asset, info }]);
     } catch (error) {
       say(`Could not open ${asset.name}: ${(error as Error).message}`);
+    }
+  }
+
+  /**
+   * Puts a backed-up version back into the project, then shows it: an open picture of that file (or of its sidecar)
+   * reloads, the project's thumbnails and palettes are read again, and open pictures reread their slots.
+   */
+  async function restoreFromBackup(file: string, version: string): Promise<boolean> {
+    const match = /^assets\/(backgrounds|sprites|tilesets|fonts)\/([^/]+\.png)(\.gbsres)?$/i.exec(file);
+    const open = match ? docs.current.find((item) => item.asset?.kind === match[1] && item.asset.file === match[2] && (!item.asset.project || item.asset.project === projectRef.current?.path)) : undefined;
+    if (open?.dirty && !window.confirm(`${open.name} has unsaved changes. Restoring replaces them with the backup. Go on?`)) return false;
+    if (!file.endsWith(".png") && !await okToWriteProjectJson()) return false;
+    try {
+      const response = await fetch("./__cartographer/backup-restore", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ file, version }) });
+      const result = await response.json() as { ok?: boolean; error?: string };
+      if (!response.ok || !result.ok) { say(`Could not restore ${file}: ${result.error ?? response.statusText}`); return false; }
+    } catch (error) {
+      say(`Could not restore ${file}: ${(error as Error).message}`);
+      return false;
+    }
+    await loadProject();
+    if (open) await reloadAsset(open);
+    await rereadSlots();
+    setSlotsVersion((value) => value + 1);
+    say(`Restored ${file.split("/").pop()} from ${new Date(versionTime(version)).toLocaleString()}`);
+    return true;
+  }
+
+  /** Reads an open project picture again from disk, in place (a restore, or GB Studio changed it). */
+  async function reloadAsset(target: Doc): Promise<boolean> {
+    const asset = target.asset;
+    if (!asset) return false;
+    try {
+      const [png, info] = await Promise.all([
+        fetch(`${ASSET_URL}?${assetQuery(asset)}`, { cache: "no-cache" }).then((response) => response.ok ? response.blob() : Promise.reject(new Error(response.statusText))),
+        fetch(`${ASSET_URL}-info?${assetQuery(asset)}`, { cache: "no-cache" }).then((response) => response.ok ? response.json() as Promise<AssetInfo> : Promise.reject(new Error(response.statusText))),
+      ]);
+      const listed = projectRef.current?.assets.find((item) => item.kind === asset.kind && item.file === asset.file);
+      await openFiles([{ file: new File([png], asset.file, { type: "image/png" }), asset: listed ?? { kind: asset.kind, file: asset.file, name: asset.name } as Asset, info, replace: target.id }]);
+      return true;
+    } catch (error) {
+      say(`Could not reload ${asset.name}: ${(error as Error).message}`);
+      return false;
     }
   }
 
@@ -709,11 +772,19 @@ export default function PaintApp() {
     if (!target || !asset?.slots || !palette) return;
     if (!palette.id) return say(`${palette.name} is not in the project yet: add it from the palette manager first.`);
     if (asset.project && asset.project !== projectRef.current?.path) return say(`${asset.name} belongs to ${asset.project}. Open that project to change its slots.`);
+    if (slot === UI_SLOT && asset.kind !== "sprites" && !window.confirm(`Slot 8 is the UI palette: GB Studio draws dialogue boxes and menus with it. Put ${palette.name} there anyway?`)) return;
     if (!await okToWriteProjectJson()) return;
     const old = asset.slots[slot];
     const oldPalette = target.palettes.find((item) => item.id === old);
     try {
-      const response = await fetch(`./__cartographer/gbstudio-palette-slot?${assetQuery(asset)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slot, paletteId: palette.id }) });
+      const post = (expected?: string) => fetch(`./__cartographer/gbstudio-palette-slot?${assetQuery(asset)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slot, paletteId: palette.id, ...(expected !== undefined ? { expected } : {}) }) });
+      let response = await post(old ?? "");
+      if (response.status === 409) {
+        const { current } = await response.json() as { current?: string };
+        const now = target.palettes.find((item) => item.id === current)?.name ?? "another palette";
+        if (!window.confirm(`Slot ${slot + 1} changed on disk: it now holds ${now}. Replace it with ${palette.name}?`)) { await rereadSlots(); bump(); return; }
+        response = await post();
+      }
       const result = await response.json() as { ok?: boolean; error?: string; slots?: string[]; scene?: string | null };
       if (!response.ok || !result.ok || !result.slots) return say(`Could not put ${palette.name} in slot ${slot + 1}: ${result.error ?? response.statusText}`);
       await rereadSlots();
@@ -1467,6 +1538,9 @@ export default function PaintApp() {
             {project && <>
               <hr />
               <button role="menuitem" onClick={() => { setProjectMenu(null); void fetch("./__cartographer/reveal", { method: "POST" }); }}>{FILE_MANAGER_LABEL}</button>
+              <button role="menuitem" onClick={() => { setProjectMenu(null); setBackups({}); }}>Backups…</button>
+              <button role="menuitem" onClick={() => { setProjectMenu(null); void fetch("./__cartographer/reveal?backups=1", { method: "POST" }); }}>Show backups folder</button>
+              <hr />
               <button role="menuitem" onClick={() => { setProjectMenu(null); void closeProject(); }}>Close project</button>
             </>}
           </div>
@@ -1483,7 +1557,7 @@ export default function PaintApp() {
                 <button key={slot} role="menuitem" disabled={here || !docPalettes[slotMenu.palette - 1].id} onClick={() => { const palette = slotMenu.palette; setSlotMenu(null); void putInSlot(palette, slot); }}>
                   <b>{slot + 1}</b>
                   <span className="gbp-chips">{(holder?.colors ?? ["#222", "#222", "#222", "#222"]).map((color, at) => <i key={at} style={{ background: color }} />)}</span>
-                  <span>{holder?.name ?? "—"}{here ? " (here)" : ""}</span>
+                  <span>{holder?.name ?? "—"}{here ? " (here)" : ""}{slot === UI_SLOT && doc.asset?.kind !== "sprites" ? <small className="gbp-menu-tag" title="GB Studio draws dialogue boxes and menus with slot 8">UI</small> : null}</span>
                 </button>
               );
             })}
@@ -1498,6 +1572,7 @@ export default function PaintApp() {
             <button role="menuitem" onClick={() => { void openAsset(assetMenu.asset); setAssetMenu(null); }}>Open</button>
             <button role="menuitem" onClick={() => { void fetch(`./__cartographer/reveal?${assetQuery(assetMenu.asset)}`, { method: "POST" }); setAssetMenu(null); }}>{FILE_MANAGER_LABEL}</button>
             <button role="menuitem" onClick={() => { void navigator.clipboard?.writeText(`${project?.path ?? ""}/assets/${assetMenu.asset.kind}/${assetMenu.asset.file}`).then(() => say("Copied the file path")); setAssetMenu(null); }}>Copy file path</button>
+            <button role="menuitem" onClick={() => { setBackups({ file: `assets/${assetMenu.asset.kind}/${assetMenu.asset.file}` }); setAssetMenu(null); }}>Earlier versions…</button>
             <hr />
             <button role="menuitem" onClick={() => { void fetch("./__cartographer/reveal", { method: "POST" }); setAssetMenu(null); }}>Show project folder</button>
           </div>
@@ -1521,6 +1596,9 @@ export default function PaintApp() {
             </div>
           </div>
         </div>
+      )}
+      {backups && project && (
+        <BackupsWindow projectName={project.name} initialFile={backups.file} onClose={() => setBackups(null)} onRestore={restoreFromBackup} />
       )}
       {showPalettes && (
         <PaletteManager

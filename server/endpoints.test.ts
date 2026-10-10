@@ -1,11 +1,12 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { createServer, type Server } from "node:http";
+import { createServer, request, type Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { deflateSync } from "node:zlib";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { encodePng } from "../src/gb/png";
 import { handleCartographerRequest } from "./endpoints";
+import { KEEP, listBackups, projectBackupDir } from "./backups";
 import { setProjectFolder } from "./project";
 
 // A throwaway folder with a tiny fake GB Studio 4 project.
@@ -55,6 +56,11 @@ afterAll(() => {
 });
 
 const json = <T>(response: Response) => response.json() as Promise<T>;
+/** The newest backup of a project file (a path inside the project), as text. */
+const latestBackup = (file: string) => {
+  const [entry] = listBackups(join(root, "backups"), project, file);
+  return readFileSync(join(projectBackupDir(join(root, "backups"), project), file, entry.versions[0].id), "utf8");
+};
 
 describe("project folder", () => {
   it("starts with no project, refuses folders that are not projects, and remembers the chosen one", async () => {
@@ -94,7 +100,7 @@ describe("assets", () => {
       { kind: "tilesets", file: "props.png", name: "props", width: 8, height: 8 },
       { kind: "fonts", file: "tiny.png", name: "Tiny", width: 8, height: 8 },
     ]);
-    expect(result.palettes).toEqual([{ id: "pal-town", name: "Town day", colors: ["#E6FFCE", "#7BEF52", "#21735A", "#001031"] }]);
+    expect(result.palettes).toEqual([{ id: "pal-town", name: "Town day", colors: ["#E6FFCE", "#7BEF52", "#21735A", "#001031"], mtime: expect.any(Number) }]);
   });
 
   it("serves one PNG and its info: tile colors and slots for backgrounds, slice palettes for sprites", async () => {
@@ -149,7 +155,7 @@ describe("assets", () => {
     const written = await json<{ ok: boolean; backup: string }>(await post(repainted, `&mtime=${mtime}`));
     expect(written.ok).toBe(true);
     expect(readFileSync(file).equals(Buffer.from(repainted))).toBe(true);
-    expect(written.backup).toBe(join(root, "backups/gbstudio/sprites/hero.png"));
+    expect(written.backup.startsWith(join(projectBackupDir(join(root, "backups"), project), "assets/sprites/hero.png"))).toBe(true);
     expect(readFileSync(written.backup).equals(before)).toBe(true);
     expect((await post(repainted, `&mtime=${mtime - 5000}&force=1`)).status).toBe(200);
     expect(JSON.parse(readFileSync(`${file}.gbsres`, "utf8")).name).toBe("Hero");
@@ -169,10 +175,12 @@ describe("palette files", () => {
     expect(again.file).toBe("cave_night_2.gbsres");
     // Rewriting by id keeps the file and its other fields.
     writeFileSync(file, JSON.stringify({ _resourceType: "palette", id: made.id, name: "Cave Night", colors: ["e0f8cf", "86c06c", "306850", "071821"], extra: 1 }));
-    const edited = await json<{ ok: boolean; id: string; file: string }>(await post({ id: made.id, name: "Cave Dusk", colors: ["#FFFFFF", "#AAAAAA", "#555555", "#000000"] }));
-    expect(edited).toEqual({ ok: true, id: made.id, file: "cave_night.gbsres" });
+    const listedMtime = (await json<{ palettes: { id: string; mtime: number }[] }>(await fetch(`${base}/gbstudio-assets`))).palettes.find((palette) => palette.id === made.id)!.mtime;
+    expect((await post({ id: made.id, name: "Cave Dusk", colors: ["#FFFFFF", "#AAAAAA", "#555555", "#000000"], mtime: listedMtime - 5000 })).status).toBe(409);
+    const edited = await json<{ ok: boolean; id: string; file: string }>(await post({ id: made.id, name: "Cave Dusk", colors: ["#FFFFFF", "#AAAAAA", "#555555", "#000000"], mtime: listedMtime }));
+    expect(edited).toMatchObject({ ok: true, id: made.id, file: "cave_night.gbsres" });
     expect(JSON.parse(readFileSync(file, "utf8"))).toEqual({ _resourceType: "palette", id: made.id, name: "Cave Dusk", colors: ["ffffff", "aaaaaa", "555555", "000000"], extra: 1 });
-    expect(readFileSync(join(root, "backups/gbstudio/palettes/cave_night.gbsres"), "utf8")).toContain("Cave Night");
+    expect(latestBackup("project/palettes/cave_night.gbsres")).toContain("Cave Night");
     expect((await post({ id: "nope", name: "x", colors: ["#000000", "#111111", "#222222", "#333333"] })).status).toBe(404);
     const listed = await json<{ palettes: { name: string }[] }>(await fetch(`${base}/gbstudio-assets`));
     expect(listed.palettes.map((palette) => palette.name)).toEqual(["Cave Dusk", "Cave Night", "Town day"]);
@@ -192,7 +200,7 @@ describe("tile palettes", () => {
     const text = readFileSync(sidecar, "utf8");
     const meta = JSON.parse(text) as { id: string; tileColors: string };
     expect([meta.tileColors, meta.id, text]).toEqual(["83!00!05!00165+", "bg-town", JSON.stringify(meta, null, 2)]);
-    expect(readFileSync(join(root, "backups/gbstudio/backgrounds/town.png.gbsres"), "utf8")).toContain("81!00167+");
+    expect(latestBackup("assets/backgrounds/town.png.gbsres")).toContain("81!00167+");
     expect((await post({ slots: [0] }, `&metaMtime=${metaMtime}`)).status).toBe(409);
     expect((await post({ slots: [0] }, `&metaMtime=${metaMtime}&force=1`)).status).toBe(200);
     expect((await fetch(`${base}/gbstudio-tile-colors?kind=fonts&file=props.png`, { method: "POST", body: "{}" })).status).toBe(404);
@@ -200,7 +208,7 @@ describe("tile palettes", () => {
     const ts = await json<{ changed: boolean }>(await fetch(`${base}/gbstudio-tile-colors?kind=tilesets&file=props.png`, { method: "POST", body: JSON.stringify({ slots: [5] }) }));
     expect(ts.changed).toBe(true);
     expect(JSON.parse(readFileSync(join(project, "assets/tilesets/props.png.gbsres"), "utf8")).tileColors).toBe("05!");
-    expect(readFileSync(join(root, "backups/gbstudio/tilesets/props.png.gbsres"), "utf8")).toContain("02!");
+    expect(latestBackup("assets/tilesets/props.png.gbsres")).toContain("02!");
   });
 
   it("writes a sprite sheet's slots as paletteIndex on every slice covering a painted cell", async () => {
@@ -217,7 +225,7 @@ describe("tile palettes", () => {
     expect(meta.states[0].animations[0].frames.map((frame) => frame.tiles.map((tile) => tile.paletteIndex))).toEqual([[2, 5], [5]]);
     expect(meta.states[0].animations[0].frames[0].tiles.map((tile) => tile.palette)).toEqual([0, 0]);
     expect([meta.name, text]).toEqual(["Hero", JSON.stringify(meta, null, 2)]);
-    expect(readFileSync(join(root, "backups/gbstudio/sprites/hero.png.gbsres"), "utf8")).toBe(before);
+    expect(latestBackup("assets/sprites/hero.png.gbsres")).toBe(before);
     expect((await post({ slots: [1] }, `&metaMtime=${metaMtime}`)).status).toBe(409);
   });
 
@@ -230,7 +238,7 @@ describe("tile palettes", () => {
     expect(bg).toMatchObject({ scene: "Town", slots: ["pal-default", "pal-town", "pal-default", "pal-town", "pal-default", "pal-default", "pal-default", "pal-ui"] });
     const scene = JSON.parse(readFileSync(sceneFile, "utf8")) as { name: string; backgroundId: string; paletteIds: string[] };
     expect(scene).toMatchObject({ name: "Town", backgroundId: "bg-town", paletteIds: ["", "pal-town", "", "pal-town", "", "", "", ""] });
-    expect(readFileSync(join(root, "backups/gbstudio/scenes/town.scene.gbsres"), "utf8")).toBe(sceneBefore);
+    expect(latestBackup("project/scenes/town/scene.gbsres")).toBe(sceneBefore);
     const settingsFile = join(project, "project/settings.gbsres");
     const ts = await json<{ slots: string[]; scene: string | null }>(await put("tilesets", "props.png", { slot: 0, paletteId: "pal-town" }));
     expect(ts).toMatchObject({ scene: null, slots: ["pal-town", "pal-default", "pal-default", "pal-default", "pal-default", "pal-default", "pal-default", "pal-ui"] });
@@ -242,5 +250,41 @@ describe("tile palettes", () => {
     expect((await put("backgrounds", "town.png", { slot: 2, paletteId: "nope" })).status).toBe(404);
     expect((await put("backgrounds", "town.png", { slot: 8, paletteId: "pal-town" })).status).toBe(400);
     expect((await put("fonts", "tiny.png", { slot: 0, paletteId: "pal-town" })).status).toBe(404);
+    // A slot that changed since the user saw it is refused with what is there now.
+    const stale = await put("backgrounds", "town.png", { slot: 3, paletteId: "pal-town", expected: "pal-default" });
+    expect(stale.status).toBe(409);
+    expect((await json<{ current: string }>(stale)).current).toBe("pal-town");
+  });
+});
+
+describe("backups and the local address", () => {
+  it("keeps the newest versions of each file per project, lists them, serves one, and restores it (undoably)", async () => {
+    const file = join(project, "assets/tilesets/props.png.gbsres");
+    const post = (slots: number[]) => fetch(`${base}/gbstudio-tile-colors?kind=tilesets&file=props.png&force=1`, { method: "POST", body: JSON.stringify({ slots }) });
+    for (let n = 0; n < KEEP + 3; n += 1) expect((await post([n % 8])).status).toBe(200);
+    const listed = await json<{ files: { file: string; versions: { id: string; time: number }[] }[] }>(await fetch(`${base}/backups?file=assets/tilesets/props.png.gbsres`));
+    expect(listed.files[0].versions).toHaveLength(KEEP);
+    const all = await json<{ files: { file: string }[] }>(await fetch(`${base}/backups`));
+    expect(all.files.map((entry) => entry.file)).toEqual(expect.arrayContaining(["assets/tilesets/props.png.gbsres", "assets/sprites/hero.png", "project/scenes/town/scene.gbsres"]));
+    const oldest = listed.files[0].versions[KEEP - 1];
+    const served = await (await fetch(`${base}/backup?file=assets/tilesets/props.png.gbsres&version=${oldest.id}`)).text();
+    const now = readFileSync(file, "utf8");
+    const restored = await fetch(`${base}/backup-restore`, { method: "POST", body: JSON.stringify({ file: "assets/tilesets/props.png.gbsres", version: oldest.id }) });
+    expect(restored.status).toBe(200);
+    expect(readFileSync(file, "utf8")).toBe(served);
+    expect(latestBackup("assets/tilesets/props.png.gbsres")).toBe(now);
+    expect((await fetch(`${base}/backup?file=../../etc&version=x`)).status).toBe(404);
+    expect((await fetch(`${base}/backup-restore`, { method: "POST", body: JSON.stringify({ file: "assets/tilesets/props.png.gbsres", version: "nope" }) })).status).toBe(404);
+  });
+
+  it("answers only on this machine's own address (a rebound DNS name is refused)", async () => {
+    const port = new URL(base).port;
+    const status = (host: string) => new Promise<number>((resolve) => {
+      request({ host: "127.0.0.1", port, path: "/__cartographer/ping", headers: { host } }, (response) => { response.resume(); resolve(response.statusCode ?? 0); }).end();
+    });
+    expect(await status(`127.0.0.1:${port}`)).toBe(200);
+    expect(await status(`localhost:${port}`)).toBe(200);
+    expect(await status(`evil.example:${port}`)).toBe(403);
+    expect(await status(`127.0.0.1:1`)).toBe(403);
   });
 });

@@ -84,7 +84,7 @@ GB Cartographer is careful with your game files. It only ever writes:
   `defaultSpritePaletteIds` in `project/settings.gbsres`).
 
 Every other field of those files, and every other file in the project, is left untouched. Before each write the
-old file is copied to GB Cartographer's backups folder (one previous version per file), and a file that changed on disk
+old file is copied to GB Cartographer's backups folder (the last 10 versions of each file, kept per project; **Backups…** in the project menu shows them and puts one back), and a file that changed on disk
 since you opened it is never overwritten without asking. GB Studio 4 projects (the folder with `assets/` and
 `project/`) are supported.
 

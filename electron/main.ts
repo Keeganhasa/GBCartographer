@@ -111,6 +111,16 @@ ipcMain.handle("gbc-choose-project", async (event) => {
 });
 
 app.setName(APP_NAME);
+// One GB Cartographer at a time: a second launch would land on another port with an empty session and look like
+// lost work. It focuses the open window instead.
+if (!app.requestSingleInstanceLock()) app.quit();
+app.on("second-instance", () => {
+  const [window] = BrowserWindow.getAllWindows();
+  if (!window) return void createWindow();
+  if (window.isMinimized()) window.restore();
+  window.show();
+  window.focus();
+});
 app.whenReady().then(() => {
   if (process.platform === "darwin" && existsSync(ICON)) app.dock?.setIcon(ICON);
   loadProjectFolder(ROOT, settingsFile());
