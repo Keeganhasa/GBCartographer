@@ -2,7 +2,7 @@
 //   node scripts/screenshot.mjs <url> <out.png> [prep.js]   (npm run screenshot: the README picture, with the demo open)
 // prep.js is JavaScript run in the page before the shot (async allowed; `return` a value to print it).
 import { spawn } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -42,4 +42,7 @@ try {
   socket.close();
 } finally {
   child.kill();
+  // The headless browser's profile is a few hundred MB: remove it again.
+  await new Promise((done) => setTimeout(done, 500));
+  rmSync(profile, { recursive: true, force: true });
 }
