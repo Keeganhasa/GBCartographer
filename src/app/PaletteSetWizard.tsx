@@ -199,7 +199,7 @@ export function PaletteSetWizard({ projectName, slotsWhere, picture, onClose, on
             </div>}
             {kind === "library" && <>
               <Select label="Library set" value={setId} onChange={setSetId} options={SETS.map((set) => ({ value: set.id, label: set.label }))} />
-              <span className="k-muted k-xs">The bundled palettes: Game Boy classics and the Chorbi sets (CC0).</span>
+              <span className="k-muted k-xs">The bundled palettes: Game Boy screens, the author's Chorbi and Overworld sets (CC0) and SpicyGame's (public domain).</span>
             </>}
           </div>
           <div className="k-stack k-stack--tight">
